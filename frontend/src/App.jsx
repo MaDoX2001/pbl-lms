@@ -18,6 +18,7 @@ import DashboardPage from './pages/DashboardPage';
 import ProfilePage from './pages/ProfilePage';
 import CreateProjectPage from './pages/CreateProjectPage';
 import LeaderboardPage from './pages/LeaderboardPage';
+import ArduinoSimulatorPage from './pages/ArduinoSimulatorPage';
 
 // Import actions
 import { loadUser } from './redux/slices/authSlice';
@@ -46,6 +47,7 @@ function App() {
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:id" element={<ProjectDetailPage />} />
           <Route path="/leaderboard" element={<LeaderboardPage />} />
+          <Route path="/arduino-simulator" element={<ArduinoSimulatorPage />} />
 
           {/* Private routes */}
           <Route path="/dashboard" element={
