@@ -16,8 +16,8 @@ const invitationSchema = new mongoose.Schema({
   },
   token: {
     type: String,
-    required: true,
-    unique: true
+    unique: true,
+    default: () => crypto.randomBytes(32).toString('hex')
   },
   invitedBy: {
     type: mongoose.Schema.Types.ObjectId,
