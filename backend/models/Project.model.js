@@ -1,0 +1,140 @@
+const mongoose = require('mongoose');
+
+const projectSchema = new mongoose.Schema({
+  title: {
+    type: String,
+    required: [true, 'عنوان المشروع مطلوب'],
+    trim: true,
+    maxlength: [100, 'العنوان لا يمكن أن يتجاوز 100 حرف']
+  },
+  description: {
+    type: String,
+    required: [true, 'وصف المشروع مطلوب'],
+    maxlength: [2000, 'الوصف لا يمكن أن يتجاوز 2000 حرف']
+  },
+  shortDescription: {
+    type: String,
+    maxlength: [200, 'الوصف المختصر لا يمكن أن يتجاوز 200 حرف']
+  },
+  difficulty: {
+    type: String,
+    enum: ['beginner', 'intermediate', 'advanced'],
+    required: true,
+    default: 'beginner'
+  },
+  category: {
+    type: String,
+    required: [true, 'التصنيف مطلوب'],
+    enum: ['web', 'mobile', 'desktop', 'data-science', 'ai-ml', 'game-dev', 'other']
+  },
+  technologies: [{
+    type: String,
+    required: true
+  }],
+  skills: [{
+    name: String,
+    level: {
+      type: String,
+      enum: ['basic', 'intermediate', 'advanced']
+    }
+  }],
+  objectives: [{
+    type: String
+  }],
+  milestones: [{
+    title: {
+      type: String,
+      required: true
+    },
+    description: String,
+    order: {
+      type: Number,
+      required: true
+    },
+    tasks: [{
+      title: String,
+      description: String,
+      completed: {
+        type: Boolean,
+        default: false
+      }
+    }],
+    points: {
+      type: Number,
+      default: 0
+    }
+  }],
+  estimatedDuration: {
+    type: Number, // بالساعات
+    required: true
+  },
+  points: {
+    type: Number,
+    default: 100
+  },
+  resources: [{
+    type: {
+      type: String,
+      enum: ['video', 'article', 'documentation', 'tutorial', 'github']
+    },
+    title: String,
+    url: String,
+    description: String
+  }],
+  starterCode: {
+    type: String,
+    default: ''
+  },
+  solution: {
+    type: String,
+    select: false // لا يتم عرضه للطلاب
+  },
+  prerequisites: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Project'
+  }],
+  coverImage: {
+    type: String,
+    default: ''
+  },
+  instructor: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  enrolledStudents: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  completedBy: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  isPublished: {
+    type: Boolean,
+    default: false
+  },
+  tags: [{
+    type: String
+  }],
+  rating: {
+    average: {
+      type: Number,
+      default: 0
+    },
+    count: {
+      type: Number,
+      default: 0
+    }
+  }
+}, {
+  timestamps: true
+});
+
+// Indexes for better query performance
+projectSchema.index({ difficulty: 1, category: 1 });
+projectSchema.index({ instructor: 1 });
+projectSchema.index({ isPublished: 1 });
+projectSchema.index({ 'rating.average': -1 });
+
+module.exports = mongoose.model('Project', projectSchema);
