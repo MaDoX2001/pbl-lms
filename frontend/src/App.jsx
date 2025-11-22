@@ -19,6 +19,7 @@ import ProfilePage from './pages/ProfilePage';
 import CreateProjectPage from './pages/CreateProjectPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import ArduinoSimulatorPage from './pages/ArduinoSimulatorPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
 
 // Import actions
 import { loadUser } from './redux/slices/authSlice';
@@ -63,6 +64,11 @@ function App() {
           <Route path="/create-project" element={
             <PrivateRoute roles={['teacher', 'admin']}>
               <CreateProjectPage />
+            </PrivateRoute>
+          } />
+          <Route path="/admin" element={
+            <PrivateRoute roles={['admin']}>
+              <AdminDashboardPage />
             </PrivateRoute>
           } />
 

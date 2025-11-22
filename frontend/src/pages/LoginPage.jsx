@@ -85,11 +85,8 @@ const LoginPage = () => {
         </form>
 
         <Box sx={{ mt: 2, textAlign: 'center' }}>
-          <Typography variant="body2">
-            ليس لديك حساب؟{' '}
-            <Link component={RouterLink} to="/register" underline="hover">
-              إنشاء حساب جديد
-            </Link>
+          <Typography variant="body2" color="text.secondary">
+            للحصول على حساب، يرجى التواصل مع المدير
           </Typography>
         </Box>
       </Paper>

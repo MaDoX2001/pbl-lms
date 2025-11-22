@@ -59,6 +59,11 @@ const Navbar = () => {
               <Button color="inherit" component={Link} to="/dashboard">
                 لوحة التحكم
               </Button>
+              {user?.role === 'admin' && (
+                <Button color="inherit" component={Link} to="/admin">
+                  إدارة النظام
+                </Button>
+              )}
               {(user?.role === 'teacher' || user?.role === 'admin') && (
                 <Button color="inherit" component={Link} to="/create-project">
                   إنشاء مشروع
@@ -103,15 +108,6 @@ const Navbar = () => {
             <>
               <Button color="inherit" component={Link} to="/login">
                 تسجيل الدخول
-              </Button>
-              <Button 
-                variant="contained" 
-                color="secondary" 
-                component={Link} 
-                to="/register"
-                sx={{ ml: 1 }}
-              >
-                إنشاء حساب
               </Button>
             </>
           )}

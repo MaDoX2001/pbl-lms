@@ -1,35 +1,62 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Paper,
   TextField,
   Button,
   Typography,
-  Link,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Alert,
+  CircularProgress,
 } from '@mui/material';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { register } from '../redux/slices/authSlice';
+import api from '../services/api';
 
 const RegisterPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { loading, error } = useSelector((state) => state.auth);
+
+  const [invitationToken, setInvitationToken] = useState('');
+  const [invitationData, setInvitationData] = useState(null);
+  const [checkingInvitation, setCheckingInvitation] = useState(true);
+  const [invitationError, setInvitationError] = useState('');
 
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'student',
   });
 
   const [validationError, setValidationError] = useState('');
+
+  // Check invitation token on mount
+  useEffect(() => {
+    const token = searchParams.get('token');
+    if (!token) {
+      setInvitationError('رمز الدعوة مطلوب. يرجى استخدام الرابط المرسل إليك');
+      setCheckingInvitation(false);
+      return;
+    }
+
+    setInvitationToken(token);
+    checkInvitation(token);
+  }, [searchParams]);
+
+  const checkInvitation = async (token) => {
+    try {
+      const response = await api.get(`/auth/invitation/${token}`);
+      setInvitationData(response.data.data);
+      setFormData(prev => ({ ...prev, email: response.data.data.email }));
+      setCheckingInvitation(false);
+    } catch (err) {
+      setInvitationError(err.response?.data?.message || 'رمز الدعوة غير صالح');
+      setCheckingInvitation(false);
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({
@@ -58,13 +85,34 @@ const RegisterPage = () => {
       name: formData.name,
       email: formData.email,
       password: formData.password,
-      role: formData.role,
+      token: invitationToken,
     }));
 
     if (result.type === 'auth/register/fulfilled') {
       navigate('/dashboard');
     }
   };
+
+  if (checkingInvitation) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '70vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (invitationError) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '70vh' }}>
+        <Paper elevation={3} sx={{ p: 4, maxWidth: 450, width: '100%' }}>
+          <Alert severity="error">{invitationError}</Alert>
+          <Typography variant="body2" sx={{ mt: 2 }} align="center">
+            للحصول على دعوة، يرجى التواصل مع المدير
+          </Typography>
+        </Paper>
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -79,9 +127,12 @@ const RegisterPage = () => {
         <Typography variant="h4" component="h1" gutterBottom align="center" fontWeight={700}>
           إنشاء حساب جديد
         </Typography>
-        <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
+        <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 1 }}>
           املأ البيانات التالية للانضمام إلى المنصة
         </Typography>
+        <Alert severity="info" sx={{ mb: 3 }}>
+          البريد: {invitationData?.email} | الدور: {invitationData?.role === 'student' ? 'طالب' : 'معلم'}
+        </Alert>
 
         {(error || validationError) && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -105,7 +156,7 @@ const RegisterPage = () => {
             name="email"
             type="email"
             value={formData.email}
-            onChange={handleChange}
+            disabled
             required
             sx={{ mb: 2 }}
           />
@@ -127,20 +178,8 @@ const RegisterPage = () => {
             value={formData.confirmPassword}
             onChange={handleChange}
             required
-            sx={{ mb: 2 }}
+            sx={{ mb: 3 }}
           />
-          <FormControl fullWidth sx={{ mb: 3 }}>
-            <InputLabel>نوع الحساب</InputLabel>
-            <Select
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
-              label="نوع الحساب"
-            >
-              <MenuItem value="student">طالب</MenuItem>
-              <MenuItem value="teacher">معلم</MenuItem>
-            </Select>
-          </FormControl>
           <Button
             type="submit"
             fullWidth
@@ -151,15 +190,6 @@ const RegisterPage = () => {
             {loading ? 'جاري إنشاء الحساب...' : 'إنشاء حساب'}
           </Button>
         </form>
-
-        <Box sx={{ mt: 2, textAlign: 'center' }}>
-          <Typography variant="body2">
-            لديك حساب بالفعل؟{' '}
-            <Link component={RouterLink} to="/login" underline="hover">
-              تسجيل الدخول
-            </Link>
-          </Typography>
-        </Box>
       </Paper>
     </Box>
   );
