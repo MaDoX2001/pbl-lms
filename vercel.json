@@ -14,8 +14,4 @@
       "src": "/(.*)",
       "dest": "frontend/$1"
     }
-  ],
-  "env": {
-    "VITE_API_URL": "@api_url"
-  }
 }
