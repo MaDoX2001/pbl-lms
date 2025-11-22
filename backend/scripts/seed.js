@@ -16,6 +16,15 @@ const seedData = async () => {
     await Project.deleteMany({});
     console.log('🗑️ تم حذف البيانات القديمة');
 
+    // Create admin user
+    const admin = await User.create({
+      name: 'المدير العام',
+      email: 'admin@pbl-lms.com',
+      password: 'Admin@123456',
+      role: 'admin',
+      bio: 'مدير المنصة'
+    });
+
     // Create demo teacher
     const teacher = await User.create({
       name: 'أستاذ محمد',
@@ -225,6 +234,7 @@ const seedData = async () => {
 
     console.log('\n🎉 تم إضافة البيانات التجريبية بنجاح!');
     console.log('\n📧 بيانات الدخول:');
+    console.log('المدير: admin@pbl-lms.com / Admin@123456');
     console.log('المعلم: teacher@example.com / 123456');
     console.log('الطالب 1: student1@example.com / 123456');
     console.log('الطالب 2: student2@example.com / 123456');

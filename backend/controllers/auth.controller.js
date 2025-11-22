@@ -1,4 +1,5 @@
 const User = require('../models/User.model');
+const Invitation = require('../models/Invitation.model');
 const jwt = require('jsonwebtoken');
 
 // Generate JWT Token
@@ -8,12 +9,50 @@ const generateToken = (id) => {
   });
 };
 
-// @desc    Register a new user
+// @desc    Register a new user (invitation only)
 // @route   POST /api/auth/register
-// @access  Public
+// @access  Public (with valid invitation token)
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, token } = req.body;
+
+    // Validate invitation token
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: 'رمز الدعوة مطلوب. يرجى التواصل مع المدير للحصول على دعوة'
+      });
+    }
+
+    const invitation = await Invitation.findOne({ token });
+
+    if (!invitation) {
+      return res.status(400).json({
+        success: false,
+        message: 'رمز الدعوة غير صالح'
+      });
+    }
+
+    if (invitation.used) {
+      return res.status(400).json({
+        success: false,
+        message: 'تم استخدام هذه الدعوة مسبقاً'
+      });
+    }
+
+    if (invitation.isExpired()) {
+      return res.status(400).json({
+        success: false,
+        message: 'انتهت صلاحية الدعوة'
+      });
+    }
+
+    if (invitation.email.toLowerCase() !== email.toLowerCase()) {
+      return res.status(400).json({
+        success: false,
+        message: 'البريد الإلكتروني لا يتطابق مع الدعوة'
+      });
+    }
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -24,16 +63,22 @@ exports.register = async (req, res) => {
       });
     }
 
-    // Create user
+    // Create user with role from invitation
     const user = await User.create({
       name,
       email,
       password,
-      role: role || 'student'
+      role: invitation.role
     });
 
+    // Mark invitation as used
+    invitation.used = true;
+    invitation.usedAt = new Date();
+    invitation.usedBy = user._id;
+    await invitation.save();
+
     // Generate token
-    const token = generateToken(user._id);
+    const authToken = generateToken(user._id);
 
     res.status(201).json({
       success: true,
@@ -45,7 +90,7 @@ exports.register = async (req, res) => {
           email: user.email,
           role: user.role
         },
-        token
+        token: authToken
       }
     });
   } catch (error) {

@@ -16,6 +16,7 @@ const projectRoutes = require('./routes/project.routes');
 const progressRoutes = require('./routes/progress.routes');
 const assessmentRoutes = require('./routes/assessment.routes');
 const discussionRoutes = require('./routes/discussion.routes');
+const adminRoutes = require('./routes/admin.routes');
 
 // Initialize express app
 const app = express();
@@ -43,6 +44,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/assessments', assessmentRoutes);
 app.use('/api/discussions', discussionRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
