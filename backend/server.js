@@ -17,6 +17,14 @@ const progressRoutes = require('./routes/progress.routes');
 const assessmentRoutes = require('./routes/assessment.routes');
 const discussionRoutes = require('./routes/discussion.routes');
 const adminRoutes = require('./routes/admin.routes');
+const otpRoutes = require('./routes/otp.routes');
+const invitationRequestRoutes = require('./routes/invitationRequest.routes');
+
+// Import middleware
+const { apiLimiter, authLimiter } = require('./middleware/rateLimiter');
+
+// Import error handler
+const { errorHandler } = require('./middleware/errorHandler');
 
 // Initialize express app
 const app = express();
@@ -24,13 +32,18 @@ const app = express();
 // Middleware
 app.use(helmet()); // Security headers
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : ['http://localhost:3000', 'https://pbl-lms-psi.vercel.app'],
   credentials: true
 }));
 app.use(compression()); // Compress responses
 app.use(morgan('dev')); // Logging
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
+
+// Apply rate limiting
+app.use('/api/', apiLimiter); // General API rate limit
+app.use('/api/auth/login', authLimiter); // Strict auth rate limit
+app.use('/api/auth/register', authLimiter); // Strict auth rate limit
 
 // Database connection
 mongoose.connect(process.env.MONGODB_URI)
@@ -45,6 +58,8 @@ app.use('/api/progress', progressRoutes);
 app.use('/api/assessments', assessmentRoutes);
 app.use('/api/discussions', discussionRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/otp', otpRoutes);
+app.use('/api/invitations', invitationRequestRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -64,14 +79,7 @@ app.use((req, res) => {
 });
 
 // Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || 'خطأ في الخادم',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
-});
+app.use(errorHandler);
 
 // Start server
 const PORT = process.env.PORT || 5000;

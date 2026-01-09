@@ -20,6 +20,8 @@ import CreateProjectPage from './pages/CreateProjectPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import ArduinoSimulatorPage from './pages/ArduinoSimulatorPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import TwoFactorSetupPage from './pages/TwoFactorSetupPage';
+import TwoFactorAuthPage from './pages/TwoFactorAuthPage';
 
 // Import actions
 import { loadUser } from './redux/slices/authSlice';
@@ -49,6 +51,14 @@ function App() {
           <Route path="/projects/:id" element={<ProjectDetailPage />} />
           <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/arduino-simulator" element={<ArduinoSimulatorPage />} />
+
+          {/* 2FA routes */}
+          <Route path="/2fa-verify" element={<TwoFactorAuthPage />} />
+          <Route path="/2fa-setup" element={
+            <PrivateRoute>
+              <TwoFactorSetupPage />
+            </PrivateRoute>
+          } />
 
           {/* Private routes */}
           <Route path="/dashboard" element={

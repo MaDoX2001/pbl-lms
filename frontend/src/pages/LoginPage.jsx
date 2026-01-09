@@ -1,18 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Paper, TextField, Button, Typography, Link, Alert } from '@mui/material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { login } from '../redux/slices/authSlice';
+import { login, setSetupRequired } from '../redux/slices/authSlice';
 
 const LoginPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { loading, error } = useSelector((state) => state.auth);
+  const { loading, error, require2FA, requireSetup, tempUserId, user } = useSelector((state) => state.auth);
 
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
+
+  useEffect(() => {
+    // Redirect to 2FA verification if required
+    if (require2FA && tempUserId) {
+      navigate('/2fa-verify', { 
+        state: { 
+          userId: tempUserId,
+          userName: user?.name 
+        } 
+      });
+    }
+    // Redirect to 2FA setup if required
+    else if (requireSetup) {
+      navigate('/2fa-setup');
+    }
+  }, [require2FA, requireSetup, tempUserId, user, navigate]);
 
   const handleChange = (e) => {
     setFormData({
@@ -24,7 +40,32 @@ const LoginPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const result = await dispatch(login(formData));
+    
     if (result.type === 'auth/login/fulfilled') {
+      const payload = result.payload;
+      
+      // Handle 2FA verification required
+      if (payload.require2FA) {
+        navigate('/2fa-verify', { 
+          state: { 
+            userId: payload.data?.userId,
+            userName: payload.data?.user?.name 
+          } 
+        });
+        return;
+      }
+      
+      // Handle 2FA setup required
+      if (payload.requireSetup) {
+        dispatch(setSetupRequired({
+          token: payload.data.token,
+          user: payload.data.user
+        }));
+        navigate('/2fa-setup');
+        return;
+      }
+      
+      // Normal login - redirect to dashboard
       navigate('/dashboard');
     }
   };

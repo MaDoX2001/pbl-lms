@@ -70,6 +70,22 @@ const userSchema = new mongoose.Schema({
   },
   lastLogin: {
     type: Date
+  },
+  twoFactorEnabled: {
+    type: Boolean,
+    default: false
+  },
+  twoFactorSecret: {
+    type: String,
+    select: false
+  },
+  twoFactorSetupRequired: {
+    type: Boolean,
+    default: true // Mandatory 2FA for all users
+  },
+  twoFactorVerified: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

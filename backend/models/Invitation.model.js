@@ -58,7 +58,7 @@ invitationSchema.methods.isExpired = function() {
 };
 
 // Index for faster queries
-invitationSchema.index({ token: 1 });
+// token index is already created by unique: true
 invitationSchema.index({ email: 1 });
 invitationSchema.index({ used: 1, expiresAt: 1 });
 

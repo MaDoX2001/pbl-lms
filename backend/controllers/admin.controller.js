@@ -1,5 +1,6 @@
 const User = require('../models/User.model');
 const Invitation = require('../models/Invitation.model');
+const InvitationRequest = require('../models/InvitationRequest.model');
 const Project = require('../models/Project.model');
 
 // @desc    Get all users
@@ -202,6 +203,7 @@ exports.getDashboardStats = async (req, res) => {
     const totalProjects = await Project.countDocuments();
     const publishedProjects = await Project.countDocuments({ isPublished: true });
     const pendingInvitations = await Invitation.countDocuments({ used: false, expiresAt: { $gt: new Date() } });
+    const pendingRequests = await InvitationRequest.countDocuments({ status: 'pending' });
 
     res.json({
       success: true,
@@ -220,6 +222,11 @@ exports.getDashboardStats = async (req, res) => {
         invitations: {
           pending: pendingInvitations,
           used: await Invitation.countDocuments({ used: true })
+        },
+        requests: {
+          pending: pendingRequests,
+          approved: await InvitationRequest.countDocuments({ status: 'approved' }),
+          rejected: await InvitationRequest.countDocuments({ status: 'rejected' })
         }
       }
     });

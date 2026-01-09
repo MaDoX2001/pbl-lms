@@ -149,7 +149,47 @@ exports.login = async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
 
-    // Generate token
+    // Check if 2FA is required but not set up
+    if (user.twoFactorSetupRequired && !user.twoFactorEnabled) {
+      // Generate temporary token for 2FA setup
+      const tempToken = generateToken(user._id);
+      
+      return res.json({
+        success: true,
+        message: 'يجب إعداد المصادقة الثنائية',
+        requireSetup: true,
+        data: {
+          userId: user._id,
+          token: tempToken,
+          user: {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            twoFactorSetupRequired: true
+          }
+        }
+      });
+    }
+
+    // Check if 2FA is enabled - require verification
+    if (user.twoFactorEnabled && user.twoFactorVerified) {
+      return res.json({
+        success: true,
+        message: 'يرجى إدخال رمز المصادقة الثنائية',
+        require2FA: true,
+        data: {
+          userId: user._id,
+          user: {
+            id: user._id,
+            name: user.name,
+            email: user.email
+          }
+        }
+      });
+    }
+
+    // If no 2FA, generate token and return
     const token = generateToken(user._id);
 
     res.json({
@@ -163,7 +203,9 @@ exports.login = async (req, res) => {
           role: user.role,
           avatar: user.avatar,
           points: user.points,
-          level: user.level
+          level: user.level,
+          twoFactorEnabled: user.twoFactorEnabled,
+          twoFactorSetupRequired: user.twoFactorSetupRequired
         },
         token
       }
