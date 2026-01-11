@@ -11,6 +11,11 @@ const {
   deleteInvitation,
   getDashboardStats
 } = require('../controllers/admin.controller');
+const {
+  getPendingUsers,
+  approveUser,
+  rejectUser
+} = require('../controllers/publicRegister.controller');
 
 // Protect all routes and require admin role
 router.use(protect);
@@ -28,5 +33,12 @@ router.delete('/invitations/:id', deleteInvitation);
 
 // Dashboard stats
 router.get('/stats', getDashboardStats);
+
+// User Approval
+router.get('/pending-users', getPendingUsers);
+router.put('/approve-user/:id', approveUser);
+router.put('/reject-user/:id', rejectUser);
+
+module.exports = router;
 
 module.exports = router;

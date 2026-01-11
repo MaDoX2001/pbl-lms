@@ -18,6 +18,9 @@ const {
   disable2FA,
   get2FAStatus
 } = require('../controllers/twoFactor.controller');
+const {
+  publicRegister
+} = require('../controllers/publicRegister.controller');
 
 // Validation rules
 const registerValidation = [
@@ -63,6 +66,11 @@ router.get('/invitation/:token', async (req, res) => {
 
 // Routes
 router.post('/register', registerValidation, validate, register);
+router.post('/public-register', [
+  body('name').trim().isLength({ min: 2, max: 50 }).withMessage('الاسم يجب أن يكون بين 2 و 50 حرفاً'),
+  body('email').isEmail().withMessage('البريد الإلكتروني غير صالح'),
+  body('password').isLength({ min: 6 }).withMessage('كلمة المرور يجب أن تكون 6 أحرف على الأقل')
+], validate, publicRegister);
 router.post('/login', loginValidation, validate, login);
 router.get('/me', protect, getMe);
 router.put('/updatepassword', protect, updatePassword);
