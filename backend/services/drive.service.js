@@ -12,7 +12,17 @@ class DriveService {
   async initialize() {
     try {
       // Load service account credentials
-      const keyFilePath = path.join(__dirname, '../../pbl-lms-a29c9d004248.json');
+      // On Render, secret files are in /etc/secrets/
+      // In development, they're in the project root
+      const keyFileName = 'pbl-lms-a29c9d004248.json';
+      let keyFilePath;
+      
+      if (process.env.NODE_ENV === 'production') {
+        keyFilePath = `/etc/secrets/${keyFileName}`;
+      } else {
+        keyFilePath = path.join(__dirname, '../../', keyFileName);
+      }
+
       const keyFile = await fs.readFile(keyFilePath, 'utf8');
       const credentials = JSON.parse(keyFile);
 
