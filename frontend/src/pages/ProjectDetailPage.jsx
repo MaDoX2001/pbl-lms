@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -14,12 +14,27 @@ import {
   ListItemText,
   CircularProgress,
   Avatar,
+  IconButton,
+  Card,
+  CardContent,
+  CardActions,
 } from '@mui/material';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CodeIcon from '@mui/icons-material/Code';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import DownloadIcon from '@mui/icons-material/Download';
+import DeleteIcon from '@mui/icons-material/Delete';
+import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import { toast } from 'react-toastify';
 import { fetchProjectById } from '../redux/slices/projectSlice';
 import { enrollInProject } from '../redux/slices/projectSlice';
+import ResourceUploadDialog from '../components/ResourceUploadDialog';
+import HomeworkSubmitDialog from '../components/HomeworkSubmitDialog';
+import api from '../services/api';
 
 const ProjectDetailPage = () => {
   const { id } = useParams();
@@ -27,9 +42,101 @@ const ProjectDetailPage = () => {
   const { currentProject: project, loading } = useSelector((state) => state.projects);
   const { user, isAuthenticated } = useSelector((state) => state.auth);
 
+  const [materials, setMaterials] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [mySubmissions, setMySubmissions] = useState([]);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [homeworkDialogOpen, setHomeworkDialogOpen] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [loadingMaterials, setLoadingMaterials] = useState(false);
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
+
   useEffect(() => {
     dispatch(fetchProjectById(id));
   }, [dispatch, id]);
+
+  useEffect(() => {
+    if (id) {
+      fetchCourseMaterials();
+      fetchAssignments();
+      if (user?.role === 'student') {
+        fetchMySubmissions();
+      }
+    }
+  }, [id, user]);
+
+  const fetchCourseMaterials = async () => {
+    try {
+      setLoadingMaterials(true);
+      const response = await api.get(`/resources/${id}/materials`);
+      setMaterials(response.data.materials || []);
+    } catch (error) {
+      console.error('Error fetching materials:', error);
+    } finally {
+      setLoadingMaterials(false);
+    }
+  };
+
+  const fetchAssignments = async () => {
+    try {
+      setLoadingAssignments(true);
+      const response = await api.get(`/resources/${id}/assignments`);
+      setAssignments(response.data.assignments || []);
+    } catch (error) {
+      console.error('Error fetching assignments:', error);
+    } finally {
+      setLoadingAssignments(false);
+    }
+  };
+
+  const fetchMySubmissions = async () => {
+    try {
+      const response = await api.get(`/submissions/projects/${id}/my-submissions`);
+      setMySubmissions(response.data.submissions || []);
+    } catch (error) {
+      console.error('Error fetching submissions:', error);
+    }
+  };
+
+  const handleDeleteMaterial = async (materialId) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذه المادة؟')) return;
+
+    try {
+      await api.delete(`/resources/${id}/materials/${materialId}`);
+      toast.success('تم حذف المادة بنجاح');
+      fetchCourseMaterials();
+    } catch (error) {
+      toast.error('فشل حذف المادة');
+    }
+  };
+
+  const handleDeleteAssignment = async (assignmentId) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذه المهمة؟')) return;
+
+    try {
+      await api.delete(`/resources/${id}/assignments/${assignmentId}`);
+      toast.success('تم حذف المهمة بنجاح');
+      fetchAssignments();
+    } catch (error) {
+      toast.error('فشل حذف المهمة');
+    }
+  };
+
+  const handleSubmitHomework = (assignment) => {
+    setSelectedAssignment(assignment);
+    setHomeworkDialogOpen(true);
+  };
+
+  const getFileIcon = (fileType) => {
+    switch (fileType) {
+      case 'video':
+        return <VideoLibraryIcon />;
+      case 'pdf':
+        return <PictureAsPdfIcon />;
+      default:
+        return <InsertDriveFileIcon />;
+    }
+  };
 
   const handleEnroll = () => {
     dispatch(enrollInProject(id));
@@ -200,6 +307,199 @@ const ProjectDetailPage = () => {
           </Paper>
         </Grid>
       </Grid>
+
+      {/* Course Materials Section */}
+      <Paper sx={{ p: 3, mt: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6">المواد التعليمية</Typography>
+          {(user?.role === 'teacher' || user?.role === 'admin') && (
+            <Button
+              variant="contained"
+              startIcon={<CloudUploadIcon />}
+              onClick={() => setUploadDialogOpen(true)}
+            >
+              تحميل مادة
+            </Button>
+          )}
+        </Box>
+        <Divider sx={{ mb: 2 }} />
+        
+        {loadingMaterials ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : materials.length === 0 ? (
+          <Typography color="text.secondary" align="center" py={3}>
+            لا توجد مواد تعليمية حتى الآن
+          </Typography>
+        ) : (
+          <Grid container spacing={2}>
+            {materials.map((material) => (
+              <Grid item xs={12} sm={6} md={4} key={material._id}>
+                <Card>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      {getFileIcon(material.fileType)}
+                      <Typography variant="subtitle1" noWrap>
+                        {material.title}
+                      </Typography>
+                    </Box>
+                    {material.description && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        {material.description}
+                      </Typography>
+                    )}
+                    <Typography variant="caption" color="text.secondary">
+                      {material.size ? `${(material.size / 1024 / 1024).toFixed(2)} MB` : ''}
+                    </Typography>
+                  </CardContent>
+                  <CardActions>
+                    <Button
+                      size="small"
+                      startIcon={<DownloadIcon />}
+                      href={material.driveFileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      عرض/تحميل
+                    </Button>
+                    {(user?.role === 'teacher' || user?.role === 'admin') && (
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleDeleteMaterial(material._id)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    )}
+                  </CardActions>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        )}
+      </Paper>
+
+      {/* Assignments Section */}
+      <Paper sx={{ p: 3, mt: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6">الواجبات والمهام</Typography>
+          {(user?.role === 'teacher' || user?.role === 'admin') && (
+            <Button
+              variant="contained"
+              startIcon={<AssignmentIcon />}
+              onClick={() => {/* TODO: Create assignment dialog */}}
+            >
+              إنشاء مهمة
+            </Button>
+          )}
+        </Box>
+        <Divider sx={{ mb: 2 }} />
+        
+        {loadingAssignments ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : assignments.length === 0 ? (
+          <Typography color="text.secondary" align="center" py={3}>
+            لا توجد مهام حتى الآن
+          </Typography>
+        ) : (
+          <Grid container spacing={2}>
+            {assignments.map((assignment) => {
+              const submission = mySubmissions.find(
+                (s) => s.assignment.assignmentId === assignment._id
+              );
+              const isOverdue = assignment.dueDate && new Date() > new Date(assignment.dueDate);
+
+              return (
+                <Grid item xs={12} md={6} key={assignment._id}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        {assignment.title}
+                      </Typography>
+                      {assignment.description && (
+                        <Typography variant="body2" color="text.secondary" paragraph>
+                          {assignment.description}
+                        </Typography>
+                      )}
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+                        {assignment.dueDate && (
+                          <Chip
+                            label={`الموعد: ${new Date(assignment.dueDate).toLocaleDateString('ar-SA')}`}
+                            size="small"
+                            color={isOverdue ? 'error' : 'default'}
+                          />
+                        )}
+                        <Chip
+                          label={`الدرجة: ${assignment.maxScore}`}
+                          size="small"
+                          color="primary"
+                        />
+                        {submission && (
+                          <Chip
+                            label={submission.status === 'graded' ? `تم التقييم: ${submission.grade?.score}` : 'تم التسليم'}
+                            size="small"
+                            color={submission.status === 'graded' ? 'success' : 'info'}
+                          />
+                        )}
+                      </Box>
+                    </CardContent>
+                    <CardActions>
+                      {user?.role === 'student' && !submission && (
+                        <Button
+                          size="small"
+                          variant="contained"
+                          onClick={() => handleSubmitHomework(assignment)}
+                          disabled={isOverdue && !assignment.allowLateSubmission}
+                        >
+                          تسليم الواجب
+                        </Button>
+                      )}
+                      {(user?.role === 'teacher' || user?.role === 'admin') && (
+                        <>
+                          <Button size="small">عرض التسليمات</Button>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleDeleteAssignment(assignment._id)}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </>
+                      )}
+                    </CardActions>
+                  </Card>
+                </Grid>
+              );
+            })}
+          </Grid>
+        )}
+      </Paper>
+
+      {/* Upload Dialogs */}
+      <ResourceUploadDialog
+        open={uploadDialogOpen}
+        onClose={() => setUploadDialogOpen(false)}
+        projectId={id}
+        onSuccess={() => {
+          fetchCourseMaterials();
+        }}
+      />
+
+      <HomeworkSubmitDialog
+        open={homeworkDialogOpen}
+        onClose={() => {
+          setHomeworkDialogOpen(false);
+          setSelectedAssignment(null);
+        }}
+        projectId={id}
+        assignment={selectedAssignment}
+        onSuccess={() => {
+          fetchMySubmissions();
+        }}
+      />
     </Box>
   );
 };

@@ -19,6 +19,11 @@ const discussionRoutes = require('./routes/discussion.routes');
 const adminRoutes = require('./routes/admin.routes');
 const otpRoutes = require('./routes/otp.routes');
 const invitationRequestRoutes = require('./routes/invitationRequest.routes');
+const resourceRoutes = require('./routes/resource.routes');
+const submissionRoutes = require('./routes/submission.routes');
+
+// Import services
+const driveService = require('./services/drive.service');
 
 // Import middleware
 const { apiLimiter, authLimiter } = require('./middleware/rateLimiter');
@@ -47,13 +52,23 @@ app.use('/api/auth/register', authLimiter); // Strict auth rate limit
 
 // Database connection
 mongoose.connect(process.env.MONGODB_URI)
-.then(() => console.log('✅ MongoDB متصل بنجاح'))
+.then(async () => {
+  console.log('✅ MongoDB متصل بنجاح');
+  // Initialize Google Drive service
+  try {
+    await driveService.initialize();
+  } catch (error) {
+    console.error('⚠️  تحذير: فشل تهيئة خدمة Google Drive');
+  }
+})
 .catch((err) => console.error('❌ خطأ في الاتصال بقاعدة البيانات:', err));
 
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/resources', resourceRoutes);
+app.use('/api/submissions', submissionRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/assessments', assessmentRoutes);
 app.use('/api/discussions', discussionRoutes);

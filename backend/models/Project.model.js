@@ -81,6 +81,66 @@ const projectSchema = new mongoose.Schema({
     url: String,
     description: String
   }],
+  courseMaterials: [{
+    title: {
+      type: String,
+      required: true
+    },
+    description: String,
+    fileType: {
+      type: String,
+      enum: ['video', 'pdf', 'document', 'image', 'zip', 'other'],
+      required: true
+    },
+    driveFileId: {
+      type: String,
+      required: true
+    },
+    driveFileUrl: {
+      type: String,
+      required: true
+    },
+    size: Number, // in bytes
+    uploadedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    uploadedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  assignments: [{
+    title: {
+      type: String,
+      required: true
+    },
+    description: String,
+    dueDate: Date,
+    maxScore: {
+      type: Number,
+      default: 100
+    },
+    allowedFileTypes: [String], // e.g., ['pdf', 'zip', 'docx']
+    maxFileSize: {
+      type: Number,
+      default: 10485760 // 10MB in bytes
+    },
+    allowLateSubmission: {
+      type: Boolean,
+      default: false
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   starterCode: {
     type: String,
     default: ''
