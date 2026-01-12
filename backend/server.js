@@ -37,7 +37,11 @@ const app = express();
 // Middleware
 app.use(helmet()); // Security headers
 app.use(cors({
-  origin: process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : ['http://localhost:3000', 'https://pbl-lms-psi.vercel.app'],
+  origin: process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : [
+    'http://localhost:3000',
+    'https://pbl-lms-phi.vercel.app',
+    'https://pbl-lms-psi.vercel.app'
+  ],
   credentials: true
 }));
 app.use(compression()); // Compress responses
