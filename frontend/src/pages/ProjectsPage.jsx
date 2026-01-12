@@ -1,13 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Typography, Grid, TextField, InputAdornment, CircularProgress, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { Box, Typography, Grid, TextField, InputAdornment, CircularProgress, FormControl, InputLabel, Select, MenuItem, Button } from '@mui/material';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
+import AddIcon from '@mui/icons-material/Add';
 import { fetchProjects } from '../redux/slices/projectSlice';
 import ProjectCard from '../components/ProjectCard';
 
 const ProjectsPage = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { projects, loading } = useSelector((state) => state.projects);
+  const { user } = useSelector((state) => state.auth);
 
   const [filters, setFilters] = useState({
     search: '',
@@ -29,12 +33,26 @@ const ProjectsPage = () => {
 
   return (
     <Box>
-      <Typography variant="h3" component="h1" gutterBottom fontWeight={700}>
-        المشاريع التعليمية
-      </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-        استكشف مجموعة متنوعة من المشاريع البرمجية التعليمية
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Box>
+          <Typography variant="h3" component="h1" gutterBottom fontWeight={700}>
+            المشاريع التعليمية
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            استكشف مجموعة متنوعة من المشاريع البرمجية التعليمية
+          </Typography>
+        </Box>
+        {(user?.role === 'teacher' || user?.role === 'admin') && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/create-project')}
+            sx={{ minWidth: 150 }}
+          >
+            إنشاء مشروع
+          </Button>
+        )}
+      </Box>
 
       {/* Filters */}
       <Box sx={{ mb: 4 }}>
