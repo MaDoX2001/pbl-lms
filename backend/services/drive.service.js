@@ -41,13 +41,8 @@ class DriveService {
       // Initialize Drive API
       this.drive = google.drive({ version: 'v3', auth: this.auth });
 
-      // Test the connection by listing files (with limit 1)
-      await this.drive.files.list({
-        pageSize: 1,
-        fields: 'files(id, name)'
-      });
-
       console.log('✅ Google Drive service initialized successfully');
+      console.log('ℹ️  Note: First upload will create folders automatically');
       return true;
     } catch (error) {
       console.error('❌ Failed to initialize Google Drive service:', error.message);
