@@ -122,9 +122,38 @@ exports.verifyOTPLogin = catchAsyncErrors(async (req, res, next) => {
 
   await otp.save();
 
+  // Get user and generate JWT token
+  const user = await User.findById(userId);
+  if (!user) {
+    return next(new AppError('المستخدم غير موجود', 404));
+  }
+
+  // Generate JWT token
+  const generateToken = (id) => {
+    const jwt = require('jsonwebtoken');
+    return jwt.sign({ id }, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+    });
+  };
+
+  const jwtToken = generateToken(user._id);
+
   res.status(200).json({
     success: true,
-    message: 'تم التحقق من OTP بنجاح'
+    message: 'تم التحقق من OTP بنجاح',
+    data: {
+      token: jwtToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar,
+        isActive: user.isActive,
+        emailVerified: user.emailVerified,
+        twoFactorEnabled: user.twoFactorEnabled
+      }
+    }
   });
 });
 
