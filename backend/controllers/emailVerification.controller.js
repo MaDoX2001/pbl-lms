@@ -6,6 +6,9 @@ const { catchAsyncErrors, AppError } = require('../middleware/errorHandler');
 const BREVO_API_KEY = process.env.BREVO_API_KEY || process.env.SMTP_PASSWORD;
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 
+console.log('Brevo API Key exists:', !!BREVO_API_KEY);
+console.log('Brevo API Key length:', BREVO_API_KEY ? BREVO_API_KEY.length : 0);
+
 // Generate 6-digit OTP
 const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
