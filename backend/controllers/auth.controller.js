@@ -145,8 +145,8 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Check if account is approved
-    if (!user.isApproved || user.approvalStatus !== 'approved') {
+    // Check if account is approved (skip for admins)
+    if (user.role !== 'admin' && (!user.isApproved || user.approvalStatus !== 'approved')) {
       return res.status(403).json({
         success: false,
         message: 'حسابك في انتظار موافقة المشرف',
