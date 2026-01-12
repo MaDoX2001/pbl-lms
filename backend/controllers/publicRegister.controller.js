@@ -5,7 +5,7 @@ const User = require('../models/User.model');
 // @access  Public
 exports.publicRegister = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, role } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -16,12 +16,15 @@ exports.publicRegister = async (req, res) => {
       });
     }
 
+    // Validate role
+    const userRole = role && ['student', 'teacher'].includes(role) ? role : 'student';
+
     // Create user with pending approval
     const user = await User.create({
       name,
       email,
       password,
-      role: 'student',
+      role: userRole,
       isActive: false, // Inactive until approved
       isApproved: false,
       approvalStatus: 'pending'
