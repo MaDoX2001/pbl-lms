@@ -97,7 +97,7 @@ exports.verifyEmail = catchAsyncErrors(async (req, res, next) => {
     return next(new AppError('البريد الإلكتروني ورمز التفعيل مطلوبان', 400));
   }
 
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email }).select('+emailVerificationOTP +emailVerificationOTPExpires');
   if (!user) {
     return next(new AppError('المستخدم غير موجود', 404));
   }
@@ -185,7 +185,7 @@ exports.resetPassword = catchAsyncErrors(async (req, res, next) => {
     return next(new AppError('كلمة المرور يجب أن تكون 8 أحرف على الأقل', 400));
   }
 
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email }).select('+passwordResetOTP +passwordResetOTPExpires');
   if (!user) {
     return next(new AppError('بيانات غير صحيحة', 400));
   }
