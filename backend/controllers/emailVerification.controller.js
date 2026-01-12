@@ -1,21 +1,42 @@
 const User = require('../models/User.model');
-const nodemailer = require('nodemailer');
+const axios = require('axios');
 const { catchAsyncErrors, AppError } = require('../middleware/errorHandler');
 
-// Configure email transporter
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
-  port: process.env.SMTP_PORT || 587,
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD
-  }
-});
+// Configure Brevo API
+const BREVO_API_KEY = process.env.BREVO_API_KEY || process.env.SMTP_PASSWORD;
+const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 
 // Generate 6-digit OTP
 const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+// Send email using Brevo API
+const sendBrevoEmail = async (to, subject, htmlContent) => {
+  try {
+    await axios.post(
+      BREVO_API_URL,
+      {
+        sender: {
+          name: 'منصة التعلم بالمشروعات',
+          email: 'maaadooo2001@gmail.com'
+        },
+        to: [{ email: to }],
+        subject: subject,
+        htmlContent: htmlContent
+      },
+      {
+        headers: {
+          'accept': 'application/json',
+          'api-key': BREVO_API_KEY,
+          'content-type': 'application/json'
+        }
+      }
+    );
+  } catch (error) {
+    console.error('Brevo API Error:', error.response?.data || error.message);
+    throw new Error('فشل إرسال البريد الإلكتروني');
+  }
 };
 
 // Send Email Verification OTP
@@ -41,28 +62,23 @@ exports.sendEmailVerificationOTP = catchAsyncErrors(async (req, res, next) => {
   user.emailVerificationOTPExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
   await user.save();
 
-  // Send email
-  const mailOptions = {
-    from: `"منصة التعلم بالمشروعات" <${process.env.SMTP_USER}>`,
-    to: email,
-    subject: 'تفعيل البريد الإلكتروني - PBL-LMS',
-    html: `
-      <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>مرحباً ${user.name}</h2>
-        <p>شكراً للتسجيل في منصة التعلم بالمشروعات!</p>
-        <p>رمز التفعيل الخاص بك هو:</p>
-        <div style="background: #f4f4f4; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; margin: 20px 0;">
-          ${otp}
-        </div>
-        <p>هذا الرمز صالح لمدة 10 دقائق فقط.</p>
-        <p>إذا لم تقم بالتسجيل في منصتنا، يرجى تجاهل هذه الرسالة.</p>
-        <hr>
-        <p style="color: #666; font-size: 12px;">منصة التعلم بالمشروعات © 2026</p>
+  // Send email using Brevo API
+  const htmlContent = `
+    <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>مرحباً ${user.name}</h2>
+      <p>شكراً للتسجيل في منصة التعلم بالمشروعات!</p>
+      <p>رمز التفعيل الخاص بك هو:</p>
+      <div style="background: #f4f4f4; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; margin: 20px 0;">
+        ${otp}
       </div>
-    `
-  };
+      <p>هذا الرمز صالح لمدة 10 دقائق فقط.</p>
+      <p>إذا لم تقم بالتسجيل في منصتنا، يرجى تجاهل هذه الرسالة.</p>
+      <hr>
+      <p style="color: #666; font-size: 12px;">منصة التعلم بالمشروعات © 2026</p>
+    </div>
+  `;
 
-  await transporter.sendMail(mailOptions);
+  await sendBrevoEmail(email, 'تفعيل البريد الإلكتروني - PBL-LMS', htmlContent);
 
   res.status(200).json({
     success: true,
@@ -130,28 +146,23 @@ exports.requestPasswordReset = catchAsyncErrors(async (req, res, next) => {
   user.passwordResetOTPExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
   await user.save();
 
-  // Send email
-  const mailOptions = {
-    from: `"منصة التعلم بالمشروعات" <${process.env.SMTP_USER}>`,
-    to: email,
-    subject: 'إعادة تعيين كلمة المرور - PBL-LMS',
-    html: `
-      <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>مرحباً ${user.name}</h2>
-        <p>تلقينا طلباً لإعادة تعيين كلمة المرور الخاصة بحسابك.</p>
-        <p>رمز إعادة التعيين الخاص بك هو:</p>
-        <div style="background: #f4f4f4; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; margin: 20px 0;">
-          ${otp}
-        </div>
-        <p>هذا الرمز صالح لمدة 10 دقائق فقط.</p>
-        <p>إذا لم تطلب إعادة تعيين كلمة المرور، يرجى تجاهل هذه الرسالة.</p>
-        <hr>
-        <p style="color: #666; font-size: 12px;">منصة التعلم بالمشروعات © 2026</p>
+  // Send email using Brevo API
+  const htmlContent = `
+    <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>مرحباً ${user.name}</h2>
+      <p>تلقينا طلباً لإعادة تعيين كلمة المرور الخاصة بحسابك.</p>
+      <p>رمز إعادة التعيين الخاص بك هو:</p>
+      <div style="background: #f4f4f4; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; margin: 20px 0;">
+        ${otp}
       </div>
-    `
-  };
+      <p>هذا الرمز صالح لمدة 10 دقائق فقط.</p>
+      <p>إذا لم تطلب إعادة تعيين كلمة المرور، يرجى تجاهل هذه الرسالة.</p>
+      <hr>
+      <p style="color: #666; font-size: 12px;">منصة التعلم بالمشروعات © 2026</p>
+    </div>
+  `;
 
-  await transporter.sendMail(mailOptions);
+  await sendBrevoEmail(email, 'إعادة تعيين كلمة المرور - PBL-LMS', htmlContent);
 
   res.status(200).json({
     success: true,
