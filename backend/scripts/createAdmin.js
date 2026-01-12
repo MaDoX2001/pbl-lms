@@ -9,9 +9,15 @@ const createAdmin = async () => {
 
     const existingAdmin = await User.findOne({ email: 'admin@pbl-lms.com' });
     if (existingAdmin) {
-      console.log('⚠️  Admin already exists!');
+      // Update admin to disable 2FA
+      existingAdmin.twoFactorEnabled = false;
+      existingAdmin.twoFactorSetupRequired = false;
+      existingAdmin.twoFactorSecret = undefined;
+      await existingAdmin.save();
+      console.log('✅ Admin updated - 2FA disabled');
       console.log('Email:', existingAdmin.email);
       console.log('Role:', existingAdmin.role);
+      console.log('2FA Enabled:', existingAdmin.twoFactorEnabled);
       process.exit(0);
     }
 

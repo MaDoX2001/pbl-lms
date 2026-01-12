@@ -132,8 +132,8 @@ const authSlice = createSlice({
       })
       .addCase(login.fulfilled, (state, action) => {
         state.loading = false;
-        // Check if 2FA verification is required
-        if (action.payload.require2FA) {
+        // Check if 2FA verification is required (backend sends requiresOTP)
+        if (action.payload.require2FA || action.payload.requiresOTP) {
           state.require2FA = true;
           state.tempUserId = action.payload.userId;
           return;
