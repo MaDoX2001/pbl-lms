@@ -1,6 +1,6 @@
 const Submission = require('../models/Submission.model');
 const Project = require('../models/Project.model');
-const driveService = require('../services/drive.service');
+const localStorageService = require('../services/localStorage.service');
 
 // @desc    Submit homework (students only)
 // @route   POST /api/projects/:projectId/assignments/:assignmentId/submit
@@ -62,19 +62,12 @@ exports.submitHomework = async (req, res) => {
       return res.status(400).json({ message: 'تم تسليم المهمة مسبقاً. لا يمكن إعادة التسليم' });
     }
 
-    // Find or create submissions folder in Drive
-    const rootFolderId = await driveService.findOrCreateFolder('PBL-LMS-Content');
-    const submissionsFolderId = await driveService.findOrCreateFolder('Student-Submissions', rootFolderId);
-    const projectFolderId = await driveService.findOrCreateFolder(`Project-${projectId}`, submissionsFolderId);
-    const assignmentFolderId = await driveService.findOrCreateFolder(`Assignment-${assignmentId}`, projectFolderId);
-    const studentFolderId = await driveService.findOrCreateFolder(`Student-${req.user.id}`, assignmentFolderId);
-
-    // Upload file to Google Drive
-    const uploadResult = await driveService.uploadFile(
+    // Upload file to local storage
+    const uploadResult = await localStorageService.uploadFile(
       req.file.buffer,
       req.file.originalname,
       req.file.mimetype,
-      studentFolderId
+      'submissions'
     );
 
     // Create submission record
@@ -227,8 +220,8 @@ exports.deleteSubmission = async (req, res) => {
       }
     }
 
-    // Delete from Google Drive
-    await driveService.deleteFile(submission.driveFileId);
+    // Delete from local storage
+    await localStorageService.deleteFile(submission.driveFileId, 'submissions');
 
     // Delete submission record
     await submission.deleteOne();

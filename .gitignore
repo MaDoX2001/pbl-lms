@@ -10,6 +10,16 @@ yarn-error.log*
 .env.development
 .env.production
 
+# Uploaded files
+uploads/*
+!uploads/.gitkeep
+!uploads/resources/
+!uploads/submissions/
+uploads/resources/*
+!uploads/resources/.gitkeep
+uploads/submissions/*
+!uploads/submissions/.gitkeep
+
 # Google Cloud credentials
 *.json
 !package.json

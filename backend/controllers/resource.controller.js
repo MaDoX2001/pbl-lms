@@ -1,5 +1,5 @@
 const Project = require('../models/Project.model');
-const driveService = require('../services/drive.service');
+const localStorageService = require('../services/localStorage.service');
 
 // @desc    Upload course material (teachers/admins only)
 // @route   POST /api/projects/:projectId/materials
@@ -24,17 +24,12 @@ exports.uploadCourseMaterial = async (req, res) => {
       return res.status(403).json({ message: 'غير مصرح لك بتحميل المواد لهذا المشروع' });
     }
 
-    // Find or create project folder in Drive
-    const rootFolderId = await driveService.findOrCreateFolder('PBL-LMS-Content');
-    const coursesFolderId = await driveService.findOrCreateFolder('Course-Materials', rootFolderId);
-    const projectFolderId = await driveService.findOrCreateFolder(`Project-${projectId}`, coursesFolderId);
-
-    // Upload file to Google Drive
-    const uploadResult = await driveService.uploadFile(
+    // Upload file to local storage
+    const uploadResult = await localStorageService.uploadFile(
       req.file.buffer,
       req.file.originalname,
       req.file.mimetype,
-      projectFolderId
+      'resources'
     );
 
     // Add material to project
@@ -105,8 +100,8 @@ exports.deleteCourseMaterial = async (req, res) => {
       return res.status(404).json({ message: 'المادة غير موجودة' });
     }
 
-    // Delete from Google Drive
-    await driveService.deleteFile(material.driveFileId);
+    // Delete from local storage
+    await localStorageService.deleteFile(material.driveFileId, 'resources');
 
     // Remove from project
     project.courseMaterials.pull(materialId);
