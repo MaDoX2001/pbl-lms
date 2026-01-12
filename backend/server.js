@@ -87,6 +87,7 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     message: 'Server is running',
+    version: '1.0.1',
     timestamp: new Date().toISOString()
   });
 });
