@@ -16,7 +16,7 @@ const apiLimiter = rateLimit({
 // Strict rate limiter for authentication endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 requests per 15 minutes
+  max: 1000, // 1000 requests per 15 minutes (effectively unlimited)
   message: 'عدد محاولات تسجيل الدخول كثير، حاول مرة أخرى لاحقاً',
   standardHeaders: true,
   legacyHeaders: false,
