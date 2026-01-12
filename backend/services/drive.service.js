@@ -23,8 +23,12 @@ class DriveService {
         keyFilePath = path.join(__dirname, '../../', keyFileName);
       }
 
+      console.log('📁 Attempting to load credentials from:', keyFilePath);
+
       const keyFile = await fs.readFile(keyFilePath, 'utf8');
       const credentials = JSON.parse(keyFile);
+
+      console.log('🔑 Credentials loaded, client_email:', credentials.client_email);
 
       // Create JWT auth client
       this.auth = new google.auth.JWT(
@@ -37,9 +41,21 @@ class DriveService {
       // Initialize Drive API
       this.drive = google.drive({ version: 'v3', auth: this.auth });
 
+      // Test the connection by listing files (with limit 1)
+      await this.drive.files.list({
+        pageSize: 1,
+        fields: 'files(id, name)'
+      });
+
       console.log('✅ Google Drive service initialized successfully');
+      return true;
     } catch (error) {
       console.error('❌ Failed to initialize Google Drive service:', error.message);
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        stack: error.stack
+      });
       throw error;
     }
   }

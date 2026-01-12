@@ -24,6 +24,20 @@ exports.uploadCourseMaterial = async (req, res) => {
       return res.status(403).json({ message: 'غير مصرح لك بتحميل المواد لهذا المشروع' });
     }
 
+    // Check if Drive service is initialized
+    if (!driveService.drive) {
+      console.error('Google Drive service not initialized, attempting to initialize...');
+      try {
+        await driveService.initialize();
+      } catch (initError) {
+        console.error('Failed to initialize Drive service:', initError);
+        return res.status(503).json({ 
+          message: 'خدمة Google Drive غير متاحة حالياً. يرجى المحاولة لاحقاً.',
+          error: process.env.NODE_ENV === 'development' ? initError.message : undefined
+        });
+      }
+    }
+
     // Find or create project folder in Drive
     const rootFolderId = await driveService.findOrCreateFolder('PBL-LMS-Content');
     const coursesFolderId = await driveService.findOrCreateFolder('Course-Materials', rootFolderId);
@@ -57,7 +71,11 @@ exports.uploadCourseMaterial = async (req, res) => {
     });
   } catch (error) {
     console.error('Error uploading course material:', error);
-    res.status(500).json({ message: 'خطأ في تحميل المادة' });
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      message: 'خطأ في تحميل المادة',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
