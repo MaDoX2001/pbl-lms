@@ -95,6 +95,26 @@ const userSchema = new mongoose.Schema({
   twoFactorVerified: {
     type: Boolean,
     default: false
+  },
+  emailVerified: {
+    type: Boolean,
+    default: false
+  },
+  emailVerificationOTP: {
+    type: String,
+    select: false
+  },
+  emailVerificationOTPExpires: {
+    type: Date,
+    select: false
+  },
+  passwordResetOTP: {
+    type: String,
+    select: false
+  },
+  passwordResetOTPExpires: {
+    type: Date,
+    select: false
   }
 }, {
   timestamps: true

@@ -23,6 +23,8 @@ import ArduinoSimulatorPage from './pages/ArduinoSimulatorPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import TwoFactorSetupPage from './pages/TwoFactorSetupPage';
 import TwoFactorAuthPage from './pages/TwoFactorAuthPage';
+import EmailVerificationPage from './pages/EmailVerificationPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 
 // Import actions
 import { loadUser } from './redux/slices/authSlice';
@@ -49,6 +51,8 @@ function App() {
           <Route path="/login" element={!isAuthenticated ? <LoginPage /> : <Navigate to="/dashboard" />} />
           <Route path="/register" element={!isAuthenticated ? <RegisterPage /> : <Navigate to="/dashboard" />} />
           <Route path="/signup" element={!isAuthenticated ? <PublicRegisterPage /> : <Navigate to="/dashboard" />} />
+          <Route path="/verify-email" element={<EmailVerificationPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:id" element={<ProjectDetailPage />} />
           <Route path="/leaderboard" element={<LeaderboardPage />} />

@@ -112,8 +112,15 @@ const LoginPage = () => {
             value={formData.password}
             onChange={handleChange}
             required
-            sx={{ mb: 3 }}
+            sx={{ mb: 2 }}
           />
+          
+          <Box sx={{ mb: 2, textAlign: 'right' }}>
+            <Link component={RouterLink} to="/forgot-password" underline="hover" variant="body2">
+              نسيت كلمة المرور؟
+            </Link>
+          </Box>
+          
           <Button
             type="submit"
             fullWidth

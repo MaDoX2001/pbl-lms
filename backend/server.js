@@ -21,6 +21,7 @@ const otpRoutes = require('./routes/otp.routes');
 const invitationRequestRoutes = require('./routes/invitationRequest.routes');
 const resourceRoutes = require('./routes/resource.routes');
 const submissionRoutes = require('./routes/submission.routes');
+const emailVerificationRoutes = require('./routes/emailVerification.routes');
 
 // Import services
 const driveService = require('./services/drive.service');
@@ -79,6 +80,7 @@ app.use('/api/discussions', discussionRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/otp', otpRoutes);
 app.use('/api/invitations', invitationRequestRoutes);
+app.use('/api/email', emailVerificationRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
