@@ -44,6 +44,16 @@ const LoginPage = () => {
     if (result.type === 'auth/login/fulfilled') {
       const payload = result.payload;
       
+      // Handle email verification required
+      if (payload.requiresEmailVerification) {
+        navigate('/verify-email', { 
+          state: { 
+            email: payload.email || formData.email
+          } 
+        });
+        return;
+      }
+      
       // Handle 2FA verification required
       if (payload.requiresOTP || payload.require2FA) {
         navigate('/2fa-verify', { 

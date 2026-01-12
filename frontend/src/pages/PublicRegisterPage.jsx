@@ -71,10 +71,17 @@ const PublicRegisterPage = () => {
 
       if (response.data.success) {
         setSuccess(true);
-        toast.success('تم التسجيل بنجاح! يمكنك تسجيل الدخول الآن');
+        toast.success('تم التسجيل بنجاح! يرجى تفعيل بريدك الإلكتروني');
+        
+        // Send email verification OTP
+        try {
+          await api.post('/email/send-verification-otp', { email: formData.email });
+        } catch (err) {
+          console.error('Failed to send verification email:', err);
+        }
         
         setTimeout(() => {
-          navigate('/login');
+          navigate('/verify-email', { state: { email: formData.email } });
         }, 2000);
       }
     } catch (err) {

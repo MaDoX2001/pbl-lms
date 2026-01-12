@@ -154,6 +154,16 @@ exports.login = async (req, res) => {
       });
     }
 
+    // Check if email is verified (skip for admins)
+    if (user.role !== 'admin' && !user.emailVerified) {
+      return res.status(403).json({
+        success: false,
+        message: 'يرجى تفعيل بريدك الإلكتروني أولاً',
+        requiresEmailVerification: true,
+        email: user.email
+      });
+    }
+
     // Update last login
     user.lastLogin = new Date();
     await user.save();
