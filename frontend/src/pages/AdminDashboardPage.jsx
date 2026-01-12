@@ -159,6 +159,17 @@ function AdminDashboardPage() {
     }
   };
 
+  const handleApproveUser = async (userId) => {
+    try {
+      await api.put(`/admin/approve-user/${userId}`);
+      setSuccessMessage('تم الموافقة على المستخدم');
+      fetchUsers();
+      fetchStats();
+    } catch (error) {
+      setErrorMessage(error.response?.data?.message || 'فشل الموافقة على المستخدم');
+    }
+  };
+
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Typography variant="h4" component="h1" gutterBottom fontWeight={700}>
@@ -271,6 +282,7 @@ function AdminDashboardPage() {
                 <TableCell>الاسم</TableCell>
                 <TableCell>البريد الإلكتروني</TableCell>
                 <TableCell>الدور</TableCell>
+                <TableCell>الحالة</TableCell>
                 <TableCell>تاريخ الانضمام</TableCell>
                 <TableCell>إجراءات</TableCell>
               </TableRow>
@@ -287,16 +299,35 @@ function AdminDashboardPage() {
                       size="small"
                     />
                   </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={user.isApproved ? 'موافق عليه' : 'بانتظار الموافقة'}
+                      color={user.isApproved ? 'success' : 'warning'}
+                      size="small"
+                    />
+                  </TableCell>
                   <TableCell>{new Date(user.createdAt).toLocaleDateString('ar-EG')}</TableCell>
                   <TableCell>
                     {user.role !== 'admin' && (
-                      <IconButton
-                        color="error"
-                        size="small"
-                        onClick={() => handleDeleteUser(user._id)}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
+                      <>
+                        {!user.isApproved && (
+                          <IconButton
+                            color="success"
+                            size="small"
+                            onClick={() => handleApproveUser(user._id)}
+                            title="الموافقة"
+                          >
+                            <CheckIcon />
+                          </IconButton>
+                        )}
+                        <IconButton
+                          color="error"
+                          size="small"
+                          onClick={() => handleDeleteUser(user._id)}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </>
                     )}
                   </TableCell>
                 </TableRow>
