@@ -8,9 +8,13 @@ export const register = createAsyncThunk(
   async (userData, { rejectWithValue }) => {
     try {
       const response = await api.post('/auth/register', userData);
-      localStorage.setItem('token', response.data.data.token);
+      // Only set token if it exists
+      if (response.data.data?.token) {
+        localStorage.setItem('token', response.data.data.token);
+      }
       toast.success('تم التسجيل بنجاح!');
-      return response.data.data;
+      // Return entire response.data to include requiresEmailVerification flag
+      return response.data;
     } catch (error) {
       toast.error(error.response?.data?.message || 'فشل التسجيل');
       return rejectWithValue(error.response?.data);
@@ -23,9 +27,13 @@ export const login = createAsyncThunk(
   async (credentials, { rejectWithValue }) => {
     try {
       const response = await api.post('/auth/login', credentials);
-      localStorage.setItem('token', response.data.data.token);
-      toast.success('تم تسجيل الدخول بنجاح!');
-      return response.data.data;
+      // Only set token if it exists (normal login, not 2FA required)
+      if (response.data.data?.token) {
+        localStorage.setItem('token', response.data.data.token);
+        toast.success('تم تسجيل الدخول بنجاح!');
+      }
+      // Return entire response.data to include requiresOTP, requireSetup flags
+      return response.data;
     } catch (error) {
       toast.error(error.response?.data?.message || 'فشل تسجيل الدخول');
       return rejectWithValue(error.response?.data);
@@ -113,11 +121,16 @@ const authSlice = createSlice({
       })
       .addCase(register.fulfilled, (state, action) => {
         state.loading = false;
+        // Check if email verification is required
+        if (action.payload.requiresEmailVerification) {
+          // Don't set authenticated state yet
+          return;
+        }
         state.isAuthenticated = true;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
+        state.user = action.payload.data?.user;
+        state.token = action.payload.data?.token;
         // Check if setup is required
-        if (action.payload.user.twoFactorSetupRequired) {
+        if (action.payload.data?.user?.twoFactorSetupRequired) {
           state.requireSetup = true;
         }
       })
