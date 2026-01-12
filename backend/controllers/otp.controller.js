@@ -60,7 +60,8 @@ exports.generateOTPSecret = catchAsyncErrors(async (req, res, next) => {
 
 // Verify OTP and Enable 2FA
 exports.enableOTP = catchAsyncErrors(async (req, res, next) => {
-  const { userId, token } = req.body;
+  const { token } = req.body;
+  const userId = req.user._id; // Get from authenticated user
 
   if (!token) {
     return next(new AppError('رمز OTP مطلوب', 400));

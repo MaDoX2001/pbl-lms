@@ -89,8 +89,7 @@ const TwoFactorSetupPage = () => {
 
     try {
       const response = await api.post('/otp/enable', {
-        token: verificationCode,
-        userId: user?.id
+        token: verificationCode
       });
 
       if (response.data.success) {
