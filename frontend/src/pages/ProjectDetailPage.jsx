@@ -127,6 +127,29 @@ const ProjectDetailPage = () => {
     setHomeworkDialogOpen(true);
   };
 
+  const handleDownloadSubmission = async (submissionId, fileName) => {
+    try {
+      const response = await api.get(`/submissions/${submissionId}/download`, {
+        responseType: 'blob'
+      });
+      
+      // Create a blob URL and trigger download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('تم تحميل الملف بنجاح');
+    } catch (error) {
+      toast.error('فشل تحميل الملف');
+      console.error('Download error:', error);
+    }
+  };
+
   const getFileIcon = (fileType) => {
     switch (fileType) {
       case 'video':
@@ -455,6 +478,16 @@ const ProjectDetailPage = () => {
                           disabled={isOverdue && !assignment.allowLateSubmission}
                         >
                           تسليم الواجب
+                        </Button>
+                      )}
+                      {user?.role === 'student' && submission && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<DownloadIcon />}
+                          onClick={() => handleDownloadSubmission(submission._id, submission.fileName)}
+                        >
+                          تحميل التسليم
                         </Button>
                       )}
                       {(user?.role === 'teacher' || user?.role === 'admin') && (
