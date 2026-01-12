@@ -53,7 +53,7 @@ const TwoFactorAuthPage = () => {
     setError('');
 
     try {
-      const response = await api.post('/auth/2fa/verify-login', {
+      const response = await api.post('/otp/verify-login', {
         userId,
         token: verificationCode
       });

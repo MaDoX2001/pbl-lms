@@ -62,11 +62,11 @@ const TwoFactorSetupPage = () => {
     setError('');
     
     try {
-      const response = await api.post('/auth/2fa/setup');
+      const response = await api.post('/otp/generate');
       
       if (response.data.success) {
-        setQrCode(response.data.data.qrCode);
-        setSecret(response.data.data.secret);
+        setQrCode(response.data.qrCode);
+        setSecret(response.data.secret);
         setActiveStep(1);
         toast.success('تم إنشاء رمز QR بنجاح');
       }
@@ -88,8 +88,9 @@ const TwoFactorSetupPage = () => {
     setError('');
 
     try {
-      const response = await api.post('/auth/2fa/verify', {
-        token: verificationCode
+      const response = await api.post('/otp/enable', {
+        token: verificationCode,
+        userId: user?.id
       });
 
       if (response.data.success) {
