@@ -27,7 +27,8 @@ exports.publicRegister = async (req, res) => {
       role: userRole,
       isActive: false, // Inactive until approved
       isApproved: false,
-      approvalStatus: 'pending'
+      approvalStatus: 'pending',
+      twoFactorSetupRequired: true // Require 2FA for all public registrations
     });
 
     res.status(201).json({

@@ -158,9 +158,32 @@ exports.login = async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
 
-    // Check if 2FA is required but not set up
-    if (user.twoFactorSetupRequired && !user.twoFactorEnabled) {
-      // Generate temporary token for 2FA setup
+    // Admin bypass 2FA requirement
+    if (user.role === 'admin') {
+      const token = generateToken(user._id);
+      
+      return res.json({
+        success: true,
+        message: 'تم تسجيل الدخول بنجاح',
+        data: {
+          user: {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            avatar: user.avatar,
+            points: user.points,
+            level: user.level,
+            twoFactorEnabled: false
+          },
+          token
+        }
+      });
+    }
+
+    // For non-admin users: Check if 2FA is set up
+    if (!user.twoFactorEnabled) {
+      // Require 2FA setup for all non-admin users
       const tempToken = generateToken(user._id);
       
       return res.json({
@@ -181,42 +204,18 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Check if 2FA is enabled - require verification
-    if (user.twoFactorEnabled && user.twoFactorVerified) {
-      return res.json({
-        success: true,
-        message: 'يرجى إدخال رمز المصادقة الثنائية',
-        require2FA: true,
-        data: {
-          userId: user._id,
-          user: {
-            id: user._id,
-            name: user.name,
-            email: user.email
-          }
-        }
-      });
-    }
-
-    // If no 2FA, generate token and return
-    const token = generateToken(user._id);
-
-    res.json({
+    // 2FA is enabled - require verification
+    return res.json({
       success: true,
-      message: 'تم تسجيل الدخول بنجاح',
+      message: 'يرجى إدخال رمز المصادقة الثنائية',
+      requiresOTP: true,
       data: {
+        userId: user._id,
         user: {
           id: user._id,
           name: user.name,
-          email: user.email,
-          role: user.role,
-          avatar: user.avatar,
-          points: user.points,
-          level: user.level,
-          twoFactorEnabled: user.twoFactorEnabled,
-          twoFactorSetupRequired: user.twoFactorSetupRequired
-        },
-        token
+          email: user.email
+        }
       }
     });
   } catch (error) {
