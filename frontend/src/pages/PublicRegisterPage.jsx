@@ -1,5 +1,20 @@
 import React, { useState } from 'react';
-import { Box, Paper, TextField, Button, Typography, Alert, Link } from '@mui/material';
+import {
+  Box,
+  Paper,
+  TextField,
+  Button,
+  Typography,
+  Alert,
+  Link,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  IconButton,
+  InputAdornment
+} from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { toast } from 'react-toastify';
@@ -15,7 +30,11 @@ const PublicRegisterPage = () => {
     email: '',
     password: '',
     confirmPassword: '',
+    role: 'student',
   });
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
@@ -46,7 +65,8 @@ const PublicRegisterPage = () => {
       const response = await api.post('/auth/public-register', {
         name: formData.name,
         email: formData.email,
-        password: formData.password
+        password: formData.password,
+        role: formData.role
       });
 
       if (response.data.success) {
@@ -142,25 +162,62 @@ const PublicRegisterPage = () => {
             required
             sx={{ mb: 2 }}
           />
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel>اختر دورك *</InputLabel>
+            <Select
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              label="اختر دورك *"
+              required
+            >
+              <MenuItem value="student">طالب</MenuItem>
+              <MenuItem value="teacher">معلم</MenuItem>
+            </Select>
+          </FormControl>
           <TextField
             fullWidth
             label="كلمة المرور"
             name="password"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             value={formData.password}
             onChange={handleChange}
             required
             sx={{ mb: 2 }}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    onClick={() => setShowPassword(!showPassword)}
+                    edge="end"
+                  >
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
           />
           <TextField
             fullWidth
             label="تأكيد كلمة المرور"
             name="confirmPassword"
-            type="password"
+            type={showConfirmPassword ? 'text' : 'password'}
             value={formData.confirmPassword}
             onChange={handleChange}
             required
             sx={{ mb: 3 }}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    edge="end"
+                  >
+                    {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
           />
           <Button
             type="submit"
