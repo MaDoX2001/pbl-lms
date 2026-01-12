@@ -22,7 +22,7 @@ const sendBrevoEmail = async (to, subject, htmlContent) => {
       {
         sender: {
           name: 'منصة التعلم بالمشروعات',
-          email: 'maaadooo2001@gmail.com'
+          email: 'mohamed31013026@science.tanta.edu.eg'
         },
         to: [{ email: to }],
         subject: subject,
