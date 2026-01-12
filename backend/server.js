@@ -24,7 +24,7 @@ const submissionRoutes = require('./routes/submission.routes');
 const emailVerificationRoutes = require('./routes/emailVerification.routes');
 
 // Import services
-const localStorageService = require('./services/localStorage.service');
+const driveService = require('./services/drive.service');
 
 // Import middleware
 const { apiLimiter, authLimiter } = require('./middleware/rateLimiter');
@@ -50,9 +50,6 @@ app.use(morgan('dev')); // Logging
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 
-// Serve uploaded files statically
-app.use('/uploads', express.static(require('path').join(__dirname, '../uploads')));
-
 // Apply rate limiting
 app.use('/api/', apiLimiter); // General API rate limit
 app.use('/api/auth/login', authLimiter); // Strict auth rate limit
@@ -62,11 +59,11 @@ app.use('/api/auth/register', authLimiter); // Strict auth rate limit
 mongoose.connect(process.env.MONGODB_URI)
 .then(async () => {
   console.log('✅ MongoDB متصل بنجاح');
-  // Initialize Local Storage service
+  // Initialize Google Drive service
   try {
-    await localStorageService.initialize();
+    await driveService.initialize();
   } catch (error) {
-    console.error('⚠️  تحذير: فشل تهيئة خدمة التخزين المحلي');
+    console.error('⚠️  تحذير: فشل تهيئة خدمة Google Drive');
   }
 })
 .catch((err) => console.error('❌ خطأ في الاتصال بقاعدة البيانات:', err));

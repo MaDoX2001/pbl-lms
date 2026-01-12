@@ -1,6 +1,6 @@
 const Submission = require('../models/Submission.model');
 const Project = require('../models/Project.model');
-const localStorageService = require('../services/localStorage.service');
+const driveService = require('../services/drive.service');
 
 // @desc    Submit homework (students only)
 // @route   POST /api/projects/:projectId/assignments/:assignmentId/submit
@@ -62,12 +62,19 @@ exports.submitHomework = async (req, res) => {
       return res.status(400).json({ message: 'تم تسليم المهمة مسبقاً. لا يمكن إعادة التسليم' });
     }
 
-    // Upload file to local storage
-    const uploadResult = await localStorageService.uploadFile(
+    // Find or create submissions folder in Drive
+    const rootFolderId = await driveService.findOrCreateFolder('PBL-LMS-Content');
+    const submissionsFolderId = await driveService.findOrCreateFolder('Student-Submissions', rootFolderId);
+    const projectFolderId = await driveService.findOrCreateFolder(`Project-${projectId}`, submissionsFolderId);
+    const assignmentFolderId = await driveService.findOrCreateFolder(`Assignment-${assignmentId}`, projectFolderId);
+    const studentFolderId = await driveService.findOrCreateFolder(`Student-${req.user.id}`, assignmentFolderId);
+
+    // Upload file to Google Drive
+    const uploadResult = await driveService.uploadFile(
       req.file.buffer,
       req.file.originalname,
       req.file.mimetype,
-      'submissions'
+      studentFolderId
     );
 
     // Create submission record
@@ -220,8 +227,8 @@ exports.deleteSubmission = async (req, res) => {
       }
     }
 
-    // Delete from local storage
-    await localStorageService.deleteFile(submission.driveFileId, 'submissions');
+    // Delete from Google Drive
+    await driveService.deleteFile(submission.driveFileId);
 
     // Delete submission record
     await submission.deleteOne();
@@ -230,5 +237,46 @@ exports.deleteSubmission = async (req, res) => {
   } catch (error) {
     console.error('Error deleting submission:', error);
     res.status(500).json({ message: 'خطأ في حذف التسليم' });
+  }
+};
+
+// @desc    Download a submission file
+// @route   GET /api/submissions/:submissionId/download
+// @access  Private
+exports.downloadSubmission = async (req, res) => {
+  try {
+    const { submissionId } = req.params;
+
+    const submission = await Submission.findById(submissionId);
+    if (!submission) {
+      return res.status(404).json({ message: 'التسليم غير موجود' });
+    }
+
+    // Check permissions: student can download own submission, teacher/admin can download any
+    const project = await Project.findById(submission.assignment.projectId);
+    if (!project) {
+      return res.status(404).json({ message: 'المشروع غير موجود' });
+    }
+
+    const isOwner = submission.student.toString() === req.user.id;
+    const isInstructor = project.instructor.toString() === req.user.id;
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isOwner && !isInstructor && !isAdmin) {
+      return res.status(403).json({ message: 'غير مصرح لك بتحميل هذا الملف' });
+    }
+
+    // Get file from Google Drive
+    const fileStream = await driveService.downloadFile(submission.driveFileId);
+
+    // Set headers for download
+    res.setHeader('Content-Type', submission.fileType);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(submission.fileName)}"`);
+
+    // Pipe the file stream to response
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error('Error downloading submission:', error);
+    res.status(500).json({ message: 'خطأ في تحميل الملف' });
   }
 };

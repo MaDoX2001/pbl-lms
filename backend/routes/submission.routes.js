@@ -7,7 +7,8 @@ const {
   getAssignmentSubmissions,
   getMySubmissions,
   gradeSubmission,
-  deleteSubmission
+  deleteSubmission,
+  downloadSubmission
 } = require('../controllers/submission.controller');
 
 // Configure multer for memory storage
@@ -27,5 +28,8 @@ router.get('/projects/:projectId/my-submissions', protect, getMySubmissions);
 router.get('/projects/:projectId/assignments/:assignmentId/submissions', protect, getAssignmentSubmissions);
 router.put('/:submissionId/grade', protect, gradeSubmission);
 router.delete('/:submissionId', protect, deleteSubmission);
+
+// Download route (student, teacher, admin)
+router.get('/:submissionId/download', protect, downloadSubmission);
 
 module.exports = router;
