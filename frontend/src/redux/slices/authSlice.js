@@ -132,24 +132,24 @@ const authSlice = createSlice({
       })
       .addCase(login.fulfilled, (state, action) => {
         state.loading = false;
-        // Check if 2FA verification is required (backend sends requiresOTP)
-        if (action.payload.require2FA || action.payload.requiresOTP) {
+        // Check if 2FA verification is required (backend sends requiresOTP at root level)
+        if (action.payload.requiresOTP || action.payload.require2FA) {
           state.require2FA = true;
-          state.tempUserId = action.payload.userId;
+          state.tempUserId = action.payload.data?.userId;
           return;
         }
         // Check if 2FA setup is required
         if (action.payload.requireSetup) {
           state.requireSetup = true;
           state.isAuthenticated = true;
-          state.user = action.payload.user;
-          state.token = action.payload.token;
+          state.user = action.payload.data?.user;
+          state.token = action.payload.data?.token;
           return;
         }
         // Normal login
         state.isAuthenticated = true;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
+        state.user = action.payload.data?.user;
+        state.token = action.payload.data?.token;
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;

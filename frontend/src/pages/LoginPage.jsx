@@ -45,7 +45,7 @@ const LoginPage = () => {
       const payload = result.payload;
       
       // Handle 2FA verification required
-      if (payload.require2FA) {
+      if (payload.requiresOTP || payload.require2FA) {
         navigate('/2fa-verify', { 
           state: { 
             userId: payload.data?.userId,
@@ -58,8 +58,8 @@ const LoginPage = () => {
       // Handle 2FA setup required
       if (payload.requireSetup) {
         dispatch(setSetupRequired({
-          token: payload.data.token,
-          user: payload.data.user
+          token: payload.data?.token,
+          user: payload.data?.user
         }));
         navigate('/2fa-setup');
         return;
