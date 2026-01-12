@@ -7,28 +7,12 @@ import { login, setSetupRequired } from '../redux/slices/authSlice';
 const LoginPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { loading, error, require2FA, requireSetup, tempUserId, user } = useSelector((state) => state.auth);
+  const { loading, error } = useSelector((state) => state.auth);
 
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
-
-  useEffect(() => {
-    // Redirect to 2FA verification if required
-    if (require2FA && tempUserId) {
-      navigate('/2fa-verify', { 
-        state: { 
-          userId: tempUserId,
-          userName: user?.name 
-        } 
-      });
-    }
-    // Redirect to 2FA setup if required
-    else if (requireSetup) {
-      navigate('/2fa-setup');
-    }
-  }, [require2FA, requireSetup, tempUserId, user, navigate]);
 
   const handleChange = (e) => {
     setFormData({
