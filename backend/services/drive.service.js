@@ -64,22 +64,38 @@ class DriveService {
         auth: this.auth 
       });
 
-      // Self-test: Try to list files to verify authentication
-      console.log('🔍 Testing Drive API authentication...');
+      // CRITICAL: Test Shared Drive access
+      console.log('🔍 Testing Shared Drive access...');
       await this.drive.files.list({
         pageSize: 1,
+        corpora: 'drive',
+        driveId: this.sharedDriveId,
+        includeItemsFromAllDrives: true,
+        supportsAllDrives: true,
         fields: 'files(id, name)'
       });
 
       this.initialized = true;
-      console.log('✅ Drive authenticated successfully');
+      console.log('✅ Google Drive service initialized successfully');
+      console.log(`📂 Using Shared Drive: ${this.sharedDriveId}`);
       return true;
     } catch (error) {
-      console.error('❌ Drive initialization failed:', error.message);
-      if (error.response?.data) {
-        console.error('API Error:', error.response.data);
+      console.error('❌ FATAL: Failed to initialize Google Drive service');
+      console.error('Error:', error.message);
+      console.error('Code:', error.code);
+      
+      if (error.code === 403) {
+        console.error('⚠️  403 Forbidden: Service account lacks access to Shared Drive');
+        console.error(`   → Shared Drive ID: ${this.sharedDriveId}`);
+      } else if (error.code === 404) {
+        console.error('⚠️  404 Not Found: Shared Drive does not exist');
+        console.error(`   → Verify Shared Drive ID: ${this.sharedDriveId}`);
       }
-      throw new Error(`Drive init failed: ${error.message}`);
+      
+      throw new Error(
+        `Drive initialization failed: ${error.message}. ` +
+        'Application cannot start without Drive access.'
+      );
     }
   }
 
@@ -93,62 +109,80 @@ class DriveService {
     this._ensureInitialized();
     
     try {
-      // Search for existing folder
-      let query;
+      // Default parent is Shared Drive root
+      const parentId = parentFolderId || this.sharedDriveId;
       
-      if (!parentFolderId && folderName === 'PBL-LMS-Content') {
-        // Special case: Root folder must be shared with service account
-        query = `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false and sharedWithMe=true`;
-      } else if (parentFolderId) {
-        query = `name='${folderName}' and '${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
-      } else {
-        query = `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
-      }
+      // Search within Shared Drive scope ONLY
+      const query = `name='${folderName.replace(/'/g, "\\'")}'  and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
 
       const response = await this.drive.files.list({
         q: query,
-        fields: 'files(id, name)',
-        spaces: 'drive',
+        corpora: 'drive',
+        driveId: this.sharedDriveId,
+        includeItemsFromAllDrives: true,
         supportsAllDrives: true,
-        includeItemsFromAllDrives: true
+        fields: 'files(id, name, parents)',
+        pageSize: 10
       });
 
-      if (response.data.files.length > 0) {
+      // Folder exists - return its ID (idempotent)
+      if (response.data.files && response.data.files.length > 0) {
         console.log(`📁 Found folder: ${folderName} (${response.data.files[0].id})`);
         return response.data.files[0].id;
       }
 
-      // If it's the root PBL-LMS-Content folder and not found, throw error
-      if (!parentFolderId && folderName === 'PBL-LMS-Content') {
-        throw new Error('PBL-LMS-Content folder not found. Please share it with the service account: pbl-lms-drive-service@pbl-lms.iam.gserviceaccount.com');
-      }
-
-      // Create subfolder if not exists (only works inside shared folders)
+      // Create new folder in Shared Drive
       const fileMetadata = {
         name: folderName,
-        mimeType: 'application/vnd.google-apps.folder'
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [parentId]
       };
-
-      if (parentFolderId) {
-        fileMetadata.parents = [parentFolderId];
-      }
 
       const folder = await this.drive.files.create({
         resource: fileMetadata,
-        fields: 'id',
+        fields: 'id, name',
         supportsAllDrives: true
       });
 
-      console.log(`📁 Created folder: ${folderName} (${folder.data.id})`);
+      console.log(`📁 Created folder in Shared Drive: ${folderName} (${folder.data.id})`);
       return folder.data.id;
     } catch (error) {
-      console.error('Error creating folder:', error.message);
-      throw error;
+      const enrichedError = new Error(`Failed to find/create folder "${folderName}": ${error.message}`);
+      enrichedError.code = error.code;
+      enrichedError.folderName = folderName;
+      
+      if (error.code === 403) {
+        console.error(`⚠️  403 Forbidden: Cannot create folder "${folderName}"`);
+      }
+      console.error('Folder operation failed:', enrichedError.message);
+      throw enrichedError;
     }
   }
 
   async uploadFile(fileBuffer, fileName, mimeType, folderId) {
     this._ensureInitialized();
+    
+    // Input validation - fail fast
+    if (!fileBuffer || fileBuffer.length === 0) {
+      throw new Error('Upload failed: File buffer is empty');
+    }
+    if (!fileName || fileName.trim().length === 0) {
+      throw new Error('Upload failed: File name is required');
+    }
+    if (!mimeType) {
+      throw new Error('Upload failed: MIME type is required');
+    }
+    if (!folderId) {
+      throw new Error('Upload failed: Folder ID is required');
+    }
+    
+    // File size limit (100MB)
+    const MAX_FILE_SIZE = 100 * 1024 * 1024;
+    if (fileBuffer.length > MAX_FILE_SIZE) {
+      throw new Error(
+        `Upload failed: File size ${(fileBuffer.length / 1024 / 1024).toFixed(2)}MB exceeds limit`
+      );
+    }
     
     try {
       const fileMetadata = {
@@ -168,17 +202,21 @@ class DriveService {
         supportsAllDrives: true
       });
 
-      // Make file accessible to anyone with the link
-      await this.drive.permissions.create({
-        fileId: file.data.id,
-        requestBody: {
-          role: 'reader',
-          type: 'anyone'
-        },
-        supportsAllDrives: true
-      });
+      // Set public permissions
+      try {
+        await this.drive.permissions.create({
+          fileId: file.data.id,
+          requestBody: {
+            role: 'reader',
+            type: 'anyone'
+          },
+          supportsAllDrives: true
+        });
+      } catch (permError) {
+        console.warn(`⚠️  Could not set permissions on ${file.data.id}:`, permError.message);
+      }
 
-      console.log(`📤 Uploaded file: ${fileName} (${file.data.id})`);
+      console.log(`📤 Uploaded: ${fileName} (${file.data.id}) - ${(file.data.size / 1024).toFixed(2)} KB`);
 
       return {
         fileId: file.data.id,
@@ -188,23 +226,42 @@ class DriveService {
         size: file.data.size
       };
     } catch (error) {
-      console.error('Error uploading file:', error.message);
-      throw error;
+      const enrichedError = new Error(`Upload failed for "${fileName}": ${error.message}`);
+      enrichedError.code = error.code;
+      enrichedError.fileName = fileName;
+      
+      if (error.code === 403) {
+        console.error(`⚠️  403 Forbidden: Cannot upload "${fileName}"`);
+      } else if (error.code === 429) {
+        console.error(`⚠️  429 Rate Limit: Quota exceeded`);
+      }
+      
+      console.error('Upload error:', enrichedError.message);
+      throw enrichedError;
     }
   }
 
   async deleteFile(fileId) {
     this._ensureInitialized();
     
+    if (!fileId) {
+      throw new Error('Delete failed: File ID is required');
+    }
+    
     try {
       await this.drive.files.delete({
-        fileId: fileId
+        fileId: fileId,
+        supportsAllDrives: true
       });
-      console.log(`🗑️  Deleted file: ${fileId}`);
+      console.log(`🗑️  Deleted: ${fileId}`);
       return true;
     } catch (error) {
-      console.error('Error deleting file:', error.message);
-      throw error;
+      if (error.code === 404) {
+        console.warn(`⚠️  File ${fileId} not found - may already be deleted`);
+        return true; // Idempotent
+      }
+      console.error(`Delete failed for ${fileId}:`, error.message);
+      throw new Error(`Delete failed: ${error.message}`);
     }
   }
 
@@ -214,12 +271,15 @@ class DriveService {
     try {
       const file = await this.drive.files.get({
         fileId: fileId,
-        fields: 'id, name, mimeType, size, webViewLink, webContentLink, createdTime'
+        fields: 'id, name, mimeType, size, webViewLink, webContentLink, createdTime, parents',
+        supportsAllDrives: true
       });
       return file.data;
     } catch (error) {
-      console.error('Error getting file:', error.message);
-      throw error;
+      if (error.code === 404) {
+        throw new Error(`File ${fileId} not found in Shared Drive`);
+      }
+      throw new Error(`Failed to get file ${fileId}: ${error.message}`);
     }
   }
 
@@ -230,14 +290,17 @@ class DriveService {
       const response = await this.drive.files.get(
         {
           fileId: fileId,
-          alt: 'media'
+          alt: 'media',
+          supportsAllDrives: true
         },
         { responseType: 'stream' }
       );
       return response.data;
     } catch (error) {
-      console.error('Error downloading file:', error.message);
-      throw error;
+      if (error.code === 404) {
+        throw new Error(`File ${fileId} not found in Shared Drive`);
+      }
+      throw new Error(`Download failed for ${fileId}: ${error.message}`);
     }
   }
 }
