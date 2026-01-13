@@ -39,7 +39,7 @@ class DriveService {
         keyFilePath = path.join(__dirname, '../../', keyFileName);
       }
 
-      console.log('📁 Loading credentials from:', keyFilePath);
+      console.log('� Loading credentials from:', keyFilePath);
 
       const keyFile = await fs.readFile(keyFilePath, 'utf8');
       const credentials = JSON.parse(keyFile);

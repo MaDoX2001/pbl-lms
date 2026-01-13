@@ -27,13 +27,18 @@ const submissionSchema = new mongoose.Schema({
   },
   fileType: String,
   fileSize: Number, // in bytes
-  driveFileId: {
+  cloudinaryId: {
     type: String,
     required: true
   },
-  driveFileUrl: {
+  fileUrl: {
     type: String,
     required: true
+  },
+  resourceType: {
+    type: String,
+    enum: ['image', 'video', 'raw'],
+    default: 'raw'
   },
   comments: String,
   submittedAt: {

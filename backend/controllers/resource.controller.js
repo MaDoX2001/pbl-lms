@@ -1,5 +1,5 @@
 const Project = require('../models/Project.model');
-const driveService = require('../services/drive.service');
+const cloudinaryService = require('../services/cloudinary.service');
 
 // @desc    Upload course material (teachers/admins only)
 // @route   POST /api/projects/:projectId/materials
@@ -24,17 +24,12 @@ exports.uploadCourseMaterial = async (req, res) => {
       return res.status(403).json({ message: 'غير مصرح لك بتحميل المواد لهذا المشروع' });
     }
 
-    // Find or create project folder in Drive
-    const rootFolderId = await driveService.findOrCreateFolder('PBL-LMS-Content');
-    const coursesFolderId = await driveService.findOrCreateFolder('Course-Materials', rootFolderId);
-    const projectFolderId = await driveService.findOrCreateFolder(`Project-${projectId}`, coursesFolderId);
-
-    // Upload file to Google Drive
-    const uploadResult = await driveService.uploadFile(
+    // Upload file to Cloudinary
+    const folder = `pbl-lms/course-materials/project-${projectId}`;
+    const uploadResult = await cloudinaryService.uploadFile(
       req.file.buffer,
       req.file.originalname,
-      req.file.mimetype,
-      projectFolderId
+      folder
     );
 
     // Add material to project
@@ -42,8 +37,8 @@ exports.uploadCourseMaterial = async (req, res) => {
       title: title || req.file.originalname,
       description: description || '',
       fileType: fileType || getFileTypeFromMime(req.file.mimetype),
-      driveFileId: uploadResult.fileId,
-      driveFileUrl: uploadResult.webViewLink,
+      cloudinaryId: uploadResult.fileId,
+      fileUrl: uploadResult.url,
       size: uploadResult.size,
       uploadedBy: req.user.id
     };
@@ -109,8 +104,8 @@ exports.deleteCourseMaterial = async (req, res) => {
       return res.status(404).json({ message: 'المادة غير موجودة' });
     }
 
-    // Delete from Google Drive
-    await driveService.deleteFile(material.driveFileId);
+    // Delete from Cloudinary
+    await cloudinaryService.deleteFile(material.cloudinaryId, material.resourceType || 'raw');
 
     // Remove from project
     project.courseMaterials.pull(materialId);

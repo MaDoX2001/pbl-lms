@@ -92,13 +92,18 @@ const projectSchema = new mongoose.Schema({
       enum: ['video', 'pdf', 'document', 'image', 'zip', 'other'],
       required: true
     },
-    driveFileId: {
+    cloudinaryId: {
       type: String,
       required: true
     },
-    driveFileUrl: {
+    fileUrl: {
       type: String,
       required: true
+    },
+    resourceType: {
+      type: String,
+      enum: ['image', 'video', 'raw'],
+      default: 'raw'
     },
     size: Number, // in bytes
     uploadedBy: {

@@ -1,6 +1,6 @@
 const Submission = require('../models/Submission.model');
 const Project = require('../models/Project.model');
-const driveService = require('../services/drive.service');
+const cloudinaryService = require('../services/cloudinary.service');
 
 // @desc    Submit homework (students only)
 // @route   POST /api/projects/:projectId/assignments/:assignmentId/submit
@@ -62,19 +62,12 @@ exports.submitHomework = async (req, res) => {
       return res.status(400).json({ message: 'تم تسليم المهمة مسبقاً. لا يمكن إعادة التسليم' });
     }
 
-    // Find or create submissions folder in Drive
-    const rootFolderId = await driveService.findOrCreateFolder('PBL-LMS-Content');
-    const submissionsFolderId = await driveService.findOrCreateFolder('Student-Submissions', rootFolderId);
-    const projectFolderId = await driveService.findOrCreateFolder(`Project-${projectId}`, submissionsFolderId);
-    const assignmentFolderId = await driveService.findOrCreateFolder(`Assignment-${assignmentId}`, projectFolderId);
-    const studentFolderId = await driveService.findOrCreateFolder(`Student-${req.user.id}`, assignmentFolderId);
-
-    // Upload file to Google Drive
-    const uploadResult = await driveService.uploadFile(
+    // Upload file to Cloudinary
+    const folder = `pbl-lms/submissions/project-${projectId}/assignment-${assignmentId}/student-${req.user.id}`;
+    const uploadResult = await cloudinaryService.uploadFile(
       req.file.buffer,
       req.file.originalname,
-      req.file.mimetype,
-      studentFolderId
+      folder
     );
 
     // Create submission record
@@ -88,8 +81,8 @@ exports.submitHomework = async (req, res) => {
       fileName: req.file.originalname,
       fileType: req.file.mimetype,
       fileSize: req.file.size,
-      driveFileId: uploadResult.fileId,
-      driveFileUrl: uploadResult.webViewLink,
+      cloudinaryId: uploadResult.fileId,
+      fileUrl: uploadResult.url,
       comments: comments || '',
       isLate
     });
@@ -231,8 +224,8 @@ exports.deleteSubmission = async (req, res) => {
       }
     }
 
-    // Delete from Google Drive
-    await driveService.deleteFile(submission.driveFileId);
+    // Delete from Cloudinary
+    await cloudinaryService.deleteFile(submission.cloudinaryId, submission.resourceType || 'raw');
 
     // Delete submission record
     await submission.deleteOne();
@@ -270,15 +263,9 @@ exports.downloadSubmission = async (req, res) => {
       return res.status(403).json({ message: 'غير مصرح لك بتحميل هذا الملف' });
     }
 
-    // Get file from Google Drive
-    const fileStream = await driveService.downloadFile(submission.driveFileId);
-
-    // Set headers for download
-    res.setHeader('Content-Type', submission.fileType);
-    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(submission.fileName)}"`);
-
-    // Pipe the file stream to response
-    fileStream.pipe(res);
+    // Redirect to Cloudinary download URL
+    const downloadUrl = cloudinaryService.getDownloadUrl(submission.cloudinaryId, submission.resourceType || 'raw');
+    res.redirect(downloadUrl);
   } catch (error) {
     console.error('Error downloading submission:', error);
     res.status(500).json({ message: 'خطأ في تحميل الملف' });

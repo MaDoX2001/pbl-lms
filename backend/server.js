@@ -24,7 +24,7 @@ const submissionRoutes = require('./routes/submission.routes');
 const emailVerificationRoutes = require('./routes/emailVerification.routes');
 
 // Import services
-const driveService = require('./services/drive.service');
+const cloudinaryService = require('./services/cloudinary.service');
 
 // Import middleware
 const { apiLimiter, authLimiter } = require('./middleware/rateLimiter');
@@ -62,16 +62,16 @@ app.use('/api/auth/register', authLimiter); // Strict auth rate limit
 mongoose.connect(process.env.MONGODB_URI)
 .then(async () => {
   console.log('✅ MongoDB متصل بنجاح');
-  // Initialize Google Drive service - non-blocking
+  // Initialize Cloudinary service - non-blocking
   try {
-    const initialized = await driveService.initialize();
+    const initialized = await cloudinaryService.initialize();
     if (initialized) {
-      console.log('✅ Google Drive service ready for use');
+      console.log('✅ Cloudinary service ready for use');
     } else {
-      console.warn('⚠️  Google Drive service not available - file uploads will fail');
+      console.warn('⚠️  Cloudinary service not available - file uploads will fail');
     }
   } catch (error) {
-    console.error('⚠️  Failed to initialize Google Drive service');
+    console.error('⚠️  Failed to initialize Cloudinary service');
     console.error('Error:', error.message);
     console.warn('⚠️  Server will continue, but file uploads will not work');
   }
