@@ -7,6 +7,7 @@ class DriveService {
     this.auth = null;
     this.drive = null;
     this.initialized = false;
+    this.rootFolderId = null; // Service account's root folder
   }
 
   /**
@@ -64,6 +65,11 @@ class DriveService {
         fields: 'files(id, name)'
       });
 
+      // Create/find root folder owned by service account
+      console.log('📁 Setting up PBL-LMS-Content folder...');
+      this.rootFolderId = await this._createOrFindRootFolder();
+      console.log(`✅ Root folder ready: ${this.rootFolderId}`);
+
       this.initialized = true;
       console.log('✅ Google Drive service initialized successfully');
       return true;
@@ -89,14 +95,62 @@ class DriveService {
     }
   }
 
+  async _createOrFindRootFolder() {
+    const folderName = 'PBL-LMS-Content';
+    
+    try {
+      // Search for existing folder owned by service account
+      const query = `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+      const response = await this.drive.files.list({
+        q: query,
+        fields: 'files(id, name)',
+        pageSize: 1
+      });
+
+      if (response.data.files && response.data.files.length > 0) {
+        const folderId = response.data.files[0].id;
+        console.log(`📁 Found existing root folder: ${folderName} (${folderId})`);
+        return folderId;
+      }
+
+      // Create new folder owned by service account
+      const fileMetadata = {
+        name: folderName,
+        mimeType: 'application/vnd.google-apps.folder'
+      };
+
+      const folder = await this.drive.files.create({
+        resource: fileMetadata,
+        fields: 'id, name'
+      });
+
+      // Make folder accessible to anyone with link (for teachers/students to view)
+      await this.drive.permissions.create({
+        fileId: folder.data.id,
+        requestBody: {
+          role: 'reader',
+          type: 'anyone'
+        }
+      });
+
+      console.log(`📁 Created new root folder: ${folderName} (${folder.data.id})`);
+      return folder.data.id;
+    } catch (error) {
+      throw new Error(`Failed to create/find root folder: ${error.message}`);
+    }
+  }
+
   async findOrCreateFolder(folderName, parentFolderId = null) {
     this._ensureInitialized();
     
     try {
-      // Build query based on whether parent is specified
+      // Use root folder as default parent if none specified
+      const actualParentId = parentFolderId || this.rootFolderId;
+      
+      // Build query
       let query;
-      if (parentFolderId) {
-        query = `name='${folderName.replace(/'/g, "\\'")}' and '${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+      if (actualParentId) {
+        query = `name='${folderName.replace(/'/g, "\\'")}' and '${actualParentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
       } else {
         query = `name='${folderName.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
       }
@@ -120,9 +174,9 @@ class DriveService {
         mimeType: 'application/vnd.google-apps.folder'
       };
       
-      // Only set parent if specified
-      if (parentFolderId) {
-        fileMetadata.parents = [parentFolderId];
+      // Set parent
+      if (actualParentId) {
+        fileMetadata.parents = [actualParentId];
       }
 
       const folder = await this.drive.files.create({
