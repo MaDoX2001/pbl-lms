@@ -6,6 +6,7 @@ const {
   uploadCourseMaterial,
   getCourseMaterials,
   deleteCourseMaterial,
+  downloadCourseMaterial,
   createAssignment,
   getAssignments,
   deleteAssignment
@@ -23,6 +24,7 @@ const upload = multer({
 // Course materials routes
 router.post('/:projectId/materials', protect, upload.single('file'), uploadCourseMaterial);
 router.get('/:projectId/materials', protect, getCourseMaterials);
+router.get('/:projectId/materials/:materialId/download', protect, downloadCourseMaterial);
 router.delete('/:projectId/materials/:materialId', protect, deleteCourseMaterial);
 
 // Assignment routes
