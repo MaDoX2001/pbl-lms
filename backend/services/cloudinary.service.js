@@ -102,7 +102,7 @@ class CloudinaryService {
       const result = await new Promise((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
           {
-            folder: `pbl-lms/${folder}`,
+            folder: folder, // Don't add pbl-lms prefix, it's already in folder param
             resource_type: resourceType,
             public_id: fileName, // Keep full filename with extension
             use_filename: true,
@@ -119,10 +119,21 @@ class CloudinaryService {
 
       console.log(`📤 Uploaded: ${fileName} (${result.public_id}) - ${(result.bytes / 1024).toFixed(2)} KB`);
 
+      // Generate downloadable URL for raw files (documents)
+      let downloadUrl = result.secure_url;
+      if (resourceType === 'raw') {
+        // Add fl_attachment flag to force download with correct filename
+        downloadUrl = cloudinary.url(result.public_id, {
+          resource_type: 'raw',
+          flags: 'attachment',
+          secure: true
+        });
+      }
+
       return {
         fileId: result.public_id,
         fileName: fileName,
-        url: result.secure_url,
+        url: downloadUrl, // Use download URL for raw files
         format: result.format,
         resourceType: result.resource_type,
         size: result.bytes
