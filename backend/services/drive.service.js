@@ -155,10 +155,10 @@ class DriveService {
       throw error;
     }
   }
-his._ensureInitialized();
-    
-    t
+
   async deleteFile(fileId) {
+    this._ensureInitialized();
+    
     try {
       await this.drive.files.delete({
         fileId: fileId
@@ -168,12 +168,12 @@ his._ensureInitialized();
     } catch (error) {
       console.error('Error deleting file:', error.message);
       throw error;
-    }his._ensureInitialized();
-    
-    t
+    }
   }
 
   async getFile(fileId) {
+    this._ensureInitialized();
+    
     try {
       const file = await this.drive.files.get({
         fileId: fileId,
@@ -183,12 +183,12 @@ his._ensureInitialized();
     } catch (error) {
       console.error('Error getting file:', error.message);
       throw error;
-    }his._ensureInitialized();
-    
-    t
+    }
   }
 
   async downloadFile(fileId) {
+    this._ensureInitialized();
+    
     try {
       const response = await this.drive.files.get(
         {
