@@ -111,10 +111,10 @@ class DriveService {
       throw error;
     }
   }
-his._ensureInitialized();
-    
-    t
+
   async uploadFile(fileBuffer, fileName, mimeType, folderId) {
+    this._ensureInitialized();
+    
     try {
       const fileMetadata = {
         name: fileName,
