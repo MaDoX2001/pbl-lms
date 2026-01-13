@@ -279,14 +279,14 @@ class DriveService {
       const response = await this.drive.files.get(
         {
           fileId: fileId,
-          alt: 'media',
-          supportsAllD
+          alt: 'media'
+        },
         { responseType: 'stream' }
       );
       return response.data;
     } catch (error) {
       if (error.code === 404) {
-        throw new Error(`File ${fileId} not found in Shared Drive`);
+        throw new Error(`File ${fileId} not found`);
       }
       throw new Error(`Download failed for ${fileId}: ${error.message}`);
     }
