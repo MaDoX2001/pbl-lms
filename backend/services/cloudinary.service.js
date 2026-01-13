@@ -12,6 +12,12 @@ class CloudinaryService {
     }
 
     try {
+      // Log environment variables (masked)
+      console.log('🔑 Cloudinary credentials check:');
+      console.log('  CLOUD_NAME:', process.env.CLOUDINARY_CLOUD_NAME ? '✓' : '✗');
+      console.log('  API_KEY:', process.env.CLOUDINARY_API_KEY ? '✓' : '✗');
+      console.log('  API_SECRET:', process.env.CLOUDINARY_API_SECRET ? '✓' : '✗');
+
       // Configure Cloudinary with environment variables
       cloudinary.config({
         cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -27,6 +33,7 @@ class CloudinaryService {
       }
 
       // Test connection by fetching usage stats
+      console.log('🔍 Testing Cloudinary API connection...');
       await cloudinary.api.usage();
 
       this.initialized = true;
@@ -35,7 +42,9 @@ class CloudinaryService {
       return true;
     } catch (error) {
       console.error('❌ Failed to initialize Cloudinary service');
-      console.error('Error:', error.message);
+      console.error('Error message:', error.message || 'undefined');
+      console.error('Error code:', error.http_code || 'N/A');
+      console.error('Full error:', JSON.stringify(error, null, 2));
       console.warn('⚠️  Cloudinary service will not be available, but server will continue');
       return false;
     }
