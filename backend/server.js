@@ -1,4 +1,6 @@
 const express = require('express');
+const http = require('http');
+const socketIO = require('socket.io');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -22,6 +24,7 @@ const invitationRequestRoutes = require('./routes/invitationRequest.routes');
 const resourceRoutes = require('./routes/resource.routes');
 const submissionRoutes = require('./routes/submission.routes');
 const emailVerificationRoutes = require('./routes/emailVerification.routes');
+const chatRoutes = require('./routes/chat.routes');
 
 // Import services
 const cloudinaryService = require('./services/cloudinary.service');
@@ -94,6 +97,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/otp', otpRoutes);
 app.use('/api/invitations', invitationRequestRoutes);
 app.use('/api/email', emailVerificationRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -118,7 +122,99 @@ app.use(errorHandler);
 
 // Start server
 const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, () => {
+const server = http.createServer(app);
+
+// Initialize Socket.IO
+const io = socketIO(server, {
+  cors: {
+    origin: process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : [
+      'http://localhost:3000',
+      'https://pbl-lms-phi.vercel.app',
+      'https://pbl-lms-psi.vercel.app'
+    ],
+    credentials: true
+  }
+});
+
+// Socket.IO authentication middleware
+const Message = require('./models/Message.model');
+const Conversation = require('./models/Conversation.model');
+const jwt = require('jsonwebtoken');
+
+io.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth.token;
+    if (!token) {
+      return next(new Error('Authentication error'));
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = decoded.id;
+    next();
+  } catch (error) {
+    next(new Error('Authentication error'));
+  }
+});
+
+// Socket.IO connection handler
+io.on('connection', (socket) => {
+  console.log(`🔗 User connected: ${socket.userId}`);
+
+  // Join user's own room
+  socket.join(socket.userId);
+
+  // Join conversation room
+  socket.on('join-conversation', (conversationId) => {
+    socket.join(`conversation-${conversationId}`);
+    console.log(`💬 User ${socket.userId} joined conversation ${conversationId}`);
+  });
+
+  // Leave conversation room
+  socket.on('leave-conversation', (conversationId) => {
+    socket.leave(`conversation-${conversationId}`);
+  });
+
+  // Handle new message
+  socket.on('send-message', async (data) => {
+    try {
+      const { conversationId, content, type, attachment } = data;
+      
+      // Broadcast to conversation room
+      socket.to(`conversation-${conversationId}`).emit('new-message', {
+        conversationId,
+        content,
+        type,
+        attachment,
+        sender: socket.userId,
+        timestamp: new Date()
+      });
+    } catch (error) {
+      socket.emit('error', { message: 'خطأ في إرسال الرسالة' });
+    }
+  });
+
+  // Handle typing indicator
+  socket.on('typing', (conversationId) => {
+    socket.to(`conversation-${conversationId}`).emit('user-typing', {
+      userId: socket.userId,
+      conversationId
+    });
+  });
+
+  socket.on('stop-typing', (conversationId) => {
+    socket.to(`conversation-${conversationId}`).emit('user-stop-typing', {
+      userId: socket.userId,
+      conversationId
+    });
+  });
+
+  // Handle disconnect
+  socket.on('disconnect', () => {
+    console.log(`❌ User disconnected: ${socket.userId}`);
+  });
+});
+
+server.listen(PORT, () => {
   console.log(`🚀 الخادم يعمل على المنفذ ${PORT}`);
   console.log(`🌍 البيئة: ${process.env.NODE_ENV}`);
 });

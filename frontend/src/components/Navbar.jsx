@@ -59,6 +59,9 @@ const Navbar = () => {
               <Button color="inherit" component={Link} to="/dashboard">
                 لوحة التحكم
               </Button>
+              <Button color="inherit" component={Link} to="/chat">
+                المحادثات
+              </Button>
               {user?.role === 'admin' && (
                 <Button color="inherit" component={Link} to="/admin">
                   إدارة النظام
