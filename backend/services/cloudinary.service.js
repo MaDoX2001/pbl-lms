@@ -92,9 +92,8 @@ class CloudinaryService {
           {
             folder: folder,
             resource_type: 'auto', // Auto-detect: image, video, raw
-            public_id: fileName.replace(/\.[^/.]+$/, ''), // Remove extension, Cloudinary adds it
             use_filename: true,
-            unique_filename: true,
+            unique_filename: false,
             overwrite: false
           },
           (error, result) => {
@@ -197,21 +196,14 @@ class CloudinaryService {
    * @param {string} resourceType - Resource type
    * @returns {string} Download URL
    */
-  getDownloadUrl(publicId, resourceType = 'raw', fileName = null) {
+  getDownloadUrl(publicId, resourceType = 'raw') {
     this._ensureInitialized();
 
-    const options = {
+    return cloudinary.url(publicId, {
       resource_type: resourceType,
       secure: true,
       flags: 'attachment'
-    };
-
-    // If filename is provided, add it to force proper download name
-    if (fileName) {
-      options.flags = `attachment:${fileName}`;
-    }
-
-    return cloudinary.url(publicId, options);
+    });
   }
 }
 

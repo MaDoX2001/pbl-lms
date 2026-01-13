@@ -39,7 +39,6 @@ exports.uploadCourseMaterial = async (req, res) => {
       fileType: fileType || getFileTypeFromMime(req.file.mimetype),
       cloudinaryId: uploadResult.fileId,
       fileUrl: uploadResult.url,
-      resourceType: uploadResult.resourceType, // Store Cloudinary resource type
       size: uploadResult.size,
       uploadedBy: req.user.id
     };
@@ -207,37 +206,6 @@ exports.deleteAssignment = async (req, res) => {
   } catch (error) {
     console.error('Error deleting assignment:', error);
     res.status(500).json({ message: 'خطأ في حذف المهمة' });
-  }
-};
-
-// @desc    Download course material with proper URL
-// @route   GET /api/resources/:projectId/materials/:materialId/download
-// @access  Private
-exports.downloadCourseMaterial = async (req, res) => {
-  try {
-    const { projectId, materialId } = req.params;
-
-    const project = await Project.findById(projectId);
-    if (!project) {
-      return res.status(404).json({ message: 'المشروع غير موجود' });
-    }
-
-    const material = project.courseMaterials.id(materialId);
-    if (!material) {
-      return res.status(404).json({ message: 'المادة غير موجودة' });
-    }
-
-    // Generate proper download URL with filename
-    const downloadUrl = cloudinaryService.getDownloadUrl(
-      material.cloudinaryId,
-      material.resourceType || 'raw',
-      material.title
-    );
-
-    res.redirect(downloadUrl);
-  } catch (error) {
-    console.error('Error downloading material:', error);
-    res.status(500).json({ message: 'خطأ في تحميل المادة' });
   }
 };
 
