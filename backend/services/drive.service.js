@@ -75,21 +75,36 @@ class DriveService {
     
     try {
       // Search for existing folder
-      const query = parentFolderId
-        ? `name='${folderName}' and '${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
-        : `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+      let query;
+      
+      if (!parentFolderId && folderName === 'PBL-LMS-Content') {
+        // Special case: Root folder must be shared with service account
+        query = `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false and sharedWithMe=true`;
+      } else if (parentFolderId) {
+        query = `name='${folderName}' and '${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+      } else {
+        query = `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+      }
 
       const response = await this.drive.files.list({
         q: query,
         fields: 'files(id, name)',
-        spaces: 'drive'
+        spaces: 'drive',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true
       });
 
       if (response.data.files.length > 0) {
+        console.log(`📁 Found folder: ${folderName} (${response.data.files[0].id})`);
         return response.data.files[0].id;
       }
 
-      // Create folder if not exists
+      // If it's the root PBL-LMS-Content folder and not found, throw error
+      if (!parentFolderId && folderName === 'PBL-LMS-Content') {
+        throw new Error('PBL-LMS-Content folder not found. Please share it with the service account: pbl-lms-drive-service@pbl-lms.iam.gserviceaccount.com');
+      }
+
+      // Create subfolder if not exists (only works inside shared folders)
       const fileMetadata = {
         name: folderName,
         mimeType: 'application/vnd.google-apps.folder'
@@ -101,7 +116,8 @@ class DriveService {
 
       const folder = await this.drive.files.create({
         resource: fileMetadata,
-        fields: 'id'
+        fields: 'id',
+        supportsAllDrives: true
       });
 
       console.log(`📁 Created folder: ${folderName} (${folder.data.id})`);
@@ -129,7 +145,8 @@ class DriveService {
       const file = await this.drive.files.create({
         resource: fileMetadata,
         media: media,
-        fields: 'id, name, webViewLink, webContentLink, size'
+        fields: 'id, name, webViewLink, webContentLink, size',
+        supportsAllDrives: true
       });
 
       // Make file accessible to anyone with the link
@@ -138,7 +155,8 @@ class DriveService {
         requestBody: {
           role: 'reader',
           type: 'anyone'
-        }
+        },
+        supportsAllDrives: true
       });
 
       console.log(`📤 Uploaded file: ${fileName} (${file.data.id})`);
