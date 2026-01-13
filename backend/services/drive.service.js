@@ -57,38 +57,29 @@ class DriveService {
         auth: this.auth 
       });
 
-      // CRITICAL: Test Shared Drive access
-      console.log('🔍 Testing Shared Drive access...');
+      // Test Drive access with simple file list
+      console.log('🔍 Testing Google Drive access...');
       await this.drive.files.list({
         pageSize: 1,
-        corpora: 'drive',
-        driveId: this.sharedDriveId,
-        includeItemsFromAllDrives: true,
-        supportsAllDrives: true,
         fields: 'files(id, name)'
       });
 
       this.initialized = true;
       console.log('✅ Google Drive service initialized successfully');
-      console.log(`📂 Using Shared Drive: ${this.sharedDriveId}`);
       return true;
     } catch (error) {
-      console.error('❌ FATAL: Failed to initialize Google Drive service');
+      console.error('❌ Failed to initialize Google Drive service');
       console.error('Error:', error.message);
       console.error('Code:', error.code);
       
       if (error.code === 403) {
-        console.error('⚠️  403 Forbidden: Service account lacks access to Shared Drive');
-        console.error(`   → Shared Drive ID: ${this.sharedDriveId}`);
+        console.error('⚠️  403 Forbidden: Check service account permissions');
       } else if (error.code === 404) {
-        console.error('⚠️  404 Not Found: Shared Drive does not exist');
-        console.error(`   → Verify Shared Drive ID: ${this.sharedDriveId}`);
+        console.error('⚠️  404 Not Found: Resource not accessible');
       }
       
-      throw new Error(
-        `Drive initialization failed: ${error.message}. ` +
-        'Application cannot start without Drive access.'
-      );
+      console.error('⚠️  Drive service will not be available, but server will continue');
+      return false;
     }
   }
 
@@ -102,18 +93,17 @@ class DriveService {
     this._ensureInitialized();
     
     try {
-      // Default parent is Shared Drive root
-      const parentId = parentFolderId || this.sharedDriveId;
-      
-      // Search within Shared Drive scope ONLY
-      const query = `name='${folderName.replace(/'/g, "\\'")}'  and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+      // Build query based on whether parent is specified
+      let query;
+      if (parentFolderId) {
+        query = `name='${folderName.replace(/'/g, "\\'")}' and '${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+      } else {
+        query = `name='${folderName.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+      }
 
+      // Search for existing folder
       const response = await this.drive.files.list({
         q: query,
-        corpora: 'drive',
-        driveId: this.sharedDriveId,
-        includeItemsFromAllDrives: true,
-        supportsAllDrives: true,
         fields: 'files(id, name, parents)',
         pageSize: 10
       });
@@ -124,20 +114,23 @@ class DriveService {
         return response.data.files[0].id;
       }
 
-      // Create new folder in Shared Drive
+      // Create new folder
       const fileMetadata = {
         name: folderName,
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: [parentId]
+        mimeType: 'application/vnd.google-apps.folder'
       };
+      
+      // Only set parent if specified
+      if (parentFolderId) {
+        fileMetadata.parents = [parentFolderId];
+      }
 
       const folder = await this.drive.files.create({
         resource: fileMetadata,
-        fields: 'id, name',
-        supportsAllDrives: true
+        fields: 'id, name'
       });
 
-      console.log(`📁 Created folder in Shared Drive: ${folderName} (${folder.data.id})`);
+      console.log(`📁 Created folder: ${folderName} (${folder.data.id})`);
       return folder.data.id;
     } catch (error) {
       const enrichedError = new Error(`Failed to find/create folder "${folderName}": ${error.message}`);

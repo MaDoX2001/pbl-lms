@@ -62,14 +62,18 @@ app.use('/api/auth/register', authLimiter); // Strict auth rate limit
 mongoose.connect(process.env.MONGODB_URI)
 .then(async () => {
   console.log('✅ MongoDB متصل بنجاح');
-  // Initialize Google Drive service - REQUIRED
+  // Initialize Google Drive service - non-blocking
   try {
-    await driveService.initialize();
-    console.log('✅ Google Drive service ready for use');
+    const initialized = await driveService.initialize();
+    if (initialized) {
+      console.log('✅ Google Drive service ready for use');
+    } else {
+      console.warn('⚠️  Google Drive service not available - file uploads will fail');
+    }
   } catch (error) {
-    console.error('❌ FATAL: Failed to initialize Google Drive service');
+    console.error('⚠️  Failed to initialize Google Drive service');
     console.error('Error:', error.message);
-    process.exit(1); // Crash server if Drive init fails
+    console.warn('⚠️  Server will continue, but file uploads will not work');
   }
 })
 .catch((err) => {
