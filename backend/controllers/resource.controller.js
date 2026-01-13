@@ -215,6 +215,37 @@ exports.deleteAssignment = async (req, res) => {
   }
 };
 
+// @desc    Download course material
+// @route   GET /api/resources/download/:projectId/:materialId
+// @access  Private
+exports.downloadCourseMaterial = async (req, res) => {
+  try {
+    const { projectId, materialId } = req.params;
+
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res.status(404).json({ message: 'المشروع غير موجود' });
+    }
+
+    const material = project.courseMaterials.id(materialId);
+    if (!material) {
+      return res.status(404).json({ message: 'المادة غير موجودة' });
+    }
+
+    // Get download URL with attachment flag
+    const downloadUrl = cloudinaryService.getDownloadUrl(
+      material.cloudinaryId,
+      material.fileType === 'image' ? 'image' : material.fileType === 'video' ? 'video' : 'raw'
+    );
+
+    // Redirect to Cloudinary download URL
+    res.redirect(downloadUrl);
+  } catch (error) {
+    console.error('Error downloading material:', error);
+    res.status(500).json({ message: 'خطأ في تحميل الملف' });
+  }
+};
+
 // Helper function
 function getFileTypeFromMime(mimeType) {
   if (mimeType.startsWith('video/')) return 'video';

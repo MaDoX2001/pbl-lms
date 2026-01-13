@@ -382,11 +382,11 @@ const ProjectDetailPage = () => {
                     <Button
                       size="small"
                       startIcon={<DownloadIcon />}
-                      href={material.fileUrl}
+                      href={`${import.meta.env.VITE_API_URL || 'https://pbl-lms-backend.onrender.com'}/api/resources/download/${project._id}/${material._id}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      عرض/تحميل
+                      تحميل
                     </Button>
                     {(user?.role === 'teacher' || user?.role === 'admin') && (
                       <IconButton

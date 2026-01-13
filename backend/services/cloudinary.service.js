@@ -119,24 +119,11 @@ class CloudinaryService {
 
       console.log(`📤 Uploaded: ${fileName} (${result.public_id}) - ${(result.bytes / 1024).toFixed(2)} KB`);
 
-      // For PDFs, use plain secure_url (opens in browser)
-      // For other docs, add attachment flag to force download
-      let downloadUrl = result.secure_url;
-      const isPdf = fileName.toLowerCase().endsWith('.pdf');
-      
-      if (resourceType === 'raw' && !isPdf) {
-        // Add fl_attachment flag to force download for non-PDF documents
-        downloadUrl = cloudinary.url(result.public_id, {
-          resource_type: 'raw',
-          flags: 'attachment',
-          secure: true
-        });
-      }
-
+      // Store plain secure_url, we'll handle download via backend endpoint
       return {
         fileId: result.public_id,
         fileName: fileName,
-        url: downloadUrl,
+        url: result.secure_url, // Plain URL, backend will proxy downloads
         format: result.format,
         resourceType: result.resource_type,
         size: result.bytes
