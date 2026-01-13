@@ -62,20 +62,6 @@ exports.submitHomework = async (req, res) => {
       return res.status(400).json({ message: 'تم تسليم المهمة مسبقاً. لا يمكن إعادة التسليم' });
     }
 
-    // Check if Drive service is initialized
-    if (!driveService.drive) {
-      console.error('Google Drive service not initialized, attempting to initialize...');
-      try {
-        await driveService.initialize();
-      } catch (initError) {
-        console.error('Failed to initialize Drive service:', initError);
-        return res.status(503).json({ 
-          message: 'خدمة Google Drive غير متاحة حالياً. يرجى المحاولة لاحقاً.',
-          error: process.env.NODE_ENV === 'development' ? initError.message : undefined
-        });
-      }
-    }
-
     // Find or create submissions folder in Drive
     const rootFolderId = await driveService.findOrCreateFolder('PBL-LMS-Content');
     const submissionsFolderId = await driveService.findOrCreateFolder('Student-Submissions', rootFolderId);

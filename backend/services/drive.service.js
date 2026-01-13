@@ -6,14 +6,17 @@ class DriveService {
   constructor() {
     this.auth = null;
     this.drive = null;
-    this.rootFolderId = null;
+    this.initialized = false;
   }
 
   async initialize() {
+    if (this.initialized) {
+      console.log('⚠️  Drive service already initialized');
+      return true;
+    }
+
     try {
       // Load service account credentials
-      // On Render, secret files are in /etc/secrets/
-      // In development, they're in the project root
       const keyFileName = 'pbl-lms-a29c9d004248.json';
       let keyFilePath;
       
@@ -23,39 +26,53 @@ class DriveService {
         keyFilePath = path.join(__dirname, '../../', keyFileName);
       }
 
-      console.log('📁 Attempting to load credentials from:', keyFilePath);
+      console.log('📁 Loading credentials from:', keyFilePath);
 
       const keyFile = await fs.readFile(keyFilePath, 'utf8');
       const credentials = JSON.parse(keyFile);
 
-      console.log('🔑 Credentials loaded, client_email:', credentials.client_email);
+      console.log('🔑 Loaded service account:', credentials.client_email);
 
-      // Create JWT auth client
-      this.auth = new google.auth.JWT(
-        credentials.client_email,
-        null,
-        credentials.private_key,
-        ['https://www.googleapis.com/auth/drive']
-      );
+      // Use GoogleAuth with service account
+      this.auth = new google.auth.GoogleAuth({
+        credentials: credentials,
+        scopes: ['https://www.googleapis.com/auth/drive']
+      });
 
-      // Initialize Drive API
-      this.drive = google.drive({ version: 'v3', auth: this.auth });
+      // Initialize Drive API with auth
+      this.drive = google.drive({ 
+        version: 'v3', 
+        auth: this.auth 
+      });
 
-      console.log('✅ Google Drive service initialized successfully');
-      console.log('ℹ️  Note: First upload will create folders automatically');
+      // Self-test: Try to list files to verify authentication
+      console.log('🔍 Testing Drive API authentication...');
+      await this.drive.files.list({
+        pageSize: 1,
+        fields: 'files(id, name)'
+      });
+
+      this.initialized = true;
+      console.log('✅ Drive authenticated successfully');
       return true;
     } catch (error) {
-      console.error('❌ Failed to initialize Google Drive service:', error.message);
-      console.error('Error details:', {
-        code: error.code,
-        message: error.message,
-        stack: error.stack
-      });
-      throw error;
+      console.error('❌ Drive initialization failed:', error.message);
+      if (error.response?.data) {
+        console.error('API Error:', error.response.data);
+      }
+      throw new Error(`Drive init failed: ${error.message}`);
+    }
+  }
+
+  _ensureInitialized() {
+    if (!this.initialized || !this.drive) {
+      throw new Error('Drive service not initialized. Call initialize() first.');
     }
   }
 
   async findOrCreateFolder(folderName, parentFolderId = null) {
+    this._ensureInitialized();
+    
     try {
       // Search for existing folder
       const query = parentFolderId
@@ -94,7 +111,9 @@ class DriveService {
       throw error;
     }
   }
-
+his._ensureInitialized();
+    
+    t
   async uploadFile(fileBuffer, fileName, mimeType, folderId) {
     try {
       const fileMetadata = {
@@ -136,7 +155,9 @@ class DriveService {
       throw error;
     }
   }
-
+his._ensureInitialized();
+    
+    t
   async deleteFile(fileId) {
     try {
       await this.drive.files.delete({
@@ -147,7 +168,9 @@ class DriveService {
     } catch (error) {
       console.error('Error deleting file:', error.message);
       throw error;
-    }
+    }his._ensureInitialized();
+    
+    t
   }
 
   async getFile(fileId) {
@@ -160,7 +183,9 @@ class DriveService {
     } catch (error) {
       console.error('Error getting file:', error.message);
       throw error;
-    }
+    }his._ensureInitialized();
+    
+    t
   }
 
   async downloadFile(fileId) {

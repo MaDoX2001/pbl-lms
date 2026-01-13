@@ -35,6 +35,9 @@ const { errorHandler } = require('./middleware/errorHandler');
 // Initialize express app
 const app = express();
 
+// Trust proxy - MUST be before any middleware
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(helmet()); // Security headers
 app.use(cors({
@@ -59,14 +62,20 @@ app.use('/api/auth/register', authLimiter); // Strict auth rate limit
 mongoose.connect(process.env.MONGODB_URI)
 .then(async () => {
   console.log('✅ MongoDB متصل بنجاح');
-  // Initialize Google Drive service
+  // Initialize Google Drive service - REQUIRED
   try {
     await driveService.initialize();
+    console.log('✅ Google Drive service ready for use');
   } catch (error) {
-    console.error('⚠️  تحذير: فشل تهيئة خدمة Google Drive');
+    console.error('❌ FATAL: Failed to initialize Google Drive service');
+    console.error('Error:', error.message);
+    process.exit(1); // Crash server if Drive init fails
   }
 })
-.catch((err) => console.error('❌ خطأ في الاتصال بقاعدة البيانات:', err));
+.catch((err) => {
+  console.error('❌ خطأ في الاتصال بقاعدة البيانات:', err);
+  process.exit(1);
+});
 
 // Routes
 app.use('/api/auth', authRoutes);
