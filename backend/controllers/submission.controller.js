@@ -263,8 +263,14 @@ exports.downloadSubmission = async (req, res) => {
       return res.status(403).json({ message: 'غير مصرح لك بتحميل هذا الملف' });
     }
 
-    // Redirect to Cloudinary download URL
-    const downloadUrl = cloudinaryService.getDownloadUrl(submission.cloudinaryId, submission.resourceType || 'raw');
+    // Get Cloudinary download URL with proper filename
+    const downloadUrl = cloudinaryService.getDownloadUrl(
+      submission.cloudinaryId, 
+      submission.resourceType || 'raw',
+      submission.fileName
+    );
+    
+    // Redirect with proper headers to preserve filename
     res.redirect(downloadUrl);
   } catch (error) {
     console.error('Error downloading submission:', error);

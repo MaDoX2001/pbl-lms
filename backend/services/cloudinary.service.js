@@ -197,14 +197,21 @@ class CloudinaryService {
    * @param {string} resourceType - Resource type
    * @returns {string} Download URL
    */
-  getDownloadUrl(publicId, resourceType = 'raw') {
+  getDownloadUrl(publicId, resourceType = 'raw', fileName = null) {
     this._ensureInitialized();
 
-    return cloudinary.url(publicId, {
+    const options = {
       resource_type: resourceType,
       secure: true,
       flags: 'attachment'
-    });
+    };
+
+    // If filename is provided, add it to force proper download name
+    if (fileName) {
+      options.flags = `attachment:${fileName}`;
+    }
+
+    return cloudinary.url(publicId, options);
   }
 }
 
