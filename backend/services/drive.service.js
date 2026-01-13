@@ -176,11 +176,11 @@ class DriveService {
       throw new Error('Upload failed: Folder ID is required');
     }
     
-    // File size limit (100MB)
-    const MAX_FILE_SIZE = 100 * 1024 * 1024;
+    // File size limit (10GB) - increased for large project files
+    const MAX_FILE_SIZE = 10 * 1024 * 1024 * 1024; // 10GB
     if (fileBuffer.length > MAX_FILE_SIZE) {
       throw new Error(
-        `Upload failed: File size ${(fileBuffer.length / 1024 / 1024).toFixed(2)}MB exceeds limit`
+        `Upload failed: File size ${(fileBuffer.length / 1024 / 1024).toFixed(2)}MB exceeds limit of ${MAX_FILE_SIZE / 1024 / 1024}MB`
       );
     }
     

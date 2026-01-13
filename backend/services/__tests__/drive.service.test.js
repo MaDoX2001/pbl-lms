@@ -132,7 +132,7 @@ describe('DriveService - Shared Drive Integration', () => {
     });
 
     test('should throw error for file exceeding size limit', async () => {
-      const hugeBuffer = Buffer.alloc(101 * 1024 * 1024); // 101 MB
+      const hugeBuffer = Buffer.alloc(11 * 1024 * 1024 * 1024); // 11 GB (exceeds 10GB limit)
 
       await expect(
         driveService.uploadFile(hugeBuffer, 'huge.bin', 'application/octet-stream', 'folder123')
