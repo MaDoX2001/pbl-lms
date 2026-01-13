@@ -167,6 +167,21 @@ const ProjectDetailPage = () => {
     dispatch(enrollInProject(id));
   };
 
+  const handleDeleteProject = async () => {
+    if (!window.confirm('هل أنت متأكد من حذف هذا المشروع؟ لا يمكن التراجع عن هذا الإجراء.')) {
+      return;
+    }
+
+    try {
+      await api.delete(`/projects/${id}`);
+      toast.success('تم حذف المشروع بنجاح');
+      window.location.href = '/projects';
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'فشل حذف المشروع');
+      console.error('Delete project error:', error);
+    }
+  };
+
   if (loading || !project) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
@@ -176,6 +191,7 @@ const ProjectDetailPage = () => {
   }
 
   const isEnrolled = user?.enrolledProjects?.includes(project._id);
+  const canManageProject = user && (user.role === 'admin' || (user.role === 'teacher' && project.instructor?._id === user.id));
   const difficultyLabel = {
     beginner: 'مبتدئ',
     intermediate: 'متوسط',
@@ -304,6 +320,22 @@ const ProjectDetailPage = () => {
               </Button>
             )}
 
+            {/* Delete Button for Admin/Owner */}
+            {canManageProject && (
+              <>
+                <Divider sx={{ my: 2 }} />
+                <Button
+                  variant="outlined"
+                  color="error"
+                  fullWidth
+                  startIcon={<DeleteIcon />}
+                  onClick={handleDeleteProject}
+                >
+                  حذف المشروع
+                </Button>
+              </>
+            )}
+
             <Divider sx={{ my: 2 }} />
 
             {/* Instructor */}
@@ -382,11 +414,11 @@ const ProjectDetailPage = () => {
                     <Button
                       size="small"
                       startIcon={<DownloadIcon />}
-                      href={`${import.meta.env.VITE_API_URL || 'https://pbl-lms-backend.onrender.com'}/api/resources/download/${project._id}/${material._id}`}
+                      href={material.fileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      تحميل
+                      عرض/تحميل
                     </Button>
                     {(user?.role === 'teacher' || user?.role === 'admin') && (
                       <IconButton

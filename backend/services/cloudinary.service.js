@@ -119,11 +119,21 @@ class CloudinaryService {
 
       console.log(`📤 Uploaded: ${fileName} (${result.public_id}) - ${(result.bytes / 1024).toFixed(2)} KB`);
 
-      // Store plain secure_url, we'll handle download via backend endpoint
+      // Generate downloadable URL for raw files (documents)
+      let downloadUrl = result.secure_url;
+      if (resourceType === 'raw') {
+        // Add fl_attachment flag to force download with correct filename
+        downloadUrl = cloudinary.url(result.public_id, {
+          resource_type: 'raw',
+          flags: 'attachment',
+          secure: true
+        });
+      }
+
       return {
         fileId: result.public_id,
         fileName: fileName,
-        url: result.secure_url, // Plain URL, backend will proxy downloads
+        url: downloadUrl, // Use download URL for raw files
         format: result.format,
         resourceType: result.resource_type,
         size: result.bytes
