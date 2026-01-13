@@ -86,16 +86,28 @@ class CloudinaryService {
     }
 
     try {
+      // Get file extension for resource_type detection
+      const extension = fileName.split('.').pop().toLowerCase();
+      const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'];
+      const videoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'];
+      
+      let resourceType = 'raw'; // Default for documents
+      if (imageExtensions.includes(extension)) {
+        resourceType = 'image';
+      } else if (videoExtensions.includes(extension)) {
+        resourceType = 'video';
+      }
+
       // Upload using upload_stream (supports all file types)
       const result = await new Promise((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
           {
-            folder: folder,
-            resource_type: 'auto', // Auto-detect: image, video, raw
-            public_id: fileName.replace(/\.[^/.]+$/, ''), // Remove extension, Cloudinary adds it
+            folder: `pbl-lms/${folder}`,
+            resource_type: resourceType,
+            public_id: fileName, // Keep full filename with extension
             use_filename: true,
-            unique_filename: true,
-            overwrite: false
+            unique_filename: false, // Don't add random suffix
+            overwrite: true // Allow replacing files with same name
           },
           (error, result) => {
             if (error) reject(error);
@@ -133,15 +145,30 @@ class CloudinaryService {
 
   /**
    * Delete file from Cloudinary
-   * @param {string} publicId - Cloudinary public ID
+   * @param {string} publicId - Cloudinary public ID (with extension)
    * @param {string} resourceType - Resource type (image, video, raw)
    * @returns {Promise<boolean>} Success status
    */
-  async deleteFile(publicId, resourceType = 'raw') {
+  async deleteFile(publicId, resourceType) {
     this._ensureInitialized();
 
     if (!publicId) {
       throw new Error('Delete failed: Public ID is required');
+    }
+
+    // Auto-detect resource type if not provided
+    if (!resourceType) {
+      const extension = publicId.split('.').pop().toLowerCase();
+      const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'];
+      const videoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'];
+      
+      if (imageExtensions.includes(extension)) {
+        resourceType = 'image';
+      } else if (videoExtensions.includes(extension)) {
+        resourceType = 'video';
+      } else {
+        resourceType = 'raw';
+      }
     }
 
     try {
