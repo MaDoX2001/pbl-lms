@@ -2,28 +2,21 @@ const { google } = require('googleapis');
 const path = require('path');
 const fs = require('fs').promises;
 
-// CRITICAL: Shared Drive ID - all operations MUST use this as root
-// Service accounts cannot use "My Drive" - they require Shared Drives
-const SHARED_DRIVE_ID = '1qUUG934LRrJvULgBKEdmScQspRaAsYjC';
-
 class DriveService {
   constructor() {
     this.auth = null;
     this.drive = null;
     this.initialized = false;
-    this.sharedDriveId = SHARED_DRIVE_ID;
   }
 
   /**
    * Internal guard: throws if Drive service is used before initialization
-   * Prevents silent failures in production
    */
   _ensureInitialized() {
     if (!this.initialized || !this.drive) {
       throw new Error(
         'FATAL: Google Drive service not initialized. ' +
-        'Application cannot function without Drive access. ' +
-        'Check service account credentials and Shared Drive permissions.'
+        'Application cannot function without Drive access.'
       );
     }
   }
@@ -198,8 +191,7 @@ class DriveService {
       const file = await this.drive.files.create({
         resource: fileMetadata,
         media: media,
-        fields: 'id, name, webViewLink, webContentLink, size',
-        supportsAllDrives: true
+        fields: 'id, name, webViewLink, webContentLink, size'
       });
 
       // Set public permissions
@@ -209,8 +201,7 @@ class DriveService {
           requestBody: {
             role: 'reader',
             type: 'anyone'
-          },
-          supportsAllDrives: true
+          }
         });
       } catch (permError) {
         console.warn(`⚠️  Could not set permissions on ${file.data.id}:`, permError.message);
@@ -250,8 +241,7 @@ class DriveService {
     
     try {
       await this.drive.files.delete({
-        fileId: fileId,
-        supportsAllDrives: true
+        fileId: fileId
       });
       console.log(`🗑️  Deleted: ${fileId}`);
       return true;
@@ -273,7 +263,6 @@ class DriveService {
         fileId: fileId,
         fields: 'id, name, mimeType, size, webViewLink, webContentLink, createdTime, parents',
         supportsAllDrives: true
-      });
       return file.data;
     } catch (error) {
       if (error.code === 404) {
@@ -291,8 +280,7 @@ class DriveService {
         {
           fileId: fileId,
           alt: 'media',
-          supportsAllDrives: true
-        },
+          supportsAllD
         { responseType: 'stream' }
       );
       return response.data;
