@@ -34,6 +34,7 @@ import { fetchProjectById } from '../redux/slices/projectSlice';
 import { enrollInProject } from '../redux/slices/projectSlice';
 import ResourceUploadDialog from '../components/ResourceUploadDialog';
 import HomeworkSubmitDialog from '../components/HomeworkSubmitDialog';
+import CreateAssignmentDialog from '../components/CreateAssignmentDialog';
 import api from '../services/api';
 
 const ProjectDetailPage = () => {
@@ -47,6 +48,7 @@ const ProjectDetailPage = () => {
   const [mySubmissions, setMySubmissions] = useState([]);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [homeworkDialogOpen, setHomeworkDialogOpen] = useState(false);
+  const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [loadingMaterials, setLoadingMaterials] = useState(false);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
@@ -380,7 +382,7 @@ const ProjectDetailPage = () => {
                     <Button
                       size="small"
                       startIcon={<DownloadIcon />}
-                      href={material.driveFileUrl}
+                      href={material.fileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
@@ -411,7 +413,7 @@ const ProjectDetailPage = () => {
             <Button
               variant="contained"
               startIcon={<AssignmentIcon />}
-              onClick={() => {/* TODO: Create assignment dialog */}}
+              onClick={() => setAssignmentDialogOpen(true)}
             >
               إنشاء مهمة
             </Button>
@@ -531,6 +533,15 @@ const ProjectDetailPage = () => {
         assignment={selectedAssignment}
         onSuccess={() => {
           fetchMySubmissions();
+        }}
+      />
+
+      <CreateAssignmentDialog
+        open={assignmentDialogOpen}
+        onClose={() => setAssignmentDialogOpen(false)}
+        projectId={id}
+        onSuccess={() => {
+          fetchAssignments();
         }}
       />
     </Box>
