@@ -32,6 +32,12 @@ exports.uploadCourseMaterial = async (req, res) => {
       folder
     );
 
+    console.log('📋 Upload result:', {
+      fileId: uploadResult.fileId,
+      url: uploadResult.url,
+      resourceType: uploadResult.resourceType
+    });
+
     // Add material to project
     const material = {
       title: title || req.file.originalname,
