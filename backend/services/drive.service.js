@@ -2,11 +2,30 @@ const { google } = require('googleapis');
 const path = require('path');
 const fs = require('fs').promises;
 
+// CRITICAL: Shared Drive ID - all operations MUST use this as root
+// Service accounts cannot use "My Drive" - they require Shared Drives
+const SHARED_DRIVE_ID = '1qUUG934LRrJvULgBKEdmScQspRaAsYjC';
+
 class DriveService {
   constructor() {
     this.auth = null;
     this.drive = null;
     this.initialized = false;
+    this.sharedDriveId = SHARED_DRIVE_ID;
+  }
+
+  /**
+   * Internal guard: throws if Drive service is used before initialization
+   * Prevents silent failures in production
+   */
+  _ensureInitialized() {
+    if (!this.initialized || !this.drive) {
+      throw new Error(
+        'FATAL: Google Drive service not initialized. ' +
+        'Application cannot function without Drive access. ' +
+        'Check service account credentials and Shared Drive permissions.'
+      );
+    }
   }
 
   async initialize() {
