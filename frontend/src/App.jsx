@@ -26,7 +26,6 @@ import TwoFactorAuthPage from './pages/TwoFactorAuthPage';
 import EmailVerificationPage from './pages/EmailVerificationPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ChatPage from './pages/ChatPage';
-import ChatPage from './pages/ChatPage';
 
 // Import actions
 import { loadUser } from './redux/slices/authSlice';
