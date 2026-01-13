@@ -261,12 +261,12 @@ class DriveService {
     try {
       const file = await this.drive.files.get({
         fileId: fileId,
-        fields: 'id, name, mimeType, size, webViewLink, webContentLink, createdTime, parents',
-        supportsAllDrives: true
+        fields: 'id, name, mimeType, size, webViewLink, webContentLink, createdTime, parents'
+      });
       return file.data;
     } catch (error) {
       if (error.code === 404) {
-        throw new Error(`File ${fileId} not found in Shared Drive`);
+        throw new Error(`File ${fileId} not found`);
       }
       throw new Error(`Failed to get file ${fileId}: ${error.message}`);
     }
