@@ -92,8 +92,9 @@ class CloudinaryService {
           {
             folder: folder,
             resource_type: 'auto', // Auto-detect: image, video, raw
+            public_id: fileName.replace(/\.[^/.]+$/, ''), // Remove extension, Cloudinary adds it
             use_filename: true,
-            unique_filename: false,
+            unique_filename: true,
             overwrite: false
           },
           (error, result) => {
