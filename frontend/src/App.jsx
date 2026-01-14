@@ -18,8 +18,6 @@ import ProjectDetailPage from './pages/ProjectDetailPage';
 import DashboardPage from './pages/DashboardPage';
 import ProfilePage from './pages/ProfilePage';
 import CreateProjectPage from './pages/CreateProjectPage';
-import LeaderboardPage from './pages/LeaderboardPage';
-import ArduinoSimulatorPage from './pages/ArduinoSimulatorPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import TwoFactorSetupPage from './pages/TwoFactorSetupPage';
 import TwoFactorAuthPage from './pages/TwoFactorAuthPage';
@@ -56,8 +54,6 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:id" element={<ProjectDetailPage />} />
-          <Route path="/leaderboard" element={<LeaderboardPage />} />
-          <Route path="/arduino-simulator" element={<ArduinoSimulatorPage />} />
 
           {/* 2FA routes */}
           <Route path="/2fa-verify" element={<TwoFactorAuthPage />} />

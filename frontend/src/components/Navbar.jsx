@@ -47,12 +47,6 @@ const Navbar = () => {
           <Button color="inherit" component={Link} to="/projects">
             المشاريع
           </Button>
-          <Button color="inherit" component={Link} to="/arduino-simulator">
-            محاكي Arduino
-          </Button>
-          <Button color="inherit" component={Link} to="/leaderboard">
-            لوحة المتصدرين
-          </Button>
 
           {isAuthenticated ? (
             <>
