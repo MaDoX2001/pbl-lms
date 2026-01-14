@@ -5,6 +5,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../redux/slices/authSlice';
 import MenuIcon from '@mui/icons-material/Menu';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import VideocamIcon from '@mui/icons-material/Videocam';
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -47,6 +48,12 @@ const Navbar = () => {
           <Button color="inherit" component={Link} to="/projects">
             المشاريع
           </Button>
+          <Button color="inherit" component={Link} to="/arduino-simulator">
+            محاكي Arduino
+          </Button>
+          <Button color="inherit" component={Link} to="/leaderboard">
+            لوحة المتصدرين
+          </Button>
 
           {isAuthenticated ? (
             <>
@@ -55,6 +62,9 @@ const Navbar = () => {
               </Button>
               <Button color="inherit" component={Link} to="/chat">
                 المحادثات
+              </Button>
+              <Button color="inherit" startIcon={<VideocamIcon />} component={Link} to="/projects">
+                المحاضرات المباشرة
               </Button>
               {user?.role === 'admin' && (
                 <Button color="inherit" component={Link} to="/admin">
