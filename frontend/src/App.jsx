@@ -56,7 +56,11 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:id" element={<ProjectDetailPage />} />
-          <Route path="/leaderboard" element={<LeaderboardPage />} />
+          <Route path="/leaderboard" element={
+            <PrivateRoute roles={['teacher', 'admin']}>
+              <LeaderboardPage />
+            </PrivateRoute>
+          } />
           <Route path="/arduino-simulator" element={<ArduinoSimulatorPage />} />
 
           {/* 2FA routes */}

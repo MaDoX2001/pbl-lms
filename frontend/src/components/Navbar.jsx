@@ -51,9 +51,6 @@ const Navbar = () => {
           <Button color="inherit" component={Link} to="/arduino-simulator">
             محاكي Arduino
           </Button>
-          <Button color="inherit" component={Link} to="/leaderboard">
-            لوحة المتصدرين
-          </Button>
 
           {isAuthenticated ? (
             <>
@@ -66,6 +63,11 @@ const Navbar = () => {
               <Button color="inherit" startIcon={<VideocamIcon />} component={Link} to="/projects">
                 المحاضرات المباشرة
               </Button>
+              {(user?.role === 'teacher' || user?.role === 'admin') && (
+                <Button color="inherit" component={Link} to="/leaderboard">
+                  لوحة المتصدرين
+                </Button>
+              )}
               {user?.role === 'admin' && (
                 <Button color="inherit" component={Link} to="/admin">
                   إدارة النظام
