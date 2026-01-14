@@ -91,12 +91,14 @@ class CloudinaryService {
       const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'];
       const videoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'];
       
-      let resourceType = 'raw'; // Default for documents
+      // Treat all documents (pdf, docx, doc, xlsx, pptx, txt, etc.) as 'raw'
+      let resourceType = 'raw'; // Default for all documents including PDF and DOCX
       if (imageExtensions.includes(extension)) {
         resourceType = 'image';
       } else if (videoExtensions.includes(extension)) {
         resourceType = 'video';
       }
+      // Everything else (pdf, docx, zip, etc.) stays as 'raw'
 
       // Upload using upload_stream (supports all file types)
       const result = await new Promise((resolve, reject) => {
@@ -119,10 +121,10 @@ class CloudinaryService {
 
       console.log(`📤 Uploaded: ${fileName} (${result.public_id}) - ${(result.bytes / 1024).toFixed(2)} KB`);
 
-      // Generate downloadable URL for raw files (documents)
+      // Generate downloadable URL - treat all 'raw' files the same (PDF, DOCX, etc.)
       let downloadUrl = result.secure_url;
       if (resourceType === 'raw') {
-        // Add fl_attachment flag to force download with correct filename
+        // Add fl_attachment flag to force download with correct filename for ALL documents
         downloadUrl = cloudinary.url(result.public_id, {
           resource_type: 'raw',
           flags: 'attachment',
