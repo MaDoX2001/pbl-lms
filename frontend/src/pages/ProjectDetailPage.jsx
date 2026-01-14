@@ -18,6 +18,11 @@ import {
   Card,
   CardContent,
   CardActions,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from '@mui/material';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CodeIcon from '@mui/icons-material/Code';
@@ -29,6 +34,8 @@ import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import VideocamIcon from '@mui/icons-material/Videocam';
+import EditIcon from '@mui/icons-material/Edit';
 import { toast } from 'react-toastify';
 import { fetchProjectById } from '../redux/slices/projectSlice';
 import { enrollInProject } from '../redux/slices/projectSlice';
@@ -52,6 +59,8 @@ const ProjectDetailPage = () => {
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [loadingMaterials, setLoadingMaterials] = useState(false);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [teamsLinkDialogOpen, setTeamsLinkDialogOpen] = useState(false);
+  const [teamsLink, setTeamsLink] = useState('');
 
   useEffect(() => {
     dispatch(fetchProjectById(id));
@@ -179,6 +188,23 @@ const ProjectDetailPage = () => {
     } catch (error) {
       toast.error(error.response?.data?.message || 'فشل حذف المشروع');
       console.error('Delete project error:', error);
+    }
+  };
+
+  const handleSaveTeamsLink = async () => {
+    try {
+      await api.put(`/projects/${id}`, { teamsLink });
+      toast.success('تم حفظ رابط Teams بنجاح');
+      setTeamsLinkDialogOpen(false);
+      dispatch(fetchProjectById(id));
+    } catch (error) {
+      toast.error('فشل حفظ رابط Teams');
+    }
+  };
+
+  const handleJoinTeams = () => {
+    if (project.teamsLink) {
+      window.open(project.teamsLink, '_blank');
     }
   };
 
@@ -318,6 +344,41 @@ const ProjectDetailPage = () => {
               <Button variant="contained" fullWidth size="large" href="/login">
                 سجل الدخول للتسجيل
               </Button>
+            )}
+
+            {/* Teams Meeting Link */}
+            {project.teamsLink && (
+              <>
+                <Divider sx={{ my: 2 }} />
+                <Button
+                  variant="contained"
+                  color="primary"
+                  fullWidth
+                  startIcon={<VideocamIcon />}
+                  onClick={handleJoinTeams}
+                  sx={{ mb: 1 }}
+                >
+                  انضم للمحاضرة المباشرة
+                </Button>
+              </>
+            )}
+
+            {/* Edit Teams Link for Admin/Owner */}
+            {canManageProject && (
+              <>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  startIcon={<EditIcon />}
+                  onClick={() => {
+                    setTeamsLink(project.teamsLink || '');
+                    setTeamsLinkDialogOpen(true);
+                  }}
+                  sx={{ mb: 1 }}
+                >
+                  {project.teamsLink ? 'تعديل رابط Teams' : 'إضافة رابط Teams'}
+                </Button>
+              </>
             )}
 
             {/* Delete Button for Admin/Owner */}
@@ -576,6 +637,28 @@ const ProjectDetailPage = () => {
           fetchAssignments();
         }}
       />
+
+      {/* Teams Link Dialog */}
+      <Dialog open={teamsLinkDialogOpen} onClose={() => setTeamsLinkDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{project.teamsLink ? 'تعديل رابط Microsoft Teams' : 'إضافة رابط Microsoft Teams'}</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="رابط Teams"
+            value={teamsLink}
+            onChange={(e) => setTeamsLink(e.target.value)}
+            placeholder="https://teams.microsoft.com/..."
+            sx={{ mt: 2 }}
+            helperText="الصق رابط اجتماع Microsoft Teams هنا"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTeamsLinkDialogOpen(false)}>إلغاء</Button>
+          <Button onClick={handleSaveTeamsLink} variant="contained">
+            حفظ
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

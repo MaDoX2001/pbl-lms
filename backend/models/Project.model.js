@@ -179,6 +179,17 @@ const projectSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  teamsLink: {
+    type: String,
+    trim: true,
+    validate: {
+      validator: function(v) {
+        if (!v) return true; // Allow empty
+        return /^https?:\/\/.+/.test(v);
+      },
+      message: 'رابط Teams غير صالح'
+    }
+  },
   tags: [{
     type: String
   }],
