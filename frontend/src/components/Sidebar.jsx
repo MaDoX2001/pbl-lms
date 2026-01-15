@@ -80,7 +80,7 @@ const Sidebar = ({ open, onClose }) => {
       
       {/* Sidebar Drawer */}
       <Drawer
-        anchor="right"
+        anchor="left"
         open={open}
         onClose={onClose}
         variant="temporary"
@@ -95,8 +95,8 @@ const Sidebar = ({ open, onClose }) => {
             top: 0,
             height: '100vh',
             backgroundColor: '#ffffff',
-            borderLeft: '1px solid #e0e0e0',
-            boxShadow: '-4px 0 12px rgba(0,0,0,0.15)',
+            borderRight: '1px solid #e0e0e0',
+            boxShadow: '4px 0 12px rgba(0,0,0,0.15)',
             transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
             display: 'flex',
             flexDirection: 'column',

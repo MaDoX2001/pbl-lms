@@ -29,6 +29,21 @@ const Navbar = ({ onMenuToggle }) => {
   return (
     <AppBar position="sticky" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, boxShadow: '0 1px 3px rgba(0,0,0,0.12)' }}>
       <Toolbar sx={{ minHeight: '52px !important', py: 0.5 }}>
+        <IconButton
+          color="inherit"
+          aria-label="toggle menu"
+          onClick={onMenuToggle}
+          edge="start"
+          size="medium"
+          sx={{ 
+            mr: 2,
+            transition: 'background-color 0.2s ease',
+            '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
+          }}
+        >
+          <MenuIcon />
+        </IconButton>
+        
         <Typography
           variant="h6"
           component={Link}
@@ -45,20 +60,6 @@ const Navbar = ({ onMenuToggle }) => {
         </Typography>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <IconButton
-            color="inherit"
-            aria-label="toggle menu"
-            onClick={onMenuToggle}
-            edge="end"
-            size="medium"
-            sx={{ 
-              mr: 0.5,
-              transition: 'background-color 0.2s ease',
-              '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
-            }}
-          >
-            <MenuIcon />
-          </IconButton>
           {isAuthenticated ? (
             <>
               <IconButton
