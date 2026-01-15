@@ -1,11 +1,9 @@
 import React from 'react';
-import { AppBar, Toolbar, Typography, Button, Box, Avatar, Menu, MenuItem, IconButton } from '@mui/material';
+import { AppBar, Toolbar, Typography, Box, Avatar, Menu, MenuItem, IconButton, Button } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../redux/slices/authSlice';
-import MenuIcon from '@mui/icons-material/Menu';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import VideocamIcon from '@mui/icons-material/Videocam';
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -28,7 +26,7 @@ const Navbar = () => {
   };
 
   return (
-    <AppBar position="sticky">
+    <AppBar position="sticky" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
       <Toolbar>
         <Typography
           variant="h6"
@@ -44,40 +42,9 @@ const Navbar = () => {
           منصة التعلم بالمشروعات
         </Typography>
 
-        <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 2 }}>
-          <Button color="inherit" component={Link} to="/projects">
-            المشاريع
-          </Button>
-          <Button color="inherit" component={Link} to="/arduino-simulator">
-            محاكي Arduino
-          </Button>
-
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           {isAuthenticated ? (
             <>
-              <Button color="inherit" component={Link} to="/dashboard">
-                لوحة التحكم
-              </Button>
-              <Button color="inherit" component={Link} to="/chat">
-                المحادثات
-              </Button>
-              <Button color="inherit" startIcon={<VideocamIcon />} component={Link} to="/projects">
-                المحاضرات المباشرة
-              </Button>
-              {(user?.role === 'teacher' || user?.role === 'admin') && (
-                <Button color="inherit" component={Link} to="/leaderboard">
-                  لوحة المتصدرين
-                </Button>
-              )}
-              {user?.role === 'admin' && (
-                <Button color="inherit" component={Link} to="/admin">
-                  إدارة النظام
-                </Button>
-              )}
-              {(user?.role === 'teacher' || user?.role === 'admin') && (
-                <Button color="inherit" component={Link} to="/create-project">
-                  إنشاء مشروع
-                </Button>
-              )}
               <IconButton
                 size="large"
                 aria-label="account"
@@ -114,11 +81,9 @@ const Navbar = () => {
               </Menu>
             </>
           ) : (
-            <>
-              <Button color="inherit" component={Link} to="/login">
-                تسجيل الدخول
-              </Button>
-            </>
+            <Button color="inherit" component={Link} to="/login">
+              تسجيل الدخول
+            </Button>
           )}
         </Box>
       </Toolbar>

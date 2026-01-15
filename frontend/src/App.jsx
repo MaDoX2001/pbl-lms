@@ -1,10 +1,11 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { Container } from '@mui/material';
+import { Box } from '@mui/material';
 
 // Import components
 import Navbar from './components/Navbar';
+import Sidebar from './components/Sidebar';
 import Footer from './components/Footer';
 import PrivateRoute from './components/PrivateRoute';
 
@@ -43,10 +44,22 @@ function App() {
   }, [dispatch]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Navbar />
-      <Container component="main" sx={{ flex: 1, py: 4 }}>
-        <Routes>
+      <Box sx={{ display: 'flex', flex: 1 }}>
+        <Sidebar />
+        <Box
+          component="main"
+          sx={{
+            flex: 1,
+            py: 4,
+            px: 3,
+            marginRight: { md: '280px' }, // Sidebar width
+            transition: 'margin 0.3s ease',
+            backgroundColor: '#fafafa'
+          }}
+        >
+          <Routes>
           {/* Public routes */}
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={!isAuthenticated ? <LoginPage /> : <Navigate to="/dashboard" />} />
@@ -89,9 +102,10 @@ function App() {
           } />
           <Route path="/create-project" element={
             <PrivateRoute roles={['teacher', 'admin']}>
-              <CreateProjectPage />
-            </PrivateRoute>
-          } />
+        </Box>
+      </Box>
+      <Footer />
+    </Box } />
           <Route path="/admin" element={
             <PrivateRoute roles={['admin']}>
               <AdminDashboardPage />
