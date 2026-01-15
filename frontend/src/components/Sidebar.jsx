@@ -8,8 +8,10 @@ import {
   ListItemIcon,
   ListItemText,
   Box,
-  Divider
+  Divider,
+  IconButton
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import FolderIcon from '@mui/icons-material/Folder';
 import CodeIcon from '@mui/icons-material/Code';
@@ -65,13 +67,13 @@ const Sidebar = ({ open, onClose }) => {
           onClick={onClose}
           sx={{
             position: 'fixed',
-            top: '56px',
+            top: 0,
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+            backgroundColor: 'rgba(0, 0, 0, 0.4)',
             zIndex: (theme) => theme.zIndex.drawer - 1,
-            transition: 'opacity 0.3s ease'
+            transition: 'opacity 0.25s ease-in-out'
           }}
         />
       )}
@@ -83,26 +85,47 @@ const Sidebar = ({ open, onClose }) => {
         onClose={onClose}
         variant="temporary"
         ModalProps={{
-          keepMounted: true // Better mobile performance
+          keepMounted: true
         }}
         sx={{
           '& .MuiDrawer-paper': {
-            width: DRAWER_WIDTH,
+            width: { xs: '85vw', sm: '320px', md: '280px' },
+            maxWidth: '320px',
             boxSizing: 'border-box',
-            top: '56px',
-            height: 'calc(100vh - 56px)',
+            top: 0,
+            height: '100vh',
             backgroundColor: '#ffffff',
             borderLeft: '1px solid #e0e0e0',
-            boxShadow: '-2px 0 8px rgba(0,0,0,0.1)',
+            boxShadow: '-4px 0 12px rgba(0,0,0,0.15)',
             transition: 'transform 0.3s ease-in-out'
           }
         }}
       >
         {/* Header */}
-        <Box sx={{ p: 2, backgroundColor: '#f5f5f5', borderBottom: '1px solid #e0e0e0' }}>
-          <Box sx={{ fontSize: '1.1rem', fontWeight: 600, color: '#1976d2', textAlign: 'center' }}>
-            القائمة الرئيسية
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            p: 2,
+            backgroundColor: '#1976d2',
+            color: 'white',
+            minHeight: '56px'
+          }}
+        >
+          <Box sx={{ fontSize: '1.1rem', fontWeight: 600 }}>
+            منصة التعلم بالمشروعات
           </Box>
+          <IconButton 
+            onClick={onClose}
+            size="small"
+            sx={{ 
+              color: 'white',
+              '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
         </Box>
 
         <Divider />

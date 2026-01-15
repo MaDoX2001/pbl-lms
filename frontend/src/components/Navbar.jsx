@@ -27,8 +27,8 @@ const Navbar = ({ onMenuToggle }) => {
   };
 
   return (
-    <AppBar position="sticky" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, boxShadow: 1 }}>
-      <Toolbar sx={{ minHeight: '56px !important', py: 0 }}>
+    <AppBar position="sticky" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, boxShadow: '0 1px 3px rgba(0,0,0,0.12)' }}>
+      <Toolbar sx={{ minHeight: '56px !important', py: 0.5 }}>
         <Typography
           variant="h6"
           component={Link}
@@ -37,19 +37,23 @@ const Navbar = ({ onMenuToggle }) => {
             flexGrow: 1, 
             textDecoration: 'none', 
             color: 'inherit',
-            fontWeight: 700 
+            fontWeight: 700,
+            fontSize: { xs: '1rem', sm: '1.25rem' }
           }}
         >
           منصة التعلم بالمشروعات
         </Typography>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <IconButton
             color="inherit"
             aria-label="toggle menu"
             onClick={onMenuToggle}
             edge="end"
-            sx={{ mr: 1 }}
+            sx={{ 
+              mr: 0.5,
+              '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
+            }}
           >
             <MenuIcon />
           </IconButton>
