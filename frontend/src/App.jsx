@@ -115,6 +115,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Box>
+      </Box>
       <Footer />
     </Box>
   );
