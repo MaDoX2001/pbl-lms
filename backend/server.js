@@ -28,6 +28,7 @@ const chatRoutes = require('./routes/chat.routes');
 
 // Import services
 const cloudinaryService = require('./services/cloudinary.service');
+const keepAliveService = require('./utils/keepAlive');
 
 // Import middleware
 const { apiLimiter, authLimiter } = require('./middleware/rateLimiter');
@@ -217,6 +218,10 @@ io.on('connection', (socket) => {
 server.listen(PORT, () => {
   console.log(`🚀 الخادم يعمل على المنفذ ${PORT}`);
   console.log(`🌍 البيئة: ${process.env.NODE_ENV}`);
+  
+  // Start keep-alive service in production
+  const serverUrl = process.env.SERVER_URL || `http://localhost:${PORT}`;
+  keepAliveService.start(serverUrl);
 });
 
 // Handle unhandled promise rejections
