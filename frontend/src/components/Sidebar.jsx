@@ -71,9 +71,9 @@ const Sidebar = ({ open, onClose }) => {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.4)',
+            backgroundColor: 'rgba(0, 0, 0, 0.25)',
             zIndex: (theme) => theme.zIndex.drawer - 1,
-            transition: 'opacity 0.25s ease-in-out'
+            transition: 'opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
           }}
         />
       )}
@@ -97,23 +97,28 @@ const Sidebar = ({ open, onClose }) => {
             backgroundColor: '#ffffff',
             borderLeft: '1px solid #e0e0e0',
             boxShadow: '-4px 0 12px rgba(0,0,0,0.15)',
-            transition: 'transform 0.3s ease-in-out'
+            transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflowY: 'auto'
           }
         }}
       >
-        {/* Header */}
+        {/* Header - Fixed at top */}
         <Box 
           sx={{ 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'space-between',
-            p: 2,
+            px: 2.5,
+            py: 1.5,
             backgroundColor: '#1976d2',
             color: 'white',
-            minHeight: '56px'
+            minHeight: '52px',
+            flexShrink: 0
           }}
         >
-          <Box sx={{ fontSize: '1.1rem', fontWeight: 600 }}>
+          <Box sx={{ fontSize: '1.05rem', fontWeight: 600 }}>
             منصة التعلم بالمشروعات
           </Box>
           <IconButton 
@@ -130,10 +135,10 @@ const Sidebar = ({ open, onClose }) => {
 
         <Divider />
 
-        <Divider />
-
-        {/* Navigation List */}
-        <List sx={{ pt: 2, px: 1 }}>
+        {/* Scrollable Navigation Content */}
+        <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+          {/* Navigation List */}
+          <List sx={{ pt: 2, px: 1, pb: 3 }}>
           {/* Public/Base Items */}
           {navItems.filter(item => item.public).map((item) => (
             <ListItem
@@ -298,6 +303,7 @@ const Sidebar = ({ open, onClose }) => {
             </>
           )}
         </List>
+        </Box>
       </Drawer>
     </>
   );
