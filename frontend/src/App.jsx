@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { Box } from '@mui/material';
@@ -34,6 +34,7 @@ import { loadUser } from './redux/slices/authSlice';
 function App() {
   const dispatch = useDispatch();
   const { isAuthenticated } = useSelector((state) => state.auth);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     // Load user if token exists
@@ -43,20 +44,27 @@ function App() {
     }
   }, [dispatch]);
 
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
+  const closeSidebar = () => {
+    setSidebarOpen(false);
+  };
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <Navbar />
+      <Navbar onMenuToggle={toggleSidebar} />
       <Box sx={{ display: 'flex', flex: 1 }}>
-        <Sidebar />
+        <Sidebar open={sidebarOpen} onClose={closeSidebar} />
         <Box
           component="main"
           sx={{
             flex: 1,
-            py: 4,
-            px: 3,
-            marginRight: { md: '280px' }, // Sidebar width
-            transition: 'margin 0.3s ease',
-            backgroundColor: '#fafafa'
+            py: 3,
+            px: { xs: 2, md: 3 },
+            backgroundColor: '#fafafa',
+            minHeight: 'calc(100vh - 56px)'
           }}
         >
           <Routes>

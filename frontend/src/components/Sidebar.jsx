@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import {
@@ -7,13 +7,9 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
-  IconButton,
   Box,
-  Divider,
-  Tooltip
+  Divider
 } from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import FolderIcon from '@mui/icons-material/Folder';
 import CodeIcon from '@mui/icons-material/Code';
@@ -25,15 +21,9 @@ import AddBoxIcon from '@mui/icons-material/AddBox';
 import HomeIcon from '@mui/icons-material/Home';
 
 const DRAWER_WIDTH = 280;
-const COLLAPSED_WIDTH = 70;
 
-const Sidebar = () => {
+const Sidebar = ({ open, onClose }) => {
   const { isAuthenticated, user } = useSelector((state) => state.auth);
-  const [collapsed, setCollapsed] = useState(false);
-
-  const toggleCollapse = () => {
-    setCollapsed(!collapsed);
-  };
 
   // Navigation items based on user role
   const getNavItems = () => {
@@ -54,12 +44,12 @@ const Sidebar = () => {
     ];
 
     if (user?.role === 'teacher' || user?.role === 'admin') {
-      authenticatedItems.push({ to: '/leaderboard', icon: <LeaderboardIcon />, label: 'لوحة المتصدرين' });
-      authenticatedItems.push({ to: '/create-project', icon: <AddBoxIcon />, label: 'إنشاء مشروع' });
+      authenticatedItems.push({ to: '/leaderboard', icon: <LeaderboardIcon />, label: 'لوحة المتصدرين', teacher: true });
+      authenticatedItems.push({ to: '/create-project', icon: <AddBoxIcon />, label: 'إنشاء مشروع', teacher: true });
     }
 
     if (user?.role === 'admin') {
-      authenticatedItems.push({ to: '/admin', icon: <AdminPanelSettingsIcon />, label: 'إدارة النظام' });
+      authenticatedItems.push({ to: '/admin', icon: <AdminPanelSettingsIcon />, label: 'إدارة النظام', admin: true });
     }
 
     return [...baseItems, ...authenticatedItems];
@@ -68,49 +58,75 @@ const Sidebar = () => {
   const navItems = getNavItems();
 
   return (
-    <Drawer
-      variant="permanent"
-      anchor="right"
-      sx={{
-        width: collapsed ? COLLAPSED_WIDTH : DRAWER_WIDTH,
-        flexShrink: 0,
-        '& .MuiDrawer-paper': {
-          width: collapsed ? COLLAPSED_WIDTH : DRAWER_WIDTH,
-          boxSizing: 'border-box',
-          top: '64px', // Below navbar
-          height: 'calc(100% - 64px)',
-          transition: 'width 0.3s ease',
-          backgroundColor: '#f8f9fa',
-          borderLeft: '1px solid #e0e0e0',
-          overflowX: 'hidden'
-        }
-      }}
-    >
-      {/* Collapse Toggle */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-start', p: 1 }}>
-        <IconButton onClick={toggleCollapse} size="small">
-          {collapsed ? <MenuIcon /> : <ChevronRightIcon />}
-        </IconButton>
-      </Box>
+    <>
+      {/* Backdrop */}
+      {open && (
+        <Box
+          onClick={onClose}
+          sx={{
+            position: 'fixed',
+            top: '56px',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+            zIndex: (theme) => theme.zIndex.drawer - 1,
+            transition: 'opacity 0.3s ease'
+          }}
+        />
+      )}
+      
+      {/* Sidebar Drawer */}
+      <Drawer
+        anchor="right"
+        open={open}
+        onClose={onClose}
+        variant="temporary"
+        ModalProps={{
+          keepMounted: true // Better mobile performance
+        }}
+        sx={{
+          '& .MuiDrawer-paper': {
+            width: DRAWER_WIDTH,
+            boxSizing: 'border-box',
+            top: '56px',
+            height: 'calc(100vh - 56px)',
+            backgroundColor: '#ffffff',
+            borderLeft: '1px solid #e0e0e0',
+            boxShadow: '-2px 0 8px rgba(0,0,0,0.1)',
+            transition: 'transform 0.3s ease-in-out'
+          }
+        }}
+      >
+        {/* Header */}
+        <Box sx={{ p: 2, backgroundColor: '#f5f5f5', borderBottom: '1px solid #e0e0e0' }}>
+          <Box sx={{ fontSize: '1.1rem', fontWeight: 600, color: '#1976d2', textAlign: 'center' }}>
+            القائمة الرئيسية
+          </Box>
+        </Box>
 
-      <Divider />
+        <Divider />
 
-      {/* Navigation List */}
-      <List sx={{ pt: 2 }}>
-        {navItems.map((item) => (
-          <Tooltip key={item.to} title={collapsed ? item.label : ''} placement="left">
+        <Divider />
+
+        {/* Navigation List */}
+        <List sx={{ pt: 2, px: 1 }}>
+          {/* Public/Base Items */}
+          {navItems.filter(item => item.public).map((item) => (
             <ListItem
+              key={item.to}
               component={NavLink}
               to={item.to}
+              onClick={onClose}
               sx={{
-                mb: 0.5,
-                mx: 1,
+                mb: 1,
                 borderRadius: '8px',
                 color: 'text.primary',
                 textDecoration: 'none',
                 transition: 'all 0.2s',
                 '&:hover': {
-                  backgroundColor: 'rgba(25, 118, 210, 0.08)'
+                  backgroundColor: 'rgba(25, 118, 210, 0.08)',
+                  transform: 'translateX(-4px)'
                 },
                 '&.active': {
                   backgroundColor: 'primary.main',
@@ -121,29 +137,146 @@ const Sidebar = () => {
                 }
               }}
             >
-              <ListItemIcon
-                sx={{
-                  minWidth: collapsed ? 0 : 40,
-                  justifyContent: 'center',
-                  color: 'inherit'
-                }}
-              >
+              <ListItemIcon sx={{ minWidth: 40, color: 'inherit' }}>
                 {item.icon}
               </ListItemIcon>
-              {!collapsed && (
-                <ListItemText
-                  primary={item.label}
-                  primaryTypographyProps={{
-                    fontSize: '0.95rem',
-                    fontWeight: 500
-                  }}
-                />
-              )}
+              <ListItemText
+                primary={item.label}
+                primaryTypographyProps={{ fontSize: '0.95rem', fontWeight: 500 }}
+              />
             </ListItem>
-          </Tooltip>
-        ))}
-      </List>
-    </Drawer>
+          ))}
+
+          {isAuthenticated && (
+            <>
+              <Divider sx={{ my: 2 }} />
+              
+              {/* Authenticated Items */}
+              {navItems.filter(item => !item.public && !item.admin && !item.teacher).map((item) => (
+                <ListItem
+                  key={item.to}
+                  component={NavLink}
+                  to={item.to}
+                  onClick={onClose}
+                  sx={{
+                    mb: 1,
+                    borderRadius: '8px',
+                    color: 'text.primary',
+                    textDecoration: 'none',
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      backgroundColor: 'rgba(25, 118, 210, 0.08)',
+                      transform: 'translateX(-4px)'
+                    },
+                    '&.active': {
+                      backgroundColor: 'primary.main',
+                      color: 'white',
+                      '& .MuiListItemIcon-root': {
+                        color: 'white'
+                      }
+                    }
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 40, color: 'inherit' }}>
+                    {item.icon}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={item.label}
+                    primaryTypographyProps={{ fontSize: '0.95rem', fontWeight: 500 }}
+                  />
+                </ListItem>
+              ))}
+
+              {/* Teacher/Admin Section */}
+              {(user?.role === 'teacher' || user?.role === 'admin') && (
+                <>
+                  <Divider sx={{ my: 2 }} />
+                  <Box sx={{ px: 2, py: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
+                    إدارة المحتوى
+                  </Box>
+                  {navItems.filter(item => item.teacher).map((item) => (
+                    <ListItem
+                      key={item.to}
+                      component={NavLink}
+                      to={item.to}
+                      onClick={onClose}
+                      sx={{
+                        mb: 1,
+                        borderRadius: '8px',
+                        color: 'text.primary',
+                        textDecoration: 'none',
+                        transition: 'all 0.2s',
+                        '&:hover': {
+                          backgroundColor: 'rgba(25, 118, 210, 0.08)',
+                          transform: 'translateX(-4px)'
+                        },
+                        '&.active': {
+                          backgroundColor: 'primary.main',
+                          color: 'white',
+                          '& .MuiListItemIcon-root': {
+                            color: 'white'
+                          }
+                        }
+                      }}
+                    >
+                      <ListItemIcon sx={{ minWidth: 40, color: 'inherit' }}>
+                        {item.icon}
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={item.label}
+                        primaryTypographyProps={{ fontSize: '0.95rem', fontWeight: 500 }}
+                      />
+                    </ListItem>
+                  ))}
+                </>
+              )}
+
+              {/* Admin Section */}
+              {user?.role === 'admin' && navItems.filter(item => item.admin).map((item) => (
+                <>
+                  <Divider sx={{ my: 2 }} />
+                  <Box sx={{ px: 2, py: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
+                    الإدارة
+                  </Box>
+                  <ListItem
+                    key={item.to}
+                    component={NavLink}
+                    to={item.to}
+                    onClick={onClose}
+                    sx={{
+                      mb: 1,
+                      borderRadius: '8px',
+                      color: 'text.primary',
+                      textDecoration: 'none',
+                      transition: 'all 0.2s',
+                      '&:hover': {
+                        backgroundColor: 'rgba(211, 47, 47, 0.08)',
+                        transform: 'translateX(-4px)'
+                      },
+                      '&.active': {
+                        backgroundColor: '#d32f2f',
+                        color: 'white',
+                        '& .MuiListItemIcon-root': {
+                          color: 'white'
+                        }
+                      }
+                    }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 40, color: 'inherit' }}>
+                      {item.icon}
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={item.label}
+                      primaryTypographyProps={{ fontSize: '0.95rem', fontWeight: 500 }}
+                    />
+                  </ListItem>
+                </>
+              ))}
+            </>
+          )}
+        </List>
+      </Drawer>
+    </>
   );
 };
 

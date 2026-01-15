@@ -4,8 +4,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../redux/slices/authSlice';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import MenuIcon from '@mui/icons-material/Menu';
 
-const Navbar = () => {
+const Navbar = ({ onMenuToggle }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { isAuthenticated, user } = useSelector((state) => state.auth);
@@ -26,8 +27,8 @@ const Navbar = () => {
   };
 
   return (
-    <AppBar position="sticky" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-      <Toolbar>
+    <AppBar position="sticky" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, boxShadow: 1 }}>
+      <Toolbar sx={{ minHeight: '56px !important', py: 0 }}>
         <Typography
           variant="h6"
           component={Link}
@@ -42,7 +43,16 @@ const Navbar = () => {
           منصة التعلم بالمشروعات
         </Typography>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <IconButton
+            color="inherit"
+            aria-label="toggle menu"
+            onClick={onMenuToggle}
+            edge="end"
+            sx={{ mr: 1 }}
+          >
+            <MenuIcon />
+          </IconButton>
           {isAuthenticated ? (
             <>
               <IconButton
