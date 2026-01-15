@@ -102,10 +102,9 @@ function App() {
           } />
           <Route path="/create-project" element={
             <PrivateRoute roles={['teacher', 'admin']}>
-        </Box>
-      </Box>
-      <Footer />
-    </Box } />
+              <CreateProjectPage />
+            </PrivateRoute>
+          } />
           <Route path="/admin" element={
             <PrivateRoute roles={['admin']}>
               <AdminDashboardPage />
@@ -115,9 +114,9 @@ function App() {
           {/* 404 */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
-      </Container>
+      </Box>
       <Footer />
-    </div>
+    </Box>
   );
 }
 
