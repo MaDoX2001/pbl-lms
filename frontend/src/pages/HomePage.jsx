@@ -132,37 +132,6 @@ const HomePage = () => {
         </Grid>
       </Container>
 
-      {/* Stats Section */}
-      <Box sx={{ bgcolor: 'grey.100', py: 6, mb: 6 }}>
-        <Container maxWidth="lg">
-          <Grid container spacing={4} textAlign="center">
-            <Grid item xs={12} md={4}>
-              <Typography variant="h3" color="primary" fontWeight={700}>
-                50+
-              </Typography>
-              <Typography variant="h6" color="text.secondary">
-                مشروع تعليمي
-              </Typography>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Typography variant="h3" color="primary" fontWeight={700}>
-                1000+
-              </Typography>
-              <Typography variant="h6" color="text.secondary">
-                طالب نشط
-              </Typography>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Typography variant="h3" color="primary" fontWeight={700}>
-                95%
-              </Typography>
-              <Typography variant="h6" color="text.secondary">
-                معدل الرضا
-              </Typography>
-            </Grid>
-          </Grid>
-        </Container>
-      </Box>
 
       {/* CTA Section */}
       <Container maxWidth="md" sx={{ mb: 8, textAlign: 'center' }}>
