@@ -33,7 +33,8 @@ const Footer = () => {
             </Typography>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <Link 
-                href="mailto:elmahdyaisha8@gmail.com?subject=تواصل%20من%20المنصة&body=مرحبًا،%0Aأرغب%20في%20التواصل%20بخصوص..." 
+                href="https://mail.google.com/mail/u/0/?fs=1&tf=cm&source=mailto&su=%D8%AA%D9%88%D8%A7%D8%B5%D9%84+%D9%85%D9%86+%D8%A7%D9%84%D9%85%D9%86%D8%B5%D8%A9&to=elmahdyaisha8@gmail.com&body=%D9%85%D8%B1%D8%AD%D8%A8%D9%8B%D8%A7%D8%8C%0A%D8%A3%D8%B1%D8%BA%D8%A8+%D9%81%D9%8A+%D8%A7%D9%84%D8%AA%D9%88%D8%A7%D8%B5%D9%84+%D8%A8%D8%AE%D8%B5%D9%88%D8%B5..." 
+                target="_blank"
                 color="inherit"
               >
                 <EmailIcon />
