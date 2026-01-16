@@ -32,7 +32,10 @@ const Footer = () => {
               تواصل معنا
             </Typography>
             <Box sx={{ display: 'flex', gap: 2 }}>
-              <Link href="mailto:elmahdyaisha8@gmail.com" color="inherit">
+              <Link 
+                href="mailto:elmahdyaisha8@gmail.com?subject=تواصل%20من%20المنصة&body=مرحبًا،%0Aأرغب%20في%20التواصل%20بخصوص..." 
+                color="inherit"
+              >
                 <EmailIcon />
               </Link>
               <Link component={RouterLink} to="/chat" color="inherit">
