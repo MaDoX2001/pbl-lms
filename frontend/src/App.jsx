@@ -18,7 +18,6 @@ import ProjectsPage from './pages/ProjectsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import DashboardPage from './pages/DashboardPage';
 import ProfilePage from './pages/ProfilePage';
-import NewProfilePage from './pages/NewProfilePage';
 import CreateProjectPage from './pages/CreateProjectPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import ArduinoSimulatorPage from './pages/ArduinoSimulatorPage';
@@ -112,12 +111,11 @@ function App() {
               <DashboardPage />
             </PrivateRoute>
           } />
-          <Route path="/profile" element={
+          <Route path="/profile/:id" element={
             <PrivateRoute>
-              <NewProfilePage />
+              <ProfilePage />
             </PrivateRoute>
           } />
-          <Route path="/profile/:id" element={<Navigate to="/profile" replace />} />
           <Route path="/chat" element={
             <PrivateRoute>
               <ChatPage />
