@@ -117,11 +117,7 @@ function App() {
               <NewProfilePage />
             </PrivateRoute>
           } />
-          <Route path="/profile/:id" element={
-            <PrivateRoute>
-              <ProfilePage />
-            </PrivateRoute>
-          } />
+          <Route path="/profile/:id" element={<Navigate to="/profile" replace />} />
           <Route path="/chat" element={
             <PrivateRoute>
               <ChatPage />
