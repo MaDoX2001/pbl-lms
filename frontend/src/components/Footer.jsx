@@ -1,11 +1,13 @@
 import React from 'react';
-import { Box, Container, Typography, Link, Grid } from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
-import GitHubIcon from '@mui/icons-material/GitHub';
-import LinkedInIcon from '@mui/icons-material/LinkedIn';
-import TwitterIcon from '@mui/icons-material/Twitter';
+import { Box, Container, Typography, Link, Grid, Button } from '@mui/material';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import EmailIcon from '@mui/icons-material/Email';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+import ChatIcon from '@mui/icons-material/Chat';
 
 const Footer = () => {
+  const navigate = useNavigate();
+
   return (
     <Box
       component="footer"
@@ -27,53 +29,58 @@ const Footer = () => {
             </Typography>
           </Grid>
 
-          <Grid item xs={12} md={4}>
-            <Typography variant="h6" gutterBottom fontWeight={700}>
-              روابط سريعة
+          <Griتواصل معنا
             </Typography>
-            <Link
-              component={RouterLink}
-              to="/projects"
-              color="inherit"
-              underline="hover"
-              display="block"
-              sx={{ mb: 1 }}
-            >
-              المشاريع
-            </Link>
-            <Link
-              component={RouterLink}
-              to="/leaderboard"
-              color="inherit"
-              underline="hover"
-              display="block"
-              sx={{ mb: 1 }}
-            >
-              لوحة المتصدرين
-            </Link>
-            <Link
-              component={RouterLink}
-              to="/about"
-              color="inherit"
-              underline="hover"
-              display="block"
-            >
-              عن المنصة
-            </Link>
-          </Grid>
-
-          <Grid item xs={12} md={4}>
-            <Typography variant="h6" gutterBottom fontWeight={700}>
-              تواصل معنا
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Link href="#" color="inherit">
-                <GitHubIcon />
-              </Link>
-              <Link href="#" color="inherit">
-                <LinkedInIcon />
-              </Link>
-              <Link href="#" color="inherit">
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Button
+                variant="outlined"
+                startIcon={<EmailIcon />}
+                href="mailto:elmahdyaisha8@gmail.com"
+                sx={{ 
+                  color: 'white',
+                  borderColor: 'white',
+                  justifyContent: 'flex-start',
+                  '&:hover': {
+                    borderColor: 'white',
+                    bgcolor: 'rgba(255,255,255,0.1)'
+                  }
+                }}
+              >
+                إرسال رسالة
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<ChatIcon />}
+                onClick={() => navigate('/chat')}
+                sx={{ 
+                  color: 'white',
+                  borderColor: 'white',
+                  justifyContent: 'flex-start',
+                  '&:hover': {
+                    borderColor: 'white',
+                    bgcolor: 'rgba(255,255,255,0.1)'
+                  }
+                }}
+              >
+                الشات الداخلي
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<WhatsAppIcon />}
+                href="https://wa.me/201207505780"
+                target="_blank"
+                sx={{ 
+                  color: 'white',
+                  borderColor: 'white',
+                  justifyContent: 'flex-start',
+                  '&:hover': {
+                    borderColor: 'white',
+                    bgcolor: 'rgba(255,255,255,0.1)'
+                  }
+                }}
+              >
+                واتساب
+              </Buttonhref="#" color="inherit">
                 <TwitterIcon />
               </Link>
             </Box>
