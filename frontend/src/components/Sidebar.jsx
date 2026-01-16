@@ -42,7 +42,7 @@ const Sidebar = ({ open, onClose }) => {
     const authenticatedItems = [
       { to: '/dashboard', icon: <DashboardIcon />, label: 'لوحة التحكم' },
       { to: '/chat', icon: <ChatIcon />, label: 'المحادثات' },
-      { to: '/projects', icon: <VideocamIcon />, label: 'المحاضرات المباشرة' }
+      { to: '/live-lectures', icon: <VideocamIcon />, label: 'المحاضرات المباشرة' }
     ];
 
     if (user?.role === 'teacher' || user?.role === 'admin') {

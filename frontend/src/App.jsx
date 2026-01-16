@@ -27,6 +27,7 @@ import TwoFactorAuthPage from './pages/TwoFactorAuthPage';
 import EmailVerificationPage from './pages/EmailVerificationPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ChatPage from './pages/ChatPage';
+import LiveLecturesPage from './pages/LiveLecturesPage';
 
 // Import actions
 import { loadUser } from './redux/slices/authSlice';
@@ -96,6 +97,11 @@ function App() {
             </PrivateRoute>
           } />
           <Route path="/arduino-simulator" element={<ArduinoSimulatorPage />} />
+          <Route path="/live-lectures" element={
+            <PrivateRoute>
+              <LiveLecturesPage />
+            </PrivateRoute>
+          } />
 
           {/* 2FA routes */}
           <Route path="/2fa-verify" element={<TwoFactorAuthPage />} />
