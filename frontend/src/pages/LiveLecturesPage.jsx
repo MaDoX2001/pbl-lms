@@ -50,7 +50,7 @@ const LiveLecturesPage = () => {
   const fetchLectures = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/api/lectures');
+      const response = await api.get('/lectures');
       setLectures(response.data.data || []);
     } catch (error) {
       console.error('Error fetching lectures:', error);
@@ -62,7 +62,7 @@ const LiveLecturesPage = () => {
 
   const handleCreateLecture = async () => {
     try {
-      await api.post('/api/lectures', formData);
+      await api.post('/lectures', formData);
       toast.success('تم إنشاء المحاضرة بنجاح');
       setOpenDialog(false);
       setFormData({ title: '', description: '', meetingLink: '', scheduledTime: '' });
@@ -77,7 +77,7 @@ const LiveLecturesPage = () => {
     if (!window.confirm('هل أنت متأكد من حذف هذه المحاضرة؟')) return;
     
     try {
-      await api.delete(`/api/lectures/${id}`);
+      await api.delete(`/lectures/${id}`);
       toast.success('تم حذف المحاضرة بنجاح');
       fetchLectures();
     } catch (error) {
