@@ -119,7 +119,19 @@ const HomePage = () => {
               </Button>
             )}
           </Box>
-        </Container>0}
+        </Container>
+      </Box>
+
+      {/* Features Section */}
+      <Container maxWidth="lg" sx={{ mb: 8 }}>
+        <Typography variant="h3" component="h2" gutterBottom align="center" fontWeight={700} sx={{ mb: 6 }}>
+          لماذا التعلم بالمشروعات؟
+        </Typography>
+        <Grid container spacing={4}>
+          {features.map((feature, index) => (
+            <Grid item xs={12} sm={6} md={3} key={index}>
+              <Paper
+                elevation={0}
                 sx={{
                   p: 3,
                   height: '100%',
@@ -145,19 +157,7 @@ const HomePage = () => {
                 <Typography variant="h6" gutterBottom fontWeight={700}>
                   {feature.title}
                 </Typography>
-                <Typography variant="body2" sx={{ opacity: 0.95 }}
-                    transform: 'translateY(-8px)',
-                    boxShadow: 4,
-                  }
-                }}
-              >
-                <Box sx={{ mb: 2 }}>
-                  {feature.icon}
-                </Box>
-                <Typography variant="h6" gutterBottom fontWeight={600}>
-                  {feature.title}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{ opacity: 0.95 }}>
                   {feature.description}
                 </Typography>
               </Paper>
