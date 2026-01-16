@@ -30,25 +30,11 @@ const CreateProjectPage = () => {
     description: '',
     shortDescription: '',
     difficulty: 'beginner',
-    category: 'web',
-    technologies: [],
     objectives: [''],
     estimatedDuration: '',
     points: 100,
     isPublished: false
   });
-
-  const [techInput, setTechInput] = useState('');
-
-  const categories = [
-    { value: 'web', label: 'تطوير الويب' },
-    { value: 'mobile', label: 'تطوير تطبيقات الموبايل' },
-    { value: 'desktop', label: 'تطوير تطبيقات سطح المكتب' },
-    { value: 'data-science', label: 'علم البيانات' },
-    { value: 'ai-ml', label: 'الذكاء الاصطناعي والتعلم الآلي' },
-    { value: 'game-dev', label: 'تطوير الألعاب' },
-    { value: 'other', label: 'أخرى' }
-  ];
 
   const difficulties = [
     { value: 'beginner', label: 'مبتدئ' },
@@ -60,23 +46,6 @@ const CreateProjectPage = () => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
-    });
-  };
-
-  const handleAddTechnology = () => {
-    if (techInput.trim() && !formData.technologies.includes(techInput.trim())) {
-      setFormData({
-        ...formData,
-        technologies: [...formData.technologies, techInput.trim()]
-      });
-      setTechInput('');
-    }
-  };
-
-  const handleDeleteTechnology = (tech) => {
-    setFormData({
-      ...formData,
-      technologies: formData.technologies.filter(t => t !== tech)
     });
   };
 
@@ -114,10 +83,6 @@ const CreateProjectPage = () => {
     }
     if (!formData.description.trim()) {
       setError('يرجى إدخال وصف المشروع');
-      return;
-    }
-    if (formData.technologies.length === 0) {
-      setError('يرجى إضافة تقنية واحدة على الأقل');
       return;
     }
     if (!formData.estimatedDuration || formData.estimatedDuration <= 0) {
@@ -235,25 +200,6 @@ const CreateProjectPage = () => {
             </Grid>
 
             <Grid item xs={12} sm={4}>
-              <FormControl fullWidth>
-                <InputLabel>التصنيف *</InputLabel>
-                <Select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                  disabled={loading}
-                  label="التصنيف *"
-                >
-                  {categories.map((cat) => (
-                    <MenuItem key={cat.value} value={cat.value}>
-                      {cat.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12} sm={4}>
               <TextField
                 fullWidth
                 label="المدة التقديرية (ساعات) *"
@@ -293,47 +239,6 @@ const CreateProjectPage = () => {
                   <MenuItem value={true}>منشور</MenuItem>
                 </Select>
               </FormControl>
-            </Grid>
-
-            {/* Technologies */}
-            <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                التقنيات المستخدمة *
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                <TextField
-                  fullWidth
-                  label="أضف تقنية"
-                  value={techInput}
-                  onChange={(e) => setTechInput(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddTechnology();
-                    }
-                  }}
-                  disabled={loading}
-                  placeholder="مثال: React, Node.js, MongoDB"
-                />
-                <Button
-                  variant="contained"
-                  onClick={handleAddTechnology}
-                  disabled={loading}
-                >
-                  إضافة
-                </Button>
-              </Box>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {formData.technologies.map((tech, index) => (
-                  <Chip
-                    key={index}
-                    label={tech}
-                    onDelete={() => handleDeleteTechnology(tech)}
-                    color="primary"
-                    disabled={loading}
-                  />
-                ))}
-              </Box>
             </Grid>
 
             {/* Objectives */}
