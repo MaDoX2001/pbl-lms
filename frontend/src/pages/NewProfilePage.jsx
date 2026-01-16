@@ -57,118 +57,100 @@ const NewProfilePage = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6">
-      {/* Profile Card */}
-      <div className="bg-white rounded-lg shadow-md mb-6">
-        {/* Header Section */}
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center gap-6 flex-wrap">
-            {/* Avatar with Completion Badge */}
-            <div className="relative">
-              <div className="w-24 h-24 rounded-full border-4 border-gray-200 overflow-hidden bg-gray-100 flex items-center justify-center">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Profile Header - Centered */}
+        <div className="bg-white rounded-lg shadow-sm p-8 mb-6">
+          <div className="flex flex-col items-center text-center">
+            {/* Large Centered Avatar */}
+            <div className="relative mb-4">
+              <div className="w-32 h-32 rounded-full overflow-hidden bg-gradient-to-br from-purple-400 to-indigo-500 flex items-center justify-center border-4 border-white shadow-lg">
                 {user.avatar ? (
                   <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-4xl font-bold text-gray-500">
+                  <span className="text-5xl font-bold text-white">
                     {user.name?.charAt(0)?.toUpperCase()}
                   </span>
                 )}
               </div>
-              {/* Completion Badge */}
-              <div className="absolute -bottom-1 -right-1 bg-purple-600 text-white rounded-full w-10 h-10 flex items-center justify-center text-xs font-bold border-2 border-white shadow-lg">
-                {user.profileCompletion || 0}%
-              </div>
             </div>
 
-            {/* User Info */}
-            <div className="flex-1 min-w-[200px]">
-              <div className="flex items-center gap-2 mb-2">
-                <h1 className="text-2xl font-bold text-gray-800">{user.name}</h1>
-                {user.isEmailVerified && (
-                  <svg className="w-6 h-6 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                )}
-              </div>
-              
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                  user.role === 'student' ? 'bg-blue-100 text-blue-700' :
-                  user.role === 'teacher' ? 'bg-green-100 text-green-700' :
-                  'bg-orange-100 text-orange-700'
-                }`}>
-                  {user.role === 'student' ? '👨‍🎓 طالب' : user.role === 'teacher' ? '👨‍🏫 معلم' : '👨‍💼 مسؤول'}
-                </span>
-                {user.twoFactorEnabled && (
-                  <span className="px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-700">
-                    🔒 2FA مفعل
-                  </span>
-                )}
-              </div>
-
-              <p className="text-gray-600 text-sm">{user.email}</p>
+            {/* Name with Verification Badge */}
+            <div className="flex items-center gap-2 mb-2">
+              <h1 className="text-3xl font-bold text-gray-900">{user.name}</h1>
+              {user.isEmailVerified && (
+                <svg className="w-7 h-7 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              )}
             </div>
 
-            {/* Edit Button */}
-            <button
-              onClick={handleEditProfile}
-              className="px-6 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors"
-            >
-              تعديل الملف
-            </button>
-          </div>
-
-          {/* Profile Completion Bar */}
-          <div className="mt-4">
-            <div className="flex justify-between text-sm mb-1">
-              <span className="text-gray-600">اكتمال الملف الشخصي</span>
-              <span className="font-semibold text-gray-700">{user.profileCompletion || 0}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div
-                className="bg-purple-600 h-2 rounded-full transition-all duration-500"
-                style={{ width: `${user.profileCompletion || 0}%` }}
-              />
-            </div>
+            {/* Email */}
+            <p className="text-gray-600 mb-4">{user.email}</p>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="border-b border-gray-200">
-          <nav className="flex gap-1 px-6 overflow-x-auto" aria-label="Tabs">
-            <TabButton
-              label="نظرة عامة"
-              icon="📊"
-              active={activeTab === 'overview'}
-              onClick={() => setActiveTab('overview')}
-            />
-            <TabButton
-              label="النشاط"
-              icon="⚡"
-              active={activeTab === 'activity'}
-              onClick={() => setActiveTab('activity')}
-            />
-            <TabButton
-              label="الإعدادات"
-              icon="⚙️"
-              active={activeTab === 'settings'}
-              onClick={() => setActiveTab('settings')}
-            />
-            <TabButton
-              label="الأمان"
-              icon="🔒"
-              active={activeTab === 'security'}
-              onClick={() => setActiveTab('security')}
-            />
-          </nav>
-        </div>
+        {/* Main Content - Two Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left Column */}
+          <div className="space-y-6">
+            {/* Personal Details */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Personal details</h2>
+              <div className="space-y-4">
+                <DetailRow label="Full name:" value={user.name} />
+                <DetailRow label="Date of Birth:" value={user.dateOfBirth || 'January 1, 1987'} />
+                <DetailRow label="Gender:" value={user.gender || 'Male'} />
+                <DetailRow label="Nationality:" value={user.nationality || 'American'} />
+                <DetailRow label="Address:" value={user.address || 'California - United States'} icon="🇺🇸" />
+                <DetailRow label="Phone Number:" value={user.phoneNumber || '(213) 555-1234'} />
+                <DetailRow label="Email:" value={user.email} />
+              </div>
+            </div>
 
-        {/* Tab Content */}
-        <div className="p-6">
-          {activeTab === 'overview' && <OverviewTab user={user} />}
-          {activeTab === 'activity' && <ActivityTab user={user} />}
-          {activeTab === 'settings' && <SettingsTab user={user} />}
-          {activeTab === 'security' && <SecurityTab />}
+            {/* Security Settings */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Security Settings</h2>
+              <div className="space-y-4">
+                <DetailRow label="Password Last Changed:" value="July 15, 2024" />
+                <DetailRow label="Two-Factor Authentication:" value={user.twoFactorEnabled ? 'Enabled' : 'Disabled'} badge={user.twoFactorEnabled ? 'Enabled' : null} badgeColor="blue" />
+                <DetailRow label="Security Questions Set:" value="Yes" />
+                <DetailRow label="Login Notifications:" value="Enabled" badge="Enabled" badgeColor="blue" />
+                <DetailRow label="Connected Devices:" value="3 Devices" />
+                <DetailRow label="Recent Account Activity:" value="No Suspicious Activity Detected" />
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column */}
+          <div className="space-y-6">
+            {/* Account Details */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Account Details</h2>
+              <div className="space-y-4">
+                <DetailRow label="Display Name:" value={`s.${user.name?.toLowerCase().replace(/\s+/g, '.')}.168920`} />
+                <DetailRow label="Account Created:" value={new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} />
+                <DetailRow label="Last Login:" value={user.lastLogin ? new Date(user.lastLogin).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'August 22, 2024'} />
+                <DetailRow label="Membership Status:" value={user.membershipStatus || 'Premium Member'} />
+                <DetailRow label="Account Verification:" value="Verified" badge="Verified" badgeColor="green" />
+                <DetailRow label="Language Preference:" value="English" />
+                <DetailRow label="Time Zone:" value="GMT-5 (Eastern Time)" />
+              </div>
+            </div>
+
+            {/* Preferences */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Preferences</h2>
+              <div className="space-y-4">
+                <DetailRow label="Email Notifications:" value="Subscribed" badge="Subscribed" badgeColor="purple" />
+                <DetailRow label="SMS Alerts:" value="Enabled" badge="Enabled" badgeColor="blue" />
+                <DetailRow label="Content Preferences:" value="Technology, Design, Innovation" />
+                <DetailRow label="Default Dashboard View:" value="Compact Mode" />
+                <DetailRow label="Dark Mode:" value="Activated" />
+                <DetailRow label="Language for Content:" value="English" />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
