@@ -29,7 +29,9 @@ const Footer = () => {
             </Typography>
           </Grid>
 
-          <Griتواصل معنا
+          <Grid item xs={12} md={4}>
+            <Typography variant="h6" gutterBottom fontWeight={700}>
+              تواصل معنا
             </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               <Button
