@@ -16,7 +16,6 @@ const ProjectsPage = () => {
   const [filters, setFilters] = useState({
     search: '',
     difficulty: '',
-    category: '',
     sort: 'recent',
   });
 
@@ -84,24 +83,6 @@ const ProjectsPage = () => {
                 <MenuItem value="beginner">مبتدئ</MenuItem>
                 <MenuItem value="intermediate">متوسط</MenuItem>
                 <MenuItem value="advanced">متقدم</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} sm={4} md={3}>
-            <FormControl fullWidth>
-              <InputLabel>التصنيف</InputLabel>
-              <Select
-                value={filters.category}
-                onChange={(e) => handleFilterChange('category', e.target.value)}
-                label="التصنيف"
-              >
-                <MenuItem value="">الكل</MenuItem>
-                <MenuItem value="web">تطوير ويب</MenuItem>
-                <MenuItem value="mobile">تطوير موبايل</MenuItem>
-                <MenuItem value="desktop">تطوير سطح المكتب</MenuItem>
-                <MenuItem value="data-science">علم البيانات</MenuItem>
-                <MenuItem value="ai-ml">ذكاء اصطناعي</MenuItem>
-                <MenuItem value="game-dev">تطوير ألعاب</MenuItem>
               </Select>
             </FormControl>
           </Grid>
