@@ -67,58 +67,6 @@ const HomePage = () => {
           <Typography variant="h5" gutterBottom align="center" sx={{ mb: 4, textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}>
             منصة تعليمية متكاملة تساعدك على إتقان البرمجة من خلال مشاريع عملية
           </Typography>
-          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
-            {!isAuthenticated ? (
-              <>
-                <Button 
-                  variant="contained" 
-                  size="large" 
-                  onClick={() => navigate('/register')}
-                  sx={{ 
-                    px: 4,
-                    bgcolor: '#00bcd4',
-                    color: 'white',
-                    fontWeight: 700,
-                    boxShadow: '0 4px 14px rgba(0, 188, 212, 0.4)',
-                    '&:hover': {
-                      bgcolor: '#00acc1',
-                      boxShadow: '0 6px 20px rgba(0, 188, 212, 0.6)',
-                    }
-                  }}
-                >
-                  ابدأ الآن مجاناً
-                </Button>
-                <Button 
-                  variant="outlined" 
-                  size="large"
-                  onClick={() => navigate('/projects')}
-                  sx={{ 
-                    color: 'white', 
-                    borderColor: 'white',
-                    borderWidth: 2,
-                    fontWeight: 600,
-                    '&:hover': {
-                      borderColor: '#00bcd4',
-                      bgcolor: 'rgba(0, 188, 212, 0.2)',
-                      borderWidth: 2,
-                    }
-                  }}
-                >
-                  استكشف المشاريع
-                </Button>
-              </>
-            ) : (
-              <Button 
-                variant="contained" 
-                size="large" 
-                color="secondary"
-                onClick={() => navigate('/dashboard')}
-                sx={{ px: 4 }}
-              >
-                انتقل إلى لوحة التحكم
-              </Button>
-            )}
-          </Box>
         </Container>
       </Box>
 
