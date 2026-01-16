@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User.model');
+const Progress = require('../models/Progress.model');
+const bcrypt = require('bcryptjs');
 const { protect, authorize } = require('../middleware/auth.middleware');
 
 // @desc    Get all users
@@ -96,7 +98,7 @@ router.put('/:id', protect, async (req, res) => {
 });
 
 // @desc    Get leaderboard
-// @route   GET /api/users/leaderboard
+// @route   GET /api/users/stats/leaderboard
 // @access  Public
 router.get('/stats/leaderboard', async (req, res) => {
   try {
@@ -115,6 +117,135 @@ router.get('/stats/leaderboard', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'خطأ في جلب لوحة المتصدرين',
+      error: error.message
+    });
+  }
+});
+
+// @desc    Get user statistics
+// @route   GET /api/users/stats
+// @access  Private
+router.get('/stats', protect, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Get progress data
+    const progressData = await Progress.find({ student: userId })
+      .populate('project', 'title');
+    
+    // Calculate stats
+    const completedProjects = progressData.filter(p => p.status === 'completed').length;
+    const inProgressProjects = progressData.filter(p => p.status === 'in-progress').length;
+    
+    // Get user for points
+    const user = await User.findById(userId).select('points');
+    
+    // Calculate rank
+    const usersAbove = await User.countDocuments({ 
+      role: 'student', 
+      points: { $gt: user.points } 
+    });
+    const rank = usersAbove + 1;
+    
+    res.json({
+      completedProjects,
+      inProgressProjects,
+      totalPoints: user.points || 0,
+      rank
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في جلب الإحصائيات',
+      error: error.message
+    });
+  }
+});
+
+// @desc    Update user profile
+// @route   PUT /api/users/profile
+// @access  Private
+router.put('/profile', protect, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { name, email, phone } = req.body;
+    
+    // Check if email is already taken by another user
+    if (email) {
+      const emailExists = await User.findOne({ email, _id: { $ne: userId } });
+      if (emailExists) {
+        return res.status(400).json({
+          success: false,
+          message: 'البريد الإلكتروني مستخدم بالفعل'
+        });
+      }
+    }
+    
+    const updates = {};
+    if (name) updates.name = name;
+    if (email) updates.email = email;
+    if (phone) updates.phone = phone;
+    
+    const user = await User.findByIdAndUpdate(
+      userId,
+      updates,
+      { new: true, runValidators: true }
+    ).select('-password');
+    
+    res.json({
+      success: true,
+      message: 'تم تحديث الملف الشخصي بنجاح',
+      data: user
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في تحديث الملف الشخصي',
+      error: error.message
+    });
+  }
+});
+
+// @desc    Change password
+// @route   PUT /api/users/change-password
+// @access  Private
+router.put('/change-password', protect, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { currentPassword, newPassword } = req.body;
+    
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'يرجى إدخال كلمة المرور الحالية والجديدة'
+      });
+    }
+    
+    // Get user with password
+    const user = await User.findById(userId).select('+password');
+    
+    // Check current password
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'كلمة المرور الحالية غير صحيحة'
+      });
+    }
+    
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
+    
+    res.json({
+      success: true,
+      message: 'تم تغيير كلمة المرور بنجاح'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في تغيير كلمة المرور',
       error: error.message
     });
   }
