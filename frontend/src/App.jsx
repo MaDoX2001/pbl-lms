@@ -18,6 +18,7 @@ import ProjectsPage from './pages/ProjectsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import DashboardPage from './pages/DashboardPage';
 import ProfilePage from './pages/ProfilePage';
+import NewProfilePage from './pages/NewProfilePage';
 import CreateProjectPage from './pages/CreateProjectPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import ArduinoSimulatorPage from './pages/ArduinoSimulatorPage';
@@ -109,6 +110,11 @@ function App() {
           <Route path="/dashboard" element={
             <PrivateRoute>
               <DashboardPage />
+            </PrivateRoute>
+          } />
+          <Route path="/profile" element={
+            <PrivateRoute>
+              <NewProfilePage />
             </PrivateRoute>
           } />
           <Route path="/profile/:id" element={
