@@ -82,9 +82,7 @@ const Footer = () => {
                 }}
               >
                 واتساب
-              </Buttonhref="#" color="inherit">
-                <TwitterIcon />
-              </Link>
+              </Button>
             </Box>
           </Grid>
         </Grid>
