@@ -58,21 +58,66 @@ const calculateDimensionScore = (dimensionQuestions, answers) => {
 // Get questions
 exports.getQuestions = async (req, res) => {
   try {
-    // Return questions without answers
-    const questionsForClient = {};
-    Object.keys(QUESTIONS).forEach(dimension => {
-      questionsForClient[dimension] = QUESTIONS[dimension].map(q => ({
-        id: q.id,
-        text: q.text,
-        type: q.type,
-        options: q.options
-      }));
-    });
+    // Return questions as array of dimensions for frontend
+    const questionsForClient = [
+      {
+        dimension: 'Technical Readiness',
+        questions: QUESTIONS.technicalReadiness.map(q => ({
+          id: q.id,
+          question: q.text,
+          type: q.type,
+          options: q.type === 'likert' 
+            ? ['1 - لا أوافق بشدة', '2 - لا أوافق', '3 - محايد', '4 - أوافق', '5 - أوافق بشدة']
+            : q.options
+        }))
+      },
+      {
+        dimension: 'Programming Readiness',
+        questions: QUESTIONS.programmingReadiness.map(q => ({
+          id: q.id,
+          question: q.text,
+          type: q.type,
+          options: q.type === 'likert' 
+            ? ['1 - لا أوافق بشدة', '2 - لا أوافق', '3 - محايد', '4 - أوافق', '5 - أوافق بشدة']
+            : q.options
+        }))
+      },
+      {
+        dimension: 'Arduino Readiness',
+        questions: QUESTIONS.arduinoReadiness.map(q => ({
+          id: q.id,
+          question: q.text,
+          type: q.type,
+          options: q.type === 'likert' 
+            ? ['1 - لا أوافق بشدة', '2 - لا أوافق', '3 - محايد', '4 - أوافق', '5 - أوافق بشدة']
+            : q.options
+        }))
+      },
+      {
+        dimension: 'Smart Systems Readiness',
+        questions: QUESTIONS.smartSystemsReadiness.map(q => ({
+          id: q.id,
+          question: q.text,
+          type: q.type,
+          options: q.type === 'likert' 
+            ? ['1 - لا أوافق بشدة', '2 - لا أوافق', '3 - محايد', '4 - أوافق', '5 - أوافق بشدة']
+            : q.options
+        }))
+      },
+      {
+        dimension: 'Project Learning Readiness',
+        questions: QUESTIONS.projectLearningReadiness.map(q => ({
+          id: q.id,
+          question: q.text,
+          type: q.type,
+          options: q.type === 'likert' 
+            ? ['1 - لا أوافق بشدة', '2 - لا أوافق', '3 - محايد', '4 - أوافق', '5 - أوافق بشدة']
+            : q.options
+        }))
+      }
+    ];
 
-    res.json({
-      success: true,
-      questions: questionsForClient
-    });
+    res.json(questionsForClient);
   } catch (error) {
     res.status(500).json({
       success: false,
