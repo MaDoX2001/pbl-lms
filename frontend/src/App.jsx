@@ -19,6 +19,7 @@ import ProjectDetailPage from './pages/ProjectDetailPage';
 import DashboardPage from './pages/DashboardPage';
 import ProfilePage from './pages/ProfilePage';
 import CreateProjectPage from './pages/CreateProjectPage';
+import EditProjectPage from './pages/EditProjectPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import ArduinoSimulatorPage from './pages/ArduinoSimulatorPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
@@ -130,6 +131,11 @@ function App() {
           <Route path="/create-project" element={
             <PrivateRoute roles={['teacher', 'admin']}>
               <CreateProjectPage />
+            </PrivateRoute>
+          } />
+          <Route path="/edit-project/:id" element={
+            <PrivateRoute roles={['teacher', 'admin']}>
+              <EditProjectPage />
             </PrivateRoute>
           } />
           <Route path="/admin" element={

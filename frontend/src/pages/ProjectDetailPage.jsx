@@ -249,19 +249,35 @@ const ProjectDetailPage = () => {
             </Typography>
           </Box>
           {canManageProject && (
-            <Button
-              variant="contained"
-              color={project.isPublished ? 'warning' : 'success'}
-              onClick={handleTogglePublish}
-              sx={{ 
-                bgcolor: project.isPublished ? 'rgba(255,152,0,0.9)' : 'rgba(76,175,80,0.9)',
-                '&:hover': {
-                  bgcolor: project.isPublished ? 'rgba(255,152,0,1)' : 'rgba(76,175,80,1)'
-                }
-              }}
-            >
-              {project.isPublished ? 'إلغاء النشر' : 'نشر المشروع'}
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                variant="contained"
+                color="info"
+                startIcon={<EditIcon />}
+                onClick={() => navigate(`/edit-project/${id}`)}
+                sx={{ 
+                  bgcolor: 'rgba(33,150,243,0.9)',
+                  '&:hover': {
+                    bgcolor: 'rgba(33,150,243,1)'
+                  }
+                }}
+              >
+                تعديل المشروع
+              </Button>
+              <Button
+                variant="contained"
+                color={project.isPublished ? 'warning' : 'success'}
+                onClick={handleTogglePublish}
+                sx={{ 
+                  bgcolor: project.isPublished ? 'rgba(255,152,0,0.9)' : 'rgba(76,175,80,0.9)',
+                  '&:hover': {
+                    bgcolor: project.isPublished ? 'rgba(255,152,0,1)' : 'rgba(76,175,80,1)'
+                  }
+                }}
+              >
+                {project.isPublished ? 'إلغاء النشر' : 'نشر المشروع'}
+              </Button>
+            </Box>
           )}
         </Box>
         <Typography variant="h6" sx={{ mb: 2, opacity: 0.9 }}>
