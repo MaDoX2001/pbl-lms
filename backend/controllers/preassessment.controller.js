@@ -61,7 +61,7 @@ exports.getQuestions = async (req, res) => {
     // Return questions as array of dimensions for frontend
     const questionsForClient = [
       {
-        dimension: 'Technical Readiness',
+        dimension: 'الجاهزية التقنية',
         questions: QUESTIONS.technicalReadiness.map(q => ({
           id: q.id,
           question: q.text,
@@ -72,7 +72,7 @@ exports.getQuestions = async (req, res) => {
         }))
       },
       {
-        dimension: 'Programming Readiness',
+        dimension: 'الجاهزية البرمجية',
         questions: QUESTIONS.programmingReadiness.map(q => ({
           id: q.id,
           question: q.text,
@@ -83,7 +83,7 @@ exports.getQuestions = async (req, res) => {
         }))
       },
       {
-        dimension: 'Arduino Readiness',
+        dimension: 'الجاهزية لاستخدام Arduino',
         questions: QUESTIONS.arduinoReadiness.map(q => ({
           id: q.id,
           question: q.text,
@@ -94,7 +94,7 @@ exports.getQuestions = async (req, res) => {
         }))
       },
       {
-        dimension: 'Smart Systems Readiness',
+        dimension: 'الجاهزية للأنظمة الذكية',
         questions: QUESTIONS.smartSystemsReadiness.map(q => ({
           id: q.id,
           question: q.text,
@@ -105,7 +105,7 @@ exports.getQuestions = async (req, res) => {
         }))
       },
       {
-        dimension: 'Project Learning Readiness',
+        dimension: 'الجاهزية للتعلم بالمشاريع',
         questions: QUESTIONS.projectLearningReadiness.map(q => ({
           id: q.id,
           question: q.text,

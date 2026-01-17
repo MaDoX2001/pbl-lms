@@ -18,6 +18,13 @@ import {
   LinearProgress,
   Alert,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Grid,
+  Card,
+  CardContent,
 } from '@mui/material';
 import api from '../services/api';
 
@@ -45,13 +52,15 @@ const PreAssessmentPage = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [showResults, setShowResults] = useState(false);
+  const [results, setResults] = useState(null);
 
   const dimensions = [
-    'Technical Readiness',
-    'Programming Readiness',
-    'Arduino Readiness',
-    'Smart Systems Readiness',
-    'Project Learning Readiness',
+    'الجاهزية التقنية',
+    'الجاهزية البرمجية',
+    'الجاهزية لاستخدام Arduino',
+    'الجاهزية للأنظمة الذكية',
+    'الجاهزية للتعلم بالمشاريع',
   ];
 
   // Fetch questions on mount
@@ -107,16 +116,26 @@ const PreAssessmentPage = () => {
     try {
       const response = await api.post('/preassessment/submit', { answers });
 
+      // Store results to show in dialog
+      setResults(response.data);
+
       // CRITICAL: Replace auth.user with the updated user from backend
       // This ensures single source of truth
       dispatch({ type: 'auth/updateUser', payload: response.data.user });
 
-      // Navigate to dashboard
-      navigate('/dashboard', { replace: true });
+      // Show results dialog
+      setShowResults(true);
+      setSubmitting(false);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to submit assessment');
       setSubmitting(false);
     }
+  };
+
+  // Handle closing results and navigating to dashboard
+  const handleCloseResults = () => {
+    setShowResults(false);
+    navigate('/dashboard', { replace: true });
   };
 
   // Calculate progress
@@ -155,17 +174,16 @@ const PreAssessmentPage = () => {
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Paper elevation={3} sx={{ p: 4 }}>
         <Typography variant="h4" gutterBottom align="center">
-          Pre-Assessment Test
+          اختبار تشخيصي
         </Typography>
         <Typography variant="body1" color="text.secondary" align="center" sx={{ mb: 4 }}>
-          This diagnostic test helps us understand your current skills and knowledge.
-          Please answer all questions honestly.
+          يساعدنا هذا الاختبار في فهم مستواك الحالي ومهاراتك. الرجاء الإجابة على جميع الأسئلة بصدق.
         </Typography>
 
         {/* Overall Progress */}
         <Box sx={{ mb: 4 }}>
           <Typography variant="body2" color="text.secondary" gutterBottom>
-            Overall Progress: {answeredQuestions} / {totalQuestions} questions
+            التقدم الإجمالي: {answeredQuestions} / {totalQuestions} سؤال
           </Typography>
           <LinearProgress variant="determinate" value={progress} />
         </Box>
@@ -192,7 +210,7 @@ const PreAssessmentPage = () => {
               {currentDimension.dimension}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Question {activeStep * 4 + 1} - {activeStep * 4 + 4} of {totalQuestions}
+              السؤال {activeStep * 4 + 1} - {activeStep * 4 + 4} من {totalQuestions}
             </Typography>
 
             {currentDimension.questions.map((question, index) => (
@@ -231,7 +249,7 @@ const PreAssessmentPage = () => {
             disabled={activeStep === 0 || submitting}
             variant="outlined"
           >
-            Back
+            رجوع
           </Button>
           <Button
             onClick={handleNext}
@@ -242,13 +260,107 @@ const PreAssessmentPage = () => {
             {submitting ? (
               <CircularProgress size={24} color="inherit" />
             ) : activeStep === dimensions.length - 1 ? (
-              'Submit'
+              'إرسال'
             ) : (
-              'Next'
+              'التالي'
             )}
           </Button>
         </Box>
       </Paper>
+
+      {/* Results Dialog */}
+      <Dialog 
+        open={showResults} 
+        onClose={handleCloseResults}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h4" align="center" sx={{ fontWeight: 'bold' }}>
+            نتيجة الاختبار التشخيصي
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {results && (
+            <Box sx={{ py: 2 }}>
+              {/* Overall Score */}
+              <Paper elevation={3} sx={{ p: 3, mb: 3, bgcolor: 'primary.light', color: 'white' }}>
+                <Typography variant="h5" align="center" gutterBottom>
+                  النتيجة الإجمالية
+                </Typography>
+                <Typography variant="h2" align="center" sx={{ fontWeight: 'bold' }}>
+                  {results.totalScore ? results.totalScore.toFixed(1) : 0}%
+                </Typography>
+                <Typography variant="h6" align="center" sx={{ mt: 1 }}>
+                  مستوى الجاهزية: {
+                    results.readinessLevel === 'high' ? 'عالي 🎉' :
+                    results.readinessLevel === 'medium' ? 'متوسط 👍' :
+                    'يحتاج تحسين 💪'
+                  }
+                </Typography>
+              </Paper>
+
+              {/* Dimension Scores */}
+              <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                النتائج التفصيلية لكل بُعد:
+              </Typography>
+              <Grid container spacing={2}>
+                {results.dimensionScores && Object.entries(results.dimensionScores).map(([key, score], index) => {
+                  const dimensionNames = {
+                    technicalReadiness: 'الجاهزية التقنية',
+                    programmingReadiness: 'الجاهزية البرمجية',
+                    arduinoReadiness: 'الجاهزية لاستخدام Arduino',
+                    smartSystemsReadiness: 'الجاهزية للأنظمة الذكية',
+                    projectLearningReadiness: 'الجاهزية للتعلم بالمشاريع'
+                  };
+                  
+                  return (
+                    <Grid item xs={12} sm={6} key={key}>
+                      <Card>
+                        <CardContent>
+                          <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
+                            {dimensionNames[key]}
+                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                            <Box sx={{ width: '100%', mr: 1 }}>
+                              <LinearProgress 
+                                variant="determinate" 
+                                value={score} 
+                                sx={{ height: 10, borderRadius: 5 }}
+                                color={score >= 70 ? 'success' : score >= 50 ? 'warning' : 'error'}
+                              />
+                            </Box>
+                            <Typography variant="body2" sx={{ minWidth: 50, fontWeight: 'bold' }}>
+                              {score.toFixed(0)}%
+                            </Typography>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  );
+                })}
+              </Grid>
+
+              <Alert severity="info" sx={{ mt: 3 }}>
+                <Typography variant="body2">
+                  ستساعدنا هذه النتائج في تقديم تجربة تعليمية مخصصة لك. يمكنك البدء في استكشاف المشاريع الآن! 🚀
+                </Typography>
+              </Alert>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button 
+            onClick={handleCloseResults} 
+            variant="contained" 
+            color="primary" 
+            size="large"
+            fullWidth
+          >
+            الانتقال إلى لوحة التحكم
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };
