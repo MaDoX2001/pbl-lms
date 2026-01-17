@@ -110,9 +110,14 @@ const CreateProjectPage = () => {
     try {
       setLoading(true);
       
+      // Add required final statement to description
+      const finalStatement = '\n\nيقوم المتعلم بإعداد تقرير شامل عن المشروع باستخدام النموذج المرفق ويُعد هذا التقرير هو المنتج النهائي للمشروع.';
+      const descriptionWithStatement = formData.description.trim() + finalStatement;
+      
       // Filter out empty objectives
       const cleanData = {
         ...formData,
+        description: descriptionWithStatement,
         objectives: formData.objectives.filter(obj => obj.trim() !== ''),
         estimatedDuration: Number(formData.estimatedDuration),
         points: Number(formData.points)
