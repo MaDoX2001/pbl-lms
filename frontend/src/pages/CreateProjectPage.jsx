@@ -30,6 +30,8 @@ const CreateProjectPage = () => {
     description: '',
     shortDescription: '',
     difficulty: 'beginner',
+    category: 'web',
+    technologies: [],
     objectives: [''],
     estimatedDuration: '',
     deadline: '',
@@ -47,6 +49,16 @@ const CreateProjectPage = () => {
     { value: 'beginner', label: 'مبتدئ' },
     { value: 'intermediate', label: 'متوسط' },
     { value: 'advanced', label: 'متقدم' }
+  ];
+
+  const categories = [
+    { value: 'web', label: 'تطوير ويب' },
+    { value: 'mobile', label: 'تطبيقات جوال' },
+    { value: 'desktop', label: 'تطبيقات سطح المكتب' },
+    { value: 'data-science', label: 'علم البيانات' },
+    { value: 'ai-ml', label: 'ذكاء اصطناعي' },
+    { value: 'game-dev', label: 'تطوير الألعاب' },
+    { value: 'other', label: 'أخرى' }
   ];
 
   const handleChange = (e) => {
@@ -100,6 +112,10 @@ const CreateProjectPage = () => {
     }
     if (!formData.description.trim()) {
       setError('يرجى إدخال وصف المشروع');
+      return;
+    }
+    if (!formData.technologies || formData.technologies.length === 0) {
+      setError('يرجى إضافة تقنية واحدة على الأقل');
       return;
     }
     if (!formData.estimatedDuration || formData.estimatedDuration <= 0) {
@@ -220,6 +236,63 @@ const CreateProjectPage = () => {
                   ))}
                 </Select>
               </FormControl>
+            </Grid>
+
+            <Grid item xs={12} sm={4}>
+              <FormControl fullWidth required>
+                <InputLabel>التصنيف *</InputLabel>
+                <Select
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  disabled={loading}
+                  label="التصنيف *"
+                >
+                  {categories.map((cat) => (
+                    <MenuItem key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="التقنيات المستخدمة *"
+                placeholder="أدخل التقنية واضغط Enter (مثال: React, Node.js, MongoDB)"
+                disabled={loading}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && e.target.value.trim()) {
+                    e.preventDefault();
+                    const tech = e.target.value.trim();
+                    if (!formData.technologies.includes(tech)) {
+                      setFormData({
+                        ...formData,
+                        technologies: [...formData.technologies, tech]
+                      });
+                    }
+                    e.target.value = '';
+                  }
+                }}
+                helperText="اضغط Enter لإضافة التقنية. يجب إضافة تقنية واحدة على الأقل"
+              />
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                {formData.technologies.map((tech, index) => (
+                  <Chip
+                    key={index}
+                    label={tech}
+                    onDelete={() => {
+                      setFormData({
+                        ...formData,
+                        technologies: formData.technologies.filter((_, i) => i !== index)
+                      });
+                    }}
+                    disabled={loading}
+                  />
+                ))}
+              </Box>
             </Grid>
 
             <Grid item xs={12} sm={4}>
