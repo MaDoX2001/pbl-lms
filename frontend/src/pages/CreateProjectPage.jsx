@@ -35,6 +35,9 @@ const CreateProjectPage = () => {
     objectives: [''],
     estimatedDuration: '',
     deadline: '',
+    learningScenario: '',
+    teachingStrategy: '',
+    finalReportNote: '',
     abcdModel: {
       audience: '',
       behavior: '',
@@ -126,30 +129,9 @@ const CreateProjectPage = () => {
     try {
       setLoading(true);
       
-      // Add required statements to description
-      const additionalInfo = `
-
-السيناريو التعليمي للمشروع:
-• يبدأ المتعلم بقراءة وصف المشكلة التعليمية لفهم التحدي المطلوب
-• يراجع مصادر التعلم الرقمية المرتبطة بالمشروع
-• يخطط لحل المشكلة من خلال تصميم الفكرة المبدئية للنظام
-• ينفذ الكود البرمجي باستخدام محاكي Arduino
-• يختبر النظام ويجري التعديلات اللازمة
-• يشارك في مناقشة مرحلية مع زملائه لمتابعة تقدم المشروع وتبادل الآراء
-• يسلّم تقرير المشروع النهائي وفق النموذج المرفق
-
-الاستراتيجية التعليمية المستخدمة: 
-• التعلم القائم على المشروعات 
-• التعلم التعاوني 
-
-يقوم المتعلم بإعداد تقرير شامل عن المشروع باستخدام النموذج المرفق ويُعد هذا التقرير هو المنتج النهائي للمشروع`;
-      
-      const descriptionWithStatement = formData.description.trim() + additionalInfo;
-      
       // Filter out empty objectives
       const cleanData = {
         ...formData,
-        description: descriptionWithStatement,
         objectives: formData.objectives.filter(obj => obj.trim() !== ''),
         estimatedDuration: Number(formData.estimatedDuration),
         points: Number(formData.points)
@@ -464,6 +446,58 @@ const CreateProjectPage = () => {
                 rows={2}
                 placeholder="ما مستوى الإتقان المطلوب؟ (مثال: بدقة 90% وبدون أخطاء)"
                 helperText="معيار النجاح أو مستوى الأداء"
+              />
+            </Grid>
+
+            {/* Learning Scenario & Strategy */}
+            <Grid item xs={12}>
+              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                السيناريو والاستراتيجية التعليمية
+              </Typography>
+            </Grid>
+
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="السيناريو التعليمي للمشروع"
+                name="learningScenario"
+                value={formData.learningScenario}
+                onChange={handleChange}
+                disabled={loading}
+                multiline
+                rows={8}
+                placeholder="يبدأ المتعلم بقراءة وصف المشكلة التعليمية لفهم التحدي المطلوب&#10;يراجع مصادر التعلم الرقمية المرتبطة بالمشروع&#10;يخطط لحل المشكلة من خلال تصميم الفكرة المبدئية للنظام&#10;..."
+                helperText="اكتب خطوات تنفيذ المشروع بشكل مفصل"
+              />
+            </Grid>
+
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="الاستراتيجية التعليمية المستخدمة"
+                name="teachingStrategy"
+                value={formData.teachingStrategy}
+                onChange={handleChange}
+                disabled={loading}
+                multiline
+                rows={3}
+                placeholder="التعلم القائم على المشروعات&#10;التعلم التعاوني"
+                helperText="حدد الاستراتيجيات التعليمية المطبقة في المشروع"
+              />
+            </Grid>
+
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="ملاحظة التقرير النهائي"
+                name="finalReportNote"
+                value={formData.finalReportNote}
+                onChange={handleChange}
+                disabled={loading}
+                multiline
+                rows={2}
+                placeholder="يقوم المتعلم بإعداد تقرير شامل عن المشروع باستخدام النموذج المرفق ويُعد هذا التقرير هو المنتج النهائي للمشروع"
+                helperText="ملاحظة حول التقرير النهائي المطلوب من الطلاب"
               />
             </Grid>
 

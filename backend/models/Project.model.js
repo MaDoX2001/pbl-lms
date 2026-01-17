@@ -72,6 +72,18 @@ const projectSchema = new mongoose.Schema({
     type: Date,
     required: false
   },
+  learningScenario: {
+    type: String,
+    maxlength: [1500, 'السيناريو التعليمي لا يمكن أن يتجاوز 1500 حرف']
+  },
+  teachingStrategy: {
+    type: String,
+    maxlength: [500, 'الاستراتيجية التعليمية لا يمكن أن تتجاوز 500 حرف']
+  },
+  finalReportNote: {
+    type: String,
+    maxlength: [500, 'ملاحظة التقرير النهائي لا يمكن أن تتجاوز 500 حرف']
+  },
   abcdModel: {
     audience: {
       type: String,
