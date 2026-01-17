@@ -3,13 +3,11 @@ const mongoose = require('mongoose');
 const projectSchema = new mongoose.Schema({
   title: {
     type: String,
-    required: [true, 'عنوان المشروع مطلوب'],
     trim: true,
     maxlength: [100, 'العنوان لا يمكن أن يتجاوز 100 حرف']
   },
   description: {
     type: String,
-    required: [true, 'وصف المشروع مطلوب'],
     maxlength: [2000, 'الوصف لا يمكن أن يتجاوز 2000 حرف']
   },
   shortDescription: {
@@ -19,17 +17,15 @@ const projectSchema = new mongoose.Schema({
   difficulty: {
     type: String,
     enum: ['beginner', 'intermediate', 'advanced'],
-    required: true,
     default: 'beginner'
   },
   category: {
     type: String,
-    required: [true, 'التصنيف مطلوب'],
-    enum: ['web', 'mobile', 'desktop', 'data-science', 'ai-ml', 'game-dev', 'other']
+    enum: ['web', 'mobile', 'desktop', 'data-science', 'ai-ml', 'game-dev', 'other'],
+    default: 'web'
   },
   technologies: [{
-    type: String,
-    required: true
+    type: String
   }],
   skills: [{
     name: String,
@@ -65,8 +61,7 @@ const projectSchema = new mongoose.Schema({
     }
   }],
   estimatedDuration: {
-    type: Number, // بالساعات
-    required: true
+    type: Number // بالساعات
   },
   deadline: {
     type: Date,

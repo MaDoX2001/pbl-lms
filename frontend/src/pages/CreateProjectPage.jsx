@@ -115,24 +115,6 @@ const CreateProjectPage = () => {
     e.preventDefault();
     setError('');
 
-    // Validation
-    if (!formData.title.trim()) {
-      setError('يرجى إدخال عنوان المشروع');
-      return;
-    }
-    if (!formData.description.trim()) {
-      setError('يرجى إدخال وصف المشروع');
-      return;
-    }
-    if (!formData.technologies || formData.technologies.length === 0) {
-      setError('يرجى إضافة تقنية واحدة على الأقل');
-      return;
-    }
-    if (!formData.estimatedDuration || formData.estimatedDuration <= 0) {
-      setError('يرجى إدخال مدة تقديرية صحيحة');
-      return;
-    }
-
     try {
       setLoading(true);
       
@@ -140,8 +122,8 @@ const CreateProjectPage = () => {
       const cleanData = {
         ...formData,
         objectives: formData.objectives.filter(obj => obj.trim() !== ''),
-        estimatedDuration: Number(formData.estimatedDuration),
-        points: Number(formData.points)
+        estimatedDuration: formData.estimatedDuration ? Number(formData.estimatedDuration) : undefined,
+        points: formData.points ? Number(formData.points) : 100
       };
 
       const response = await api.post('/projects', cleanData);
@@ -185,12 +167,11 @@ const CreateProjectPage = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="عنوان المشروع *"
+                label="عنوان المشروع"
                 name="title"
                 value={formData.title}
                 onChange={handleChange}
                 disabled={loading}
-                required
               />
             </Grid>
 
@@ -211,27 +192,26 @@ const CreateProjectPage = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="الوصف التفصيلي *"
+                label="الوصف التفصيلي"
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
                 disabled={loading}
                 multiline
                 rows={6}
-                required
                 helperText="اشرح المشروع بالتفصيل: الأهداف، المتطلبات، ما سيتعلمه الطالب"
               />
             </Grid>
 
             <Grid item xs={12} sm={4}>
               <FormControl fullWidth>
-                <InputLabel>المستوى *</InputLabel>
+                <InputLabel>المستوى</InputLabel>
                 <Select
                   name="difficulty"
                   value={formData.difficulty}
                   onChange={handleChange}
                   disabled={loading}
-                  label="المستوى *"
+                  label="المستوى"
                 >
                   {difficulties.map((diff) => (
                     <MenuItem key={diff.value} value={diff.value}>
@@ -243,14 +223,14 @@ const CreateProjectPage = () => {
             </Grid>
 
             <Grid item xs={12} sm={4}>
-              <FormControl fullWidth required>
-                <InputLabel>التصنيف *</InputLabel>
+              <FormControl fullWidth>
+                <InputLabel>التصنيف</InputLabel>
                 <Select
                   name="category"
                   value={formData.category}
                   onChange={handleChange}
                   disabled={loading}
-                  label="التصنيف *"
+                  label="التصنيف"
                 >
                   {categories.map((cat) => (
                     <MenuItem key={cat.value} value={cat.value}>
@@ -264,7 +244,7 @@ const CreateProjectPage = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="التقنيات المستخدمة *"
+                label="التقنيات المستخدمة"
                 placeholder="أدخل التقنية واضغط Enter (مثال: React, Node.js, MongoDB)"
                 disabled={loading}
                 onKeyDown={(e) => {
@@ -280,7 +260,7 @@ const CreateProjectPage = () => {
                     e.target.value = '';
                   }
                 }}
-                helperText="اضغط Enter لإضافة التقنية. يجب إضافة تقنية واحدة على الأقل"
+                helperText="اضغط Enter لإضافة التقنية"
               />
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
                 {formData.technologies.map((tech, index) => (
@@ -302,13 +282,12 @@ const CreateProjectPage = () => {
             <Grid item xs={12} sm={4}>
               <TextField
                 fullWidth
-                label="المدة التقديرية (ساعات) *"
+                label="المدة التقديرية (ساعات)"
                 name="estimatedDuration"
                 type="number"
                 value={formData.estimatedDuration}
                 onChange={handleChange}
                 disabled={loading}
-                required
               />
             </Grid>
 
