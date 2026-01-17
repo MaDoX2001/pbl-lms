@@ -224,17 +224,58 @@ const ProjectDetailPage = () => {
     advanced: 'متقدم',
   };
 
+  const handleTogglePublish = async () => {
+    try {
+      const response = await api.put(`/projects/${id}`, {
+        isPublished: !project.isPublished
+      });
+      
+      toast.success(project.isPublished ? 'تم إلغاء نشر المشروع' : 'تم نشر المشروع');
+      dispatch(fetchProjectById(id)); // Refresh project data
+    } catch (error) {
+      console.error('Error toggling publish status:', error);
+      toast.error('فشل تغيير حالة النشر');
+    }
+  };
+
   return (
     <Box>
       {/* Header */}
       <Paper sx={{ p: 4, mb: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
-        <Typography variant="h3" component="h1" gutterBottom fontWeight={700}>
-          {project.title}
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="h3" component="h1" gutterBottom fontWeight={700}>
+              {project.title}
+            </Typography>
+          </Box>
+          {canManageProject && (
+            <Button
+              variant="contained"
+              color={project.isPublished ? 'warning' : 'success'}
+              onClick={handleTogglePublish}
+              sx={{ 
+                bgcolor: project.isPublished ? 'rgba(255,152,0,0.9)' : 'rgba(76,175,80,0.9)',
+                '&:hover': {
+                  bgcolor: project.isPublished ? 'rgba(255,152,0,1)' : 'rgba(76,175,80,1)'
+                }
+              }}
+            >
+              {project.isPublished ? 'إلغاء النشر' : 'نشر المشروع'}
+            </Button>
+          )}
+        </Box>
         <Typography variant="h6" sx={{ mb: 2, opacity: 0.9 }}>
           {project.shortDescription || project.description}
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+          <Chip 
+            label={project.isPublished ? 'منشور' : 'مسودة'} 
+            sx={{ 
+              bgcolor: project.isPublished ? 'rgba(76,175,80,0.3)' : 'rgba(255,152,0,0.3)', 
+              color: 'white',
+              fontWeight: 600
+            }} 
+          />
           <Chip label={difficultyLabel[project.difficulty]} sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
           <Chip label={project.category} sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
           {project.technologies?.map((tech, i) => (
