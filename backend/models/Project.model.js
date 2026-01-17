@@ -68,6 +68,28 @@ const projectSchema = new mongoose.Schema({
     type: Number, // بالساعات
     required: true
   },
+  deadline: {
+    type: Date,
+    required: false
+  },
+  abcdModel: {
+    audience: {
+      type: String,
+      maxlength: [500, 'الجمهور المستهدف لا يمكن أن يتجاوز 500 حرف']
+    },
+    behavior: {
+      type: String,
+      maxlength: [500, 'السلوك المتوقع لا يمكن أن يتجاوز 500 حرف']
+    },
+    condition: {
+      type: String,
+      maxlength: [500, 'الظروف لا يمكن أن يتجاوز 500 حرف']
+    },
+    degree: {
+      type: String,
+      maxlength: [500, 'الدرجة المطلوبة لا يمكن أن يتجاوز 500 حرف']
+    }
+  },
   points: {
     type: Number,
     default: 100

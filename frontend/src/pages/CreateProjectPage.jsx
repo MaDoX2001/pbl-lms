@@ -32,6 +32,13 @@ const CreateProjectPage = () => {
     difficulty: 'beginner',
     objectives: [''],
     estimatedDuration: '',
+    deadline: '',
+    abcdModel: {
+      audience: '',
+      behavior: '',
+      condition: '',
+      degree: ''
+    },
     points: 100,
     isPublished: false
   });
@@ -46,6 +53,16 @@ const CreateProjectPage = () => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
+    });
+  };
+
+  const handleAbcdChange = (field, value) => {
+    setFormData({
+      ...formData,
+      abcdModel: {
+        ...formData.abcdModel,
+        [field]: value
+      }
     });
   };
 
@@ -212,6 +229,20 @@ const CreateProjectPage = () => {
               />
             </Grid>
 
+            <Grid item xs={12} sm={4}>
+              <TextField
+                fullWidth
+                label="الموعد النهائي"
+                name="deadline"
+                type="date"
+                value={formData.deadline}
+                onChange={handleChange}
+                disabled={loading}
+                InputLabelProps={{ shrink: true }}
+                helperText="الموعد النهائي لإنهاء المشروع"
+              />
+            </Grid>
+
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
@@ -274,6 +305,72 @@ const CreateProjectPage = () => {
                   </IconButton>
                 </Box>
               ))}
+            </Grid>
+
+            {/* ABCD Model */}
+            <Grid item xs={12}>
+              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                نموذج ABCD للأهداف التعليمية
+              </Typography>
+              <Typography variant="body2" color="text.secondary" paragraph>
+                نموذج تصميم الأهداف التعليمية (Audience, Behavior, Condition, Degree)
+              </Typography>
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="الجمهور المستهدف (Audience)"
+                value={formData.abcdModel.audience}
+                onChange={(e) => handleAbcdChange('audience', e.target.value)}
+                disabled={loading}
+                multiline
+                rows={2}
+                placeholder="من هم الطلاب المستهدفون؟ (مثال: طلاب السنة الثانية في علوم الحاسوب)"
+                helperText="حدد المتعلمين المستهدفين"
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="السلوك المتوقع (Behavior)"
+                value={formData.abcdModel.behavior}
+                onChange={(e) => handleAbcdChange('behavior', e.target.value)}
+                disabled={loading}
+                multiline
+                rows={2}
+                placeholder="ماذا سيفعل الطلاب؟ (مثال: تطوير تطبيق ويب كامل)"
+                helperText="الإجراء أو المهارة القابلة للقياس"
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="الظروف (Condition)"
+                value={formData.abcdModel.condition}
+                onChange={(e) => handleAbcdChange('condition', e.target.value)}
+                disabled={loading}
+                multiline
+                rows={2}
+                placeholder="في أي ظروف؟ (مثال: باستخدام React و Node.js)"
+                helperText="البيئة أو الموارد المتاحة"
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="الدرجة المطلوبة (Degree)"
+                value={formData.abcdModel.degree}
+                onChange={(e) => handleAbcdChange('degree', e.target.value)}
+                disabled={loading}
+                multiline
+                rows={2}
+                placeholder="ما مستوى الإتقان المطلوب؟ (مثال: بدقة 90% وبدون أخطاء)"
+                helperText="معيار النجاح أو مستوى الأداء"
+              />
             </Grid>
 
             {/* Submit Buttons */}
