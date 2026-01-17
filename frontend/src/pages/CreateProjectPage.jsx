@@ -234,12 +234,12 @@ const CreateProjectPage = () => {
                 fullWidth
                 label="الموعد النهائي"
                 name="deadline"
-                type="date"
+                type="datetime-local"
                 value={formData.deadline}
                 onChange={handleChange}
                 disabled={loading}
                 InputLabelProps={{ shrink: true }}
-                helperText="الموعد النهائي لإنهاء المشروع"
+                helperText="الموعد النهائي لإنهاء المشروع (التاريخ والوقت)"
               />
             </Grid>
 
