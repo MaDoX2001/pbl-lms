@@ -8,6 +8,7 @@ import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import Footer from './components/Footer';
 import PrivateRoute from './components/PrivateRoute';
+import PreAssessmentGate from './components/PreAssessmentGate';
 
 // Import pages
 import HomePage from './pages/HomePage';
@@ -29,6 +30,7 @@ import EmailVerificationPage from './pages/EmailVerificationPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ChatPage from './pages/ChatPage';
 import LiveLecturesPage from './pages/LiveLecturesPage';
+import PreAssessmentPage from './pages/PreAssessmentPage';
 
 // Import actions
 import { loadUser } from './redux/slices/authSlice';
@@ -82,72 +84,82 @@ function App() {
             minHeight: 'calc(100vh - 56px)'
           }}
         >
-          <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={!isAuthenticated ? <LoginPage /> : <Navigate to="/dashboard" />} />
-          <Route path="/register" element={!isAuthenticated ? <RegisterPage /> : <Navigate to="/dashboard" />} />
-          <Route path="/signup" element={!isAuthenticated ? <PublicRegisterPage /> : <Navigate to="/dashboard" />} />
-          <Route path="/verify-email" element={<EmailVerificationPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/projects/:id" element={<ProjectDetailPage />} />
-          <Route path="/leaderboard" element={
-            <PrivateRoute roles={['teacher', 'admin']}>
-              <LeaderboardPage />
-            </PrivateRoute>
-          } />
-          <Route path="/arduino-simulator" element={<ArduinoSimulatorPage />} />
-          <Route path="/live-lectures" element={
-            <PrivateRoute>
-              <LiveLecturesPage />
-            </PrivateRoute>
-          } />
+          {/* Wrap routes with PreAssessmentGate - checks once at app level */}
+          <PreAssessmentGate>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/" element={<HomePage />} />
+              <Route path="/login" element={!isAuthenticated ? <LoginPage /> : <Navigate to="/dashboard" />} />
+              <Route path="/register" element={!isAuthenticated ? <RegisterPage /> : <Navigate to="/dashboard" />} />
+              <Route path="/signup" element={!isAuthenticated ? <PublicRegisterPage /> : <Navigate to="/dashboard" />} />
+              <Route path="/verify-email" element={<EmailVerificationPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/projects" element={<ProjectsPage />} />
+              <Route path="/projects/:id" element={<ProjectDetailPage />} />
+              <Route path="/leaderboard" element={
+                <PrivateRoute roles={['teacher', 'admin']}>
+                  <LeaderboardPage />
+                </PrivateRoute>
+              } />
+              <Route path="/arduino-simulator" element={<ArduinoSimulatorPage />} />
+              <Route path="/live-lectures" element={
+                <PrivateRoute>
+                  <LiveLecturesPage />
+                </PrivateRoute>
+              } />
 
-          {/* 2FA routes */}
-          <Route path="/2fa-verify" element={<TwoFactorAuthPage />} />
-          <Route path="/2fa-setup" element={
-            <PrivateRoute>
-              <TwoFactorSetupPage />
-            </PrivateRoute>
-          } />
+              {/* Pre-Assessment route */}
+              <Route path="/preassessment" element={
+                <PrivateRoute roles={['student']}>
+                  <PreAssessmentPage />
+                </PrivateRoute>
+              } />
 
-          {/* Private routes */}
-          <Route path="/dashboard" element={
-            <PrivateRoute>
-              <DashboardPage />
-            </PrivateRoute>
-          } />
-          <Route path="/profile/:id" element={
-            <PrivateRoute>
-              <ProfilePage />
-            </PrivateRoute>
-          } />
-          <Route path="/chat" element={
-            <PrivateRoute>
-              <ChatPage />
-            </PrivateRoute>
-          } />
-          <Route path="/create-project" element={
-            <PrivateRoute roles={['teacher', 'admin']}>
-              <CreateProjectPage />
-            </PrivateRoute>
-          } />
-          <Route path="/edit-project/:id" element={
-            <PrivateRoute roles={['teacher', 'admin']}>
-              <EditProjectPage />
-            </PrivateRoute>
-          } />
-          <Route path="/admin" element={
-            <PrivateRoute roles={['admin']}>
-              <AdminDashboardPage />
-            </PrivateRoute>
-          } />
+              {/* 2FA routes */}
+              <Route path="/2fa-verify" element={<TwoFactorAuthPage />} />
+              <Route path="/2fa-setup" element={
+                <PrivateRoute>
+                  <TwoFactorSetupPage />
+                </PrivateRoute>
+              } />
 
-          {/* 404 */}
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      </Box>
+              {/* Private routes */}
+              <Route path="/dashboard" element={
+                <PrivateRoute>
+                  <DashboardPage />
+                </PrivateRoute>
+              } />
+              <Route path="/profile/:id" element={
+                <PrivateRoute>
+                  <ProfilePage />
+                </PrivateRoute>
+              } />
+              <Route path="/chat" element={
+                <PrivateRoute>
+                  <ChatPage />
+                </PrivateRoute>
+              } />
+              <Route path="/create-project" element={
+                <PrivateRoute roles={['teacher', 'admin']}>
+                  <CreateProjectPage />
+                </PrivateRoute>
+              } />
+              <Route path="/edit-project/:id" element={
+                <PrivateRoute roles={['teacher', 'admin']}>
+                  <EditProjectPage />
+                </PrivateRoute>
+              } />
+              <Route path="/admin" element={
+                <PrivateRoute roles={['admin']}>
+                  <AdminDashboardPage />
+                </PrivateRoute>
+              } />
+
+              {/* 404 */}
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </PreAssessmentGate>
+        </Box>
       </Box>
       <Footer />
     </Box>

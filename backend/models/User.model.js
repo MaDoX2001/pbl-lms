@@ -115,6 +115,17 @@ const userSchema = new mongoose.Schema({
   passwordResetOTPExpires: {
     type: Date,
     select: false
+  },
+  preAssessmentStatus: {
+    type: String,
+    enum: ['not_started', 'completed'],
+    default: 'not_started'
+  },
+  preAssessmentScore: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: null
   }
 }, {
   timestamps: true

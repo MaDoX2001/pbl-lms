@@ -111,6 +111,11 @@ const authSlice = createSlice({
       state.user = action.payload.user;
       state.isAuthenticated = true;
     },
+    // Update user after pre-assessment submission
+    // CRITICAL: This ensures single source of truth from backend
+    updateUser: (state, action) => {
+      state.user = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -196,5 +201,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout, clearError, setCredentials, set2FARequired, setSetupRequired } = authSlice.actions;
+export const { logout, clearError, setCredentials, set2FARequired, setSetupRequired, updateUser } = authSlice.actions;
 export default authSlice.reducer;
