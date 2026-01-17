@@ -19,7 +19,7 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import axios from 'axios';
+import api from '../services/api';
 
 /**
  * PreAssessmentPage Component
@@ -58,13 +58,7 @@ const PreAssessmentPage = () => {
   useEffect(() => {
     const fetchQuestions = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/preassessment/questions`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        const response = await api.get('/preassessment/questions');
         setQuestions(response.data);
         setLoading(false);
       } catch (err) {
@@ -111,14 +105,7 @@ const PreAssessmentPage = () => {
     setError('');
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/preassessment/submit`,
-        { answers },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await api.post('/preassessment/submit', { answers });
 
       // CRITICAL: Replace auth.user with the updated user from backend
       // This ensures single source of truth
