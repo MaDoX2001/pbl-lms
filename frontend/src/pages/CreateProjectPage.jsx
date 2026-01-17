@@ -127,9 +127,24 @@ const CreateProjectPage = () => {
       setLoading(true);
       
       // Add required statements to description
-      const additionalInfo = '\n\nالاستراتيجية التعليمية المستخدمة:\n• التعلم القائم على المشروعات\n• التعلم التعاوني';
-      const finalStatement = '\n\nيقوم المتعلم بإعداد تقرير شامل عن المشروع باستخدام النموذج المرفق ويُعد هذا التقرير هو المنتج النهائي للمشروع.';
-      const descriptionWithStatement = formData.description.trim() + additionalInfo + finalStatement;
+      const additionalInfo = `
+
+السيناريو التعليمي للمشروع:
+• يبدأ المتعلم بقراءة وصف المشكلة التعليمية لفهم التحدي المطلوب
+• يراجع مصادر التعلم الرقمية المرتبطة بالمشروع
+• يخطط لحل المشكلة من خلال تصميم الفكرة المبدئية للنظام
+• ينفذ الكود البرمجي باستخدام محاكي Arduino
+• يختبر النظام ويجري التعديلات اللازمة
+• يشارك في مناقشة مرحلية مع زملائه لمتابعة تقدم المشروع وتبادل الآراء
+• يسلّم تقرير المشروع النهائي وفق النموذج المرفق
+
+الاستراتيجية التعليمية المستخدمة: 
+• التعلم القائم على المشروعات 
+• التعلم التعاوني 
+
+يقوم المتعلم بإعداد تقرير شامل عن المشروع باستخدام النموذج المرفق ويُعد هذا التقرير هو المنتج النهائي للمشروع`;
+      
+      const descriptionWithStatement = formData.description.trim() + additionalInfo;
       
       // Filter out empty objectives
       const cleanData = {
