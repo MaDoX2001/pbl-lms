@@ -283,6 +283,85 @@ const ProjectDetailPage = () => {
             </Paper>
           )}
 
+          {/* ABCD Model */}
+          {(project.abcdModel?.audience || project.abcdModel?.behavior || project.abcdModel?.condition || project.abcdModel?.degree) && (
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h5" gutterBottom fontWeight={600}>
+                نموذج ABCD للأهداف التعليمية
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {project.abcdModel?.audience && (
+                  <Box>
+                    <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom>
+                      الجمهور المستهدف (Audience)
+                    </Typography>
+                    <Typography variant="body2">{project.abcdModel.audience}</Typography>
+                  </Box>
+                )}
+                {project.abcdModel?.behavior && (
+                  <Box>
+                    <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom>
+                      السلوك المتوقع (Behavior)
+                    </Typography>
+                    <Typography variant="body2">{project.abcdModel.behavior}</Typography>
+                  </Box>
+                )}
+                {project.abcdModel?.condition && (
+                  <Box>
+                    <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom>
+                      الظروف (Condition)
+                    </Typography>
+                    <Typography variant="body2">{project.abcdModel.condition}</Typography>
+                  </Box>
+                )}
+                {project.abcdModel?.degree && (
+                  <Box>
+                    <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom>
+                      الدرجة المطلوبة (Degree)
+                    </Typography>
+                    <Typography variant="body2">{project.abcdModel.degree}</Typography>
+                  </Box>
+                )}
+              </Box>
+            </Paper>
+          )}
+
+          {/* Learning Scenario */}
+          {project.learningScenario && (
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h5" gutterBottom fontWeight={600}>
+                السيناريو التعليمي للمشروع
+              </Typography>
+              <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
+                {project.learningScenario}
+              </Typography>
+            </Paper>
+          )}
+
+          {/* Teaching Strategy */}
+          {project.teachingStrategy && (
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h5" gutterBottom fontWeight={600}>
+                الاستراتيجية التعليمية المستخدمة
+              </Typography>
+              <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
+                {project.teachingStrategy}
+              </Typography>
+            </Paper>
+          )}
+
+          {/* Final Report Note */}
+          {project.finalReportNote && (
+            <Paper sx={{ p: 3, mb: 3, bgcolor: '#f5f5f5' }}>
+              <Typography variant="h6" gutterBottom fontWeight={600} color="primary">
+                ملاحظة هامة
+              </Typography>
+              <Typography variant="body1">
+                {project.finalReportNote}
+              </Typography>
+            </Paper>
+          )}
+
           {/* Milestones */}
           {project.milestones?.length > 0 && (
             <Paper sx={{ p: 3, mb: 3 }}>
