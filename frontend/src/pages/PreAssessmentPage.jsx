@@ -80,7 +80,7 @@ const PreAssessmentPage = () => {
 
   // Check if current step is complete
   const isStepComplete = () => {
-    if (!questions[activeStep]) return false;
+    if (!Array.isArray(questions) || !questions[activeStep]) return false;
     const dimensionQuestions = questions[activeStep].questions;
     return dimensionQuestions.every((q) => answers[q.id] !== undefined);
   };
@@ -120,10 +120,9 @@ const PreAssessmentPage = () => {
   };
 
   // Calculate progress
-  const totalQuestions = questions.reduce(
-    (sum, dim) => sum + dim.questions.length,
-    0
-  );
+  const totalQuestions = Array.isArray(questions) 
+    ? questions.reduce((sum, dim) => sum + dim.questions.length, 0)
+    : 0;
   const answeredQuestions = Object.keys(answers).length;
   const progress = totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0;
 
@@ -150,7 +149,7 @@ const PreAssessmentPage = () => {
     );
   }
 
-  const currentDimension = questions[activeStep];
+  const currentDimension = Array.isArray(questions) ? questions[activeStep] : null;
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
