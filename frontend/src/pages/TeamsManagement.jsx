@@ -120,8 +120,8 @@ const TeamsManagement = () => {
         return;
       }
 
-      if (formData.members.length !== 3) {
-        toast.error('يجب اختيار 3 أعضاء بالضبط');
+      if (formData.members.length < 2 || formData.members.length > 4) {
+        toast.error('يجب اختيار من 2 إلى 4 أعضاء');
         return;
       }
 
