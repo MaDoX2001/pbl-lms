@@ -288,6 +288,7 @@ const TeamsManagement = () => {
                   setFormData({ ...formData, members: newValue });
                 }
               }}
+              isOptionEqualToValue={(option, value) => option._id === value._id}
               renderInput={(params) => (
                 <TextField
                   {...params}

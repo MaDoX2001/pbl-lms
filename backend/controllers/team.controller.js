@@ -33,6 +33,15 @@ exports.createTeam = async (req, res) => {
       });
     }
 
+    // Validate: No duplicate members
+    const uniqueMembers = [...new Set(members)];
+    if (uniqueMembers.length !== members.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'لا يمكن إضافة نفس الطالب أكثر من مرة'
+      });
+    }
+
     // Validate: All members exist and are students
     const users = await User.find({ _id: { $in: members } });
     if (users.length !== members.length) {
@@ -229,6 +238,15 @@ exports.updateTeam = async (req, res) => {
         return res.status(400).json({
           success: false,
           message: 'الفريق يجب أن يحتوي على 2 إلى 4 أعضاء'
+        });
+      }
+
+      // Validate: No duplicate members
+      const uniqueMembers = [...new Set(members)];
+      if (uniqueMembers.length !== members.length) {
+        return res.status(400).json({
+          success: false,
+          message: 'لا يمكن إضافة نفس الطالب أكثر من مرة'
         });
       }
 
