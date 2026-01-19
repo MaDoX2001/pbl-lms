@@ -307,7 +307,7 @@ const TeamsManagement = () => {
                   }}
                 />
               }
-              label={اختيار الكل ${students.length > 4 ? `(أول 4 فقط)` : ''}}
+              label={`اختيار الكل ${students.length > 4 ? '(أول 4 فقط)' : ''}`}
             />
 
             <Autocomplete
