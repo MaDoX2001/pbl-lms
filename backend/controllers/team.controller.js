@@ -25,17 +25,17 @@ exports.createTeam = async (req, res) => {
       });
     }
 
-    // Validate: Exactly 3 members
-    if (!members || members.length !== 3) {
+    // Validate: 2-4 members
+    if (!members || members.length < 2 || members.length > 4) {
       return res.status(400).json({
         success: false,
-        message: 'الفريق يجب أن يحتوي على 3 أعضاء بالضبط'
+        message: 'الفريق يجب أن يحتوي على 2 إلى 4 أعضاء'
       });
     }
 
     // Validate: All members exist and are students
     const users = await User.find({ _id: { $in: members } });
-    if (users.length !== 3) {
+    if (users.length !== members.length) {
       return res.status(400).json({
         success: false,
         message: 'أحد الأعضاء غير موجود'
@@ -225,10 +225,10 @@ exports.updateTeam = async (req, res) => {
 
     // If updating members, validate
     if (members) {
-      if (members.length !== 3) {
+      if (members.length < 2 || members.length > 4) {
         return res.status(400).json({
           success: false,
-          message: 'الفريق يجب أن يحتوي على 3 أعضاء بالضبط'
+          message: 'الفريق يجب أن يحتوي على 2 إلى 4 أعضاء'
         });
       }
 

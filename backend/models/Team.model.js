@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 /**
  * Team Model
  * 
- * Represents a team of EXACTLY 3 students for PBL activities.
+ * Represents a team of 2-4 students for PBL activities.
  * Teams are created and managed by ADMIN only.
  * A student can belong to ONLY ONE team at a time.
  */
@@ -16,7 +16,7 @@ const teamSchema = new mongoose.Schema({
     minlength: [3, 'اسم الفريق يجب أن يكون 3 أحرف على الأقل']
   },
   
-  // EXACTLY 3 students
+  // 2-4 students
   members: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -46,10 +46,10 @@ const teamSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Validation: Team must have EXACTLY 3 members
+// Validation: Team must have 2-4 members
 teamSchema.pre('save', function(next) {
-  if (this.members.length !== 3) {
-    return next(new Error('الفريق يجب أن يحتوي على 3 أعضاء بالضبط'));
+  if (this.members.length < 2 || this.members.length > 4) {
+    return next(new Error('الفريق يجب أن يحتوي على 2 إلى 4 أعضاء'));
   }
   next();
 });

@@ -284,14 +284,14 @@ const TeamsManagement = () => {
               getOptionLabel={(option) => `${option.name} (${option.email})`}
               value={formData.members}
               onChange={(e, newValue) => {
-                if (newValue.length <= 3) {
+                if (newValue.length <= 4) {
                   setFormData({ ...formData, members: newValue });
                 }
               }}
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label="اختر 3 أعضاء"
+                  label="اختر من 2 إلى 4 طلاب"
                   placeholder="ابحث عن طالب..."
                   required
                 />
@@ -308,7 +308,7 @@ const TeamsManagement = () => {
             />
             
             <Alert severity="info">
-              يجب اختيار 3 أعضاء بالضبط. عدد الأعضاء المختارين: {formData.members.length}
+              يجب اختيار من 2 إلى 4 أعضاء. عدد الأعضاء المختارين: {formData.members.length}
             </Alert>
           </Box>
         </DialogContent>
@@ -317,7 +317,7 @@ const TeamsManagement = () => {
           <Button
             onClick={handleSubmit}
             variant="contained"
-            disabled={formData.members.length !== 3}
+            disabled={formData.members.length < 2 || formData.members.length > 4}
           >
             {editMode ? 'تحديث' : 'إنشاء'}
           </Button>
