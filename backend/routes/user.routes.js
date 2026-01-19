@@ -26,77 +26,6 @@ router.get('/', protect, authorize('admin'), async (req, res) => {
   }
 });
 
-// @desc    Get user by ID
-// @route   GET /api/users/:id
-// @access  Private
-router.get('/:id', protect, async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id)
-      .populate('enrolledProjects', 'title difficulty coverImage')
-      .populate('completedProjects', 'title difficulty coverImage');
-    
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'المستخدم غير موجود'
-      });
-    }
-    
-    res.json({
-      success: true,
-      data: user
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'خطأ في جلب المستخدم',
-      error: error.message
-    });
-  }
-});
-
-// @desc    Update user profile
-// @route   PUT /api/users/:id
-// @access  Private
-router.put('/:id', protect, async (req, res) => {
-  try {
-    // Check authorization
-    if (req.params.id !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'غير مصرح لك بتحديث هذا المستخدم'
-      });
-    }
-    
-    const allowedFields = ['name', 'bio', 'avatar', 'skills'];
-    const updates = {};
-    
-    allowedFields.forEach(field => {
-      if (req.body[field] !== undefined) {
-        updates[field] = req.body[field];
-      }
-    });
-    
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      updates,
-      { new: true, runValidators: true }
-    );
-    
-    res.json({
-      success: true,
-      message: 'تم تحديث الملف الشخصي بنجاح',
-      data: user
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'خطأ في تحديث المستخدم',
-      error: error.message
-    });
-  }
-});
-
 // @desc    Get leaderboard
 // @route   GET /api/users/stats/leaderboard
 // @access  Public
@@ -246,6 +175,77 @@ router.put('/change-password', protect, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'خطأ في تغيير كلمة المرور',
+      error: error.message
+    });
+  }
+});
+
+// @desc    Get user by ID
+// @route   GET /api/users/:id
+// @access  Private
+router.get('/:id', protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .populate('enrolledProjects', 'title difficulty coverImage')
+      .populate('completedProjects', 'title difficulty coverImage');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'المستخدم غير موجود'
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: user
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في جلب المستخدم',
+      error: error.message
+    });
+  }
+});
+
+// @desc    Update user profile
+// @route   PUT /api/users/:id
+// @access  Private
+router.put('/:id', protect, async (req, res) => {
+  try {
+    // Check authorization
+    if (req.params.id !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'غير مصرح لك بتحديث هذا المستخدم'
+      });
+    }
+    
+    const allowedFields = ['name', 'bio', 'avatar', 'skills'];
+    const updates = {};
+    
+    allowedFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        updates[field] = req.body[field];
+      }
+    });
+    
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      updates,
+      { new: true, runValidators: true }
+    );
+    
+    res.json({
+      success: true,
+      message: 'تم تحديث الملف الشخصي بنجاح',
+      data: user
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في تحديث المستخدم',
       error: error.message
     });
   }
