@@ -23,6 +23,10 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CodeIcon from '@mui/icons-material/Code';
@@ -36,6 +40,7 @@ import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import EditIcon from '@mui/icons-material/Edit';
+import GroupsIcon from '@mui/icons-material/Groups';
 import { toast } from 'react-toastify';
 import { fetchProjectById } from '../redux/slices/projectSlice';
 import { enrollInProject } from '../redux/slices/projectSlice';
@@ -61,6 +66,9 @@ const ProjectDetailPage = () => {
   const [loadingAssignments, setLoadingAssignments] = useState(false);
   const [teamsLinkDialogOpen, setTeamsLinkDialogOpen] = useState(false);
   const [teamsLink, setTeamsLink] = useState('');
+  const [teams, setTeams] = useState([]);
+  const [selectedTeam, setSelectedTeam] = useState('');
+  const [teamRegisterDialogOpen, setTeamRegisterDialogOpen] = useState(false);
 
   useEffect(() => {
     dispatch(fetchProjectById(id));
@@ -199,6 +207,39 @@ const ProjectDetailPage = () => {
       dispatch(fetchProjectById(id));
     } catch (error) {
       toast.error('فشل حفظ رابط Teams');
+    }
+  };
+
+  const fetchTeams = async () => {
+    try {
+      const response = await api.get('/teams');
+      setTeams(response.data.data || []);
+    } catch (error) {
+      console.error('Error fetching teams:', error);
+    }
+  };
+
+  const handleOpenTeamRegister = async () => {
+    await fetchTeams();
+    setTeamRegisterDialogOpen(true);
+  };
+
+  const handleRegisterTeam = async () => {
+    if (!selectedTeam) {
+      toast.error('يرجى اختيار فريق');
+      return;
+    }
+
+    try {
+      await api.post('/team-projects/enroll', {
+        teamId: selectedTeam,
+        projectId: id
+      });
+      toast.success('تم تسجيل الفريق في المشروع بنجاح');
+      setTeamRegisterDialogOpen(false);
+      setSelectedTeam('');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'فشل تسجيل الفريق');
     }
   };
 
@@ -521,6 +562,22 @@ const ProjectDetailPage = () => {
               </>
             )}
 
+            {/* Register Team Button for Admin/Teacher */}
+            {canManageProject && (
+              <>
+                <Divider sx={{ my: 2 }} />
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  fullWidth
+                  startIcon={<GroupsIcon />}
+                  onClick={handleOpenTeamRegister}
+                >
+                  تسجيل فريق في المشروع
+                </Button>
+              </>
+            )}
+
             {/* Delete Button for Admin/Owner */}
             {canManageProject && (
               <>
@@ -796,6 +853,33 @@ const ProjectDetailPage = () => {
           <Button onClick={() => setTeamsLinkDialogOpen(false)}>إلغاء</Button>
           <Button onClick={handleSaveTeamsLink} variant="contained">
             حفظ
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Team Registration Dialog */}
+      <Dialog open={teamRegisterDialogOpen} onClose={() => setTeamRegisterDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>تسجيل فريق في المشروع</DialogTitle>
+        <DialogContent>
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>اختر الفريق</InputLabel>
+            <Select
+              value={selectedTeam}
+              onChange={(e) => setSelectedTeam(e.target.value)}
+              label="اختر الفريق"
+            >
+              {teams.map((team) => (
+                <MenuItem key={team._id} value={team._id}>
+                  {team.name} ({team.members?.length || 0} أعضاء)
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTeamRegisterDialogOpen(false)}>إلغاء</Button>
+          <Button onClick={handleRegisterTeam} variant="contained" color="secondary">
+            تسجيل الفريق
           </Button>
         </DialogActions>
       </Dialog>
