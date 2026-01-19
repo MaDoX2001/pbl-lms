@@ -72,7 +72,9 @@ const TeamsManagement = () => {
   const fetchStudents = async () => {
     try {
       const response = await api.get('/users?role=student');
-      setStudents(response.data.data || []);
+      // Filter to ensure ONLY students are shown in the selection list
+      const studentsOnly = (response.data.data || []).filter(user => user.role === 'student');
+      setStudents(studentsOnly);
     } catch (err) {
       console.error('Error fetching students:', err);
     }
