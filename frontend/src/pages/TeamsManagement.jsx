@@ -23,8 +23,6 @@ import {
   Autocomplete,
   Avatar,
   Tooltip,
-  Checkbox,
-  FormControlLabel,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -289,25 +287,6 @@ const TeamsManagement = () => {
               fullWidth
               multiline
               rows={2}
-            />
-
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={formData.members.length > 0 && formData.members.length === Math.min(students.length, 4)}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      // Select up to 4 students
-                      const selected = students.slice(0, 4);
-                      setFormData({ ...formData, members: selected });
-                    } else {
-                      // Deselect all
-                      setFormData({ ...formData, members: [] });
-                    }
-                  }}
-                />
-              }
-              label={`اختيار الكل ${students.length > 4 ? '(أول 4 فقط)' : ''}`}
             />
 
             <Autocomplete

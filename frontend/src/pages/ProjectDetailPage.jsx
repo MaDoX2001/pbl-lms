@@ -27,6 +27,9 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  Checkbox,
+  FormControlLabel,
+  Autocomplete,
 } from '@mui/material';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CodeIcon from '@mui/icons-material/Code';
@@ -67,7 +70,8 @@ const ProjectDetailPage = () => {
   const [teamsLinkDialogOpen, setTeamsLinkDialogOpen] = useState(false);
   const [teamsLink, setTeamsLink] = useState('');
   const [teams, setTeams] = useState([]);
-  const [selectedTeam, setSelectedTeam] = useState('');
+  const [selectedTeams, setSelectedTeams] = useState([]);
+  const [selectAllTeams, setSelectAllTeams] = useState(false);
   const [teamRegisterDialogOpen, setTeamRegisterDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -221,23 +225,58 @@ const ProjectDetailPage = () => {
 
   const handleOpenTeamRegister = async () => {
     await fetchTeams();
+    setSelectedTeams([]);
+    setSelectAllTeams(false);
     setTeamRegisterDialogOpen(true);
   };
 
+  const handleSelectAllTeams = (checked) => {
+    setSelectAllTeams(checked);
+    if (checked) {
+      setSelectedTeams(teams);
+    } else {
+      setSelectedTeams([]);
+    }
+  };
+
   const handleRegisterTeam = async () => {
-    if (!selectedTeam) {
-      toast.error('يرجى اختيار فريق');
+    if (selectedTeams.length === 0) {
+      toast.error('يرجى اختيار فريق واحد على الأقل');
       return;
     }
 
     try {
-      await api.post('/team-projects/enroll', {
-        teamId: selectedTeam,
-        projectId: id
-      });
-      toast.success('تم تسجيل الفريق في المشروع بنجاح');
+      let successCount = 0;
+      let errorCount = 0;
+
+      // Register each team
+      for (const team of selectedTeams) {
+        try {
+          await api.post('/team-projects/enroll', {
+            teamId: team._id,
+            projectId: id
+          });
+          successCount++;
+        } catch (error) {
+          // Skip if already enrolled
+          if (error.response?.data?.message?.includes('مسجل بالفعل')) {
+            errorCount++;
+          } else {
+            throw error;
+          }
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`تم تسجيل ${successCount} فريق في المشروع بنجاح`);
+      }
+      if (errorCount > 0) {
+        toast.warning(`${errorCount} فريق مسجل بالفعل`);
+      }
+
       setTeamRegisterDialogOpen(false);
-      setSelectedTeam('');
+      setSelectedTeams([]);
+      setSelectAllTeams(false);
     } catch (error) {
       toast.error(error.response?.data?.message || 'فشل تسجيل الفريق');
     }
@@ -859,27 +898,56 @@ const ProjectDetailPage = () => {
 
       {/* Team Registration Dialog */}
       <Dialog open={teamRegisterDialogOpen} onClose={() => setTeamRegisterDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>تسجيل فريق في المشروع</DialogTitle>
+        <DialogTitle>تسجيل فرق في المشروع</DialogTitle>
         <DialogContent>
-          <FormControl fullWidth sx={{ mt: 2 }}>
-            <InputLabel>اختر الفريق</InputLabel>
-            <Select
-              value={selectedTeam}
-              onChange={(e) => setSelectedTeam(e.target.value)}
-              label="اختر الفريق"
-            >
-              {teams.map((team) => (
-                <MenuItem key={team._id} value={team._id}>
-                  {team.name} ({team.members?.length || 0} أعضاء)
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={selectAllTeams}
+                  onChange={(e) => handleSelectAllTeams(e.target.checked)}
+                />
+              }
+              label="تسجيل جميع الفرق"
+            />
+            <Autocomplete
+              multiple
+              options={teams}
+              value={selectedTeams}
+              onChange={(e, newValue) => {
+                setSelectedTeams(newValue);
+                setSelectAllTeams(newValue.length === teams.length && teams.length > 0);
+              }}
+              getOptionLabel={(option) => `${option.name} (${option.members?.length || 0} أعضاء)`}
+              isOptionEqualToValue={(option, value) => option._id === value._id}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="اختر الفرق"
+                  placeholder="ابحث عن فريق..."
+                />
+              )}
+              renderTags={(value, getTagProps) =>
+                value.map((option, index) => (
+                  <Chip
+                    key={option._id}
+                    label={option.name}
+                    {...getTagProps({ index })}
+                  />
+                ))
+              }
+            />
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setTeamRegisterDialogOpen(false)}>إلغاء</Button>
-          <Button onClick={handleRegisterTeam} variant="contained" color="secondary">
-            تسجيل الفريق
+          <Button 
+            onClick={handleRegisterTeam} 
+            variant="contained" 
+            color="secondary"
+            disabled={selectedTeams.length === 0}
+          >
+            تسجيل {selectedTeams.length > 0 && `(${selectedTeams.length})`}
           </Button>
         </DialogActions>
       </Dialog>
