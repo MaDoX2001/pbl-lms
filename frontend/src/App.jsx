@@ -31,6 +31,10 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ChatPage from './pages/ChatPage';
 import LiveLecturesPage from './pages/LiveLecturesPage';
 import PreAssessmentPage from './pages/PreAssessmentPage';
+import TeamDashboard from './pages/TeamDashboard';
+import TeamsManagement from './pages/TeamsManagement';
+import TeamProjectPage from './pages/TeamProjectPage';
+import ProjectSubmissionsManagement from './pages/ProjectSubmissionsManagement';
 
 // Import actions
 import { loadUser } from './redux/slices/authSlice';
@@ -152,6 +156,28 @@ function App() {
               <Route path="/admin" element={
                 <PrivateRoute roles={['admin']}>
                   <AdminDashboardPage />
+                </PrivateRoute>
+              } />
+
+              {/* Team Routes */}
+              <Route path="/team/dashboard" element={
+                <PrivateRoute roles={['student']}>
+                  <TeamDashboard />
+                </PrivateRoute>
+              } />
+              <Route path="/team/project/:projectId" element={
+                <PrivateRoute roles={['student']}>
+                  <TeamProjectPage />
+                </PrivateRoute>
+              } />
+              <Route path="/admin/teams" element={
+                <PrivateRoute roles={['admin']}>
+                  <TeamsManagement />
+                </PrivateRoute>
+              } />
+              <Route path="/projects/:projectId/submissions" element={
+                <PrivateRoute roles={['teacher', 'admin']}>
+                  <ProjectSubmissionsManagement />
                 </PrivateRoute>
               } />
 

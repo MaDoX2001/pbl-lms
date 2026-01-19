@@ -27,6 +27,9 @@ const emailVerificationRoutes = require('./routes/emailVerification.routes');
 const chatRoutes = require('./routes/chat.routes');
 const lectureRoutes = require('./routes/lecture.routes');
 const preassessmentRoutes = require('./routes/preassessment.routes');
+const teamRoutes = require('./routes/team.routes');
+const teamProjectRoutes = require('./routes/teamProject.routes');
+const teamSubmissionRoutes = require('./routes/teamSubmission.routes');
 
 // Import services
 const cloudinaryService = require('./services/cloudinary.service');
@@ -103,6 +106,9 @@ app.use('/api/email', emailVerificationRoutes);
 app.use('/api/lectures', lectureRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/preassessment', preassessmentRoutes);
+app.use('/api/teams', teamRoutes);
+app.use('/api/team-projects', teamProjectRoutes);
+app.use('/api/team-submissions', teamSubmissionRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
