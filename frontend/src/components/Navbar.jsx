@@ -92,7 +92,7 @@ const Navbar = ({ onMenuToggle }) => {
                 open={Boolean(anchorEl)}
                 onClose={handleClose}
               >
-                <MenuItem onClick={() => { navigate(`/profile/${user?.id}`); handleClose(); }}>
+                <MenuItem onClick={() => { navigate(`/profile/${user?._id}`); handleClose(); }}>
                   الملف الشخصي
                 </MenuItem>
                 <MenuItem onClick={handleLogout}>تسجيل الخروج</MenuItem>
