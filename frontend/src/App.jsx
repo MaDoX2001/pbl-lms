@@ -35,6 +35,7 @@ import TeamDashboard from './pages/TeamDashboard';
 import TeamsManagement from './pages/TeamsManagement';
 import TeamProjectPage from './pages/TeamProjectPage';
 import ProjectSubmissionsManagement from './pages/ProjectSubmissionsManagement';
+import StudentProjectsManagement from './pages/StudentProjectsManagement';
 
 // Import actions
 import { loadUser } from './redux/slices/authSlice';
@@ -178,6 +179,11 @@ function App() {
               <Route path="/projects/:projectId/submissions" element={
                 <PrivateRoute roles={['teacher', 'admin']}>
                   <ProjectSubmissionsManagement />
+                </PrivateRoute>
+              } />
+              <Route path="/admin/student-projects" element={
+                <PrivateRoute roles={['teacher', 'admin']}>
+                  <StudentProjectsManagement />
                 </PrivateRoute>
               } />
 

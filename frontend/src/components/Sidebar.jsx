@@ -22,6 +22,7 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import AddBoxIcon from '@mui/icons-material/AddBox';
 import HomeIcon from '@mui/icons-material/Home';
 import GroupsIcon from '@mui/icons-material/Groups';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 
 const DRAWER_WIDTH = 280;
 
@@ -53,6 +54,7 @@ const Sidebar = ({ open, onClose }) => {
     if (user?.role === 'teacher' || user?.role === 'admin') {
       authenticatedItems.push({ to: '/leaderboard', icon: <LeaderboardIcon />, label: 'لوحة المتصدرين', teacher: true });
       authenticatedItems.push({ to: '/create-project', icon: <AddBoxIcon />, label: 'إنشاء مشروع', teacher: true });
+      authenticatedItems.push({ to: '/admin/student-projects', icon: <AssignmentIcon />, label: 'مشروعات الطلاب', teacher: true });
     }
 
     if (user?.role === 'admin') {
