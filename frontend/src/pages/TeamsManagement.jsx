@@ -120,6 +120,11 @@ const TeamsManagement = () => {
         return;
       }
 
+      if (formData.name.trim().length < 3) {
+        toast.error('اسم الفريق يجب أن يكون 3 أحرف على الأقل');
+        return;
+      }
+
       if (formData.members.length < 2 || formData.members.length > 4) {
         toast.error('يجب اختيار من 2 إلى 4 أعضاء');
         return;
@@ -267,6 +272,12 @@ const TeamsManagement = () => {
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               fullWidth
               required
+              error={formData.name.trim().length > 0 && formData.name.trim().length < 3}
+              helperText={
+                formData.name.trim().length > 0 && formData.name.trim().length < 3
+                  ? 'اسم الفريق يجب أن يكون 3 أحرف على الأقل'
+                  : ''
+              }
             />
 
             <TextField
