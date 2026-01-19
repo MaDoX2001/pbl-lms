@@ -217,7 +217,11 @@ const ProjectDetailPage = () => {
   }
 
   const isEnrolled = user?.enrolledProjects?.includes(project._id);
-  const canManageProject = user && (user.role === 'admin' || (user.role === 'teacher' && project.instructor?._id === user.id));
+  // Admin can manage any project, Teacher can only manage their own projects
+  const canManageProject = user && (
+    user.role === 'admin' || 
+    (user.role === 'teacher' && project.instructor?._id === user.id)
+  );
   const difficultyLabel = {
     beginner: 'مبتدئ',
     intermediate: 'متوسط',
