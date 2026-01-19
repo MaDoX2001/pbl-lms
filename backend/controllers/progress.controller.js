@@ -40,7 +40,8 @@ exports.getProgress = async (req, res) => {
 // @access  Private
 exports.getStudentProgress = async (req, res) => {
   try {
-    const studentId = req.params.studentId || req.user.id;
+    // Handle "me" keyword - use authenticated user's ID
+    const studentId = req.params.studentId === 'me' ? req.user.id : req.params.studentId;
     
     // Check authorization
     if (studentId !== req.user.id && req.user.role !== 'teacher' && req.user.role !== 'admin') {
