@@ -65,7 +65,7 @@ const ProfilePage = () => {
   const fetchUserStats = async () => {
     try {
       // Fetch user statistics (you'll need to create these endpoints)
-      const response = await api.get('/api/users/stats');
+      const response = await api.get('/users/stats');
       setStats(response.data);
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -74,7 +74,7 @@ const ProfilePage = () => {
 
   const handleEditProfile = async () => {
     try {
-      await api.put('/api/users/profile', formData);
+      await api.put('/users/profile', formData);
       setEditDialogOpen(false);
       // Refresh user data
     } catch (error) {
@@ -88,7 +88,7 @@ const ProfilePage = () => {
       return;
     }
     try {
-      await api.put('/api/users/change-password', passwordData);
+      await api.put('/users/change-password', passwordData);
       setPasswordDialogOpen(false);
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error) {
