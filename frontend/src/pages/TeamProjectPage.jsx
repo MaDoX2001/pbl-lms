@@ -189,14 +189,20 @@ const TeamProjectPage = () => {
       {/* Upload Section */}
       {user.role === 'student' && (
         <Box sx={{ mb: 3 }}>
-          <Button
-            variant="contained"
-            startIcon={<UploadIcon />}
-            onClick={() => setOpenUploadDialog(true)}
-            fullWidth
-          >
-            رفع تسليم جديد
-          </Button>
+          {project.deadline && new Date() > new Date(project.deadline) ? (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              انتهى موعد تسليم المشروع
+            </Alert>
+          ) : (
+            <Button
+              variant="contained"
+              startIcon={<UploadIcon />}
+              onClick={() => setOpenUploadDialog(true)}
+              fullWidth
+            >
+              رفع تسليم جديد
+            </Button>
+          )}
         </Box>
       )}
 

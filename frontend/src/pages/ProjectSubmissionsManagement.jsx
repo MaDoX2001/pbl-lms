@@ -219,26 +219,47 @@ const ProjectSubmissionsManagement = () => {
             <AccordionDetails>
               {teamSubmissions
                 .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
-                .map((submission, index) => (
-                  <Card key={submission._id} sx={{ mb: 2 }}>
-                    <CardContent>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
-                        <Box>
-                          <Typography variant="h6">
-                            التسليم #{teamSubmissions.length - index}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            رفع بواسطة: {submission.submittedBy.name}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            التاريخ: {new Date(submission.submittedAt).toLocaleString('ar-EG')}
-                          </Typography>
+                .map((submission, index) => {
+                  // First submission in sorted list is the most recent (last submission)
+                  const isLastSubmission = index === 0;
+                  
+                  return (
+                    <Card 
+                      key={submission._id} 
+                      sx={{ 
+                        mb: 2,
+                        border: isLastSubmission ? '2px solid #1976d2' : 'none',
+                        bgcolor: isLastSubmission ? '#e3f2fd' : 'transparent'
+                      }}
+                    >
+                      <CardContent>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
+                          <Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                              <Typography variant="h6">
+                                التسليم #{teamSubmissions.length - index}
+                              </Typography>
+                              {isLastSubmission && (
+                                <Chip 
+                                  label="آخر تسليمة (المعتمدة)" 
+                                  color="primary" 
+                                  size="small"
+                                  sx={{ fontWeight: 'bold' }}
+                                />
+                              )}
+                            </Box>
+                            <Typography variant="body2" color="text.secondary">
+                              رفع بواسطة: {submission.submittedBy.name}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              التاريخ: {new Date(submission.submittedAt).toLocaleString('ar-EG')}
+                            </Typography>
+                          </Box>
+                          <Chip
+                            label={getStatusLabel(submission.status)}
+                            color={getStatusColor(submission.status)}
+                          />
                         </Box>
-                        <Chip
-                          label={getStatusLabel(submission.status)}
-                          color={getStatusColor(submission.status)}
-                        />
-                      </Box>
 
                       {/* File Info */}
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -326,7 +347,8 @@ const ProjectSubmissionsManagement = () => {
                       </Box>
                     </CardContent>
                   </Card>
-                ))}
+                );
+              })}
             </AccordionDetails>
           </Accordion>
         ))

@@ -69,6 +69,19 @@ exports.createSubmission = async (req, res) => {
       });
     }
 
+    // STRICT DEADLINE ENFORCEMENT: Check if deadline has passed
+    if (project.deadline) {
+      const currentDate = new Date();
+      const projectDeadline = new Date(project.deadline);
+      
+      if (currentDate > projectDeadline) {
+        return res.status(403).json({
+          success: false,
+          message: 'انتهى موعد تسليم المشروع'
+        });
+      }
+    }
+
     // Access control: Only team members can submit
     const isMember = team.members.some(
       member => member.toString() === req.user._id.toString()
