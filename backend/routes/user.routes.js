@@ -3,7 +3,24 @@ const router = express.Router();
 const User = require('../models/User.model');
 const Progress = require('../models/Progress.model');
 const bcrypt = require('bcryptjs');
+const multer = require('multer');
 const { protect, authorize } = require('../middleware/auth.middleware');
+const cloudinaryService = require('../services/cloudinary.service');
+
+// Multer configuration for avatar upload (memory storage)
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+  fileFilter: (req, file, cb) => {
+    // Only allow image files
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('يجب رفع صورة فقط'), false);
+    }
+  }
+});
 
 // @desc    Get all users
 // @route   GET /api/users
@@ -97,7 +114,7 @@ router.get('/stats', protect, async (req, res) => {
 router.put('/profile', protect, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { name, email, phone } = req.body;
+    const { name, email, phone, avatar } = req.body;
     
     // Check if email is already taken by another user
     if (email) {
@@ -114,6 +131,7 @@ router.put('/profile', protect, async (req, res) => {
     if (name) updates.name = name;
     if (email) updates.email = email;
     if (phone) updates.phone = phone;
+    if (avatar) updates.avatar = avatar;
     
     const user = await User.findByIdAndUpdate(
       userId,
@@ -130,6 +148,40 @@ router.put('/profile', protect, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'خطأ في تحديث الملف الشخصي',
+      error: error.message
+    });
+  }
+});
+
+// @desc    Upload avatar
+// @route   POST /api/users/upload-avatar
+// @access  Private
+router.post('/upload-avatar', protect, upload.single('avatar'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'يجب رفع صورة'
+      });
+    }
+
+    // Upload to Cloudinary
+    const folder = `pbl-lms/avatars/${req.user.id}`;
+    const uploadResult = await cloudinaryService.uploadFile(
+      req.file.buffer,
+      `avatar-${Date.now()}.${req.file.mimetype.split('/')[1]}`,
+      folder
+    );
+
+    res.json({
+      success: true,
+      url: uploadResult.url,
+      message: 'تم رفع الصورة بنجاح'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في رفع الصورة',
       error: error.message
     });
   }

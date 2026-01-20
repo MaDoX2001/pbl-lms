@@ -20,7 +20,8 @@ import {
   DialogContent,
   DialogActions,
   IconButton,
-  LinearProgress
+  LinearProgress,
+  CircularProgress
 } from '@mui/material';
 import { 
   Email, 
@@ -32,11 +33,13 @@ import {
   Assignment,
   TrendingUp,
   EmojiEvents,
-  Verified
+  Verified,
+  PhotoCamera
 } from '@mui/icons-material';
 import { useSelector, useDispatch } from 'react-redux';
 import { updateUser } from '../redux/slices/authSlice';
 import api from '../services/api';
+import { toast } from 'react-toastify';
 
 const ProfilePage = () => {
   const dispatch = useDispatch();
@@ -52,8 +55,12 @@ const ProfilePage = () => {
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    phone: user?.phone || ''
+    phone: user?.phone || '',
+    avatar: user?.avatar || ''
   });
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -69,8 +76,10 @@ const ProfilePage = () => {
     setFormData({
       name: user?.name || '',
       email: user?.email || '',
-      phone: user?.phone || ''
+      phone: user?.phone || '',
+      avatar: user?.avatar || ''
     });
+    setAvatarPreview(user?.avatar || null);
   }, [user]);
 
   const fetchUserStats = async () => {
@@ -85,13 +94,63 @@ const ProfilePage = () => {
 
   const handleEditProfile = async () => {
     try {
-      const response = await api.put('/users/profile', formData);
+      let avatarUrl = formData.avatar;
+
+      // Upload avatar if new file selected
+      if (avatarFile) {
+        setUploadingAvatar(true);
+        const formDataUpload = new FormData();
+        formDataUpload.append('avatar', avatarFile);
+
+        const uploadResponse = await api.post('/users/upload-avatar', formDataUpload, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        avatarUrl = uploadResponse.data.url;
+      }
+
+      const response = await api.put('/users/profile', {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        avatar: avatarUrl
+      });
+      
       // Update Redux store with new user data
       dispatch(updateUser(response.data.data));
       setEditDialogOpen(false);
+      setAvatarFile(null);
+      setUploadingAvatar(false);
+      toast.success('تم تحديث الملف الشخصي بنجاح');
     } catch (error) {
       console.error('Error updating profile:', error);
-      alert(error.response?.data?.message || 'فشل تحديث الملف الشخصي');
+      setUploadingAvatar(false);
+      toast.error(error.response?.data?.message || 'فشل تحديث الملف الشخصي');
+    }
+  };
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('حجم الصورة يجب ألا يتجاوز 5 ميجابايت');
+        return;
+      }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error('يجب اختيار صورة فقط');
+        return;
+      }
+
+      setAvatarFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -134,9 +193,10 @@ const ProfilePage = () => {
         <Grid container spacing={3} alignItems="center">
           <Grid item>
             <Avatar
+              src={user?.avatar}
               sx={{ 
                 width: 120, 
-                height: 120, 
+                height: 120,
                 bgcolor: 'white',
                 color: 'primary.main',
                 fontSize: '3rem',
@@ -144,7 +204,7 @@ const ProfilePage = () => {
                 border: '4px solid rgba(255,255,255,0.3)'
               }}
             >
-              {user?.name?.charAt(0).toUpperCase()}
+              {!user?.avatar && user?.name?.charAt(0).toUpperCase()}
             </Avatar>
           </Grid>
           <Grid item xs>
@@ -179,8 +239,11 @@ const ProfilePage = () => {
                   setFormData({
                     name: user?.name || '',
                     email: user?.email || '',
-                    phone: user?.phone || ''
+                    phone: user?.phone || '',
+                    avatar: user?.avatar || ''
                   });
+                  setAvatarPreview(user?.avatar || null);
+                  setAvatarFile(null);
                   setEditDialogOpen(true);
                 }}
                 sx={{ 
@@ -388,6 +451,43 @@ const ProfilePage = () => {
         </DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2 }}>
+            {/* Avatar Upload Section */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
+              <Avatar
+                src={avatarPreview || user?.avatar}
+                sx={{ 
+                  width: 120, 
+                  height: 120, 
+                  mb: 2,
+                  border: '3px solid #1976d2'
+                }}
+              >
+                {!avatarPreview && user?.name?.charAt(0).toUpperCase()}
+              </Avatar>
+              <input
+                accept="image/*"
+                style={{ display: 'none' }}
+                id="avatar-upload"
+                type="file"
+                onChange={handleAvatarChange}
+              />
+              <label htmlFor="avatar-upload">
+                <Button
+                  variant="outlined"
+                  component="span"
+                  startIcon={<PhotoCamera />}
+                  disabled={uploadingAvatar}
+                >
+                  {uploadingAvatar ? 'جاري الرفع...' : 'تغيير الصورة الشخصية'}
+                </Button>
+              </label>
+              {avatarFile && (
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+                  {avatarFile.name}
+                </Typography>
+              )}
+            </Box>
+
             <TextField
               fullWidth
               label="الاسم"
@@ -414,13 +514,17 @@ const ProfilePage = () => {
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setEditDialogOpen(false)}>إلغاء</Button>
+          <Button onClick={() => setEditDialogOpen(false)} disabled={uploadingAvatar}>
+            إلغاء
+          </Button>
           <Button 
             variant="contained" 
             onClick={handleEditProfile}
             sx={{ fontWeight: 600 }}
+            disabled={uploadingAvatar}
+            startIcon={uploadingAvatar ? <CircularProgress size={20} /> : null}
           >
-            حفظ التغييرات
+            {uploadingAvatar ? 'جاري الحفظ...' : 'حفظ التغييرات'}
           </Button>
         </DialogActions>
       </Dialog>
