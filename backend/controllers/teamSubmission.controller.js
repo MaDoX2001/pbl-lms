@@ -4,7 +4,6 @@ const Project = require('../models/Project.model');
 const TeamProject = require('../models/TeamProject.model');
 const cloudinary = require('../services/cloudinary.service');
 const multer = require('multer');
-const path = require('path');
 
 /**
  * TeamSubmission Controller
@@ -15,16 +14,8 @@ const path = require('path');
  * - Teachers/Admins can add feedback and grades
  */
 
-// Multer configuration for file upload
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/team-submissions/');
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'team-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Multer configuration for file upload (memory storage for Cloudinary)
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage: storage,
@@ -101,27 +92,19 @@ exports.createSubmission = async (req, res) => {
       });
     }
 
-    // Upload to Cloudinary (or use local path)
-    let fileUrl = `/uploads/team-submissions/${req.file.filename}`;
-    
-    // Optional: Upload to Cloudinary if configured
-    try {
-      if (process.env.CLOUDINARY_CLOUD_NAME) {
-        const result = await cloudinary.uploader.upload(req.file.path, {
-          folder: 'team-submissions',
-          resource_type: 'auto'
-        });
-        fileUrl = result.secure_url;
-      }
-    } catch (cloudError) {
-      console.log('Cloudinary upload failed, using local path:', cloudError.message);
-    }
+    // Upload to Cloudinary
+    const folder = `pbl-lms/team-submissions/team-${teamId}`;
+    const uploadResult = await cloudinary.uploadFile(
+      req.file.buffer,
+      req.file.originalname,
+      folder
+    );
 
     // Create submission
     const submission = await TeamSubmission.create({
       team: teamId,
       project: projectId,
-      fileUrl: fileUrl,
+      fileUrl: uploadResult.secure_url,
       fileName: req.file.originalname,
       description,
       submittedBy: req.user._id
