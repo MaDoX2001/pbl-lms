@@ -34,10 +34,12 @@ import {
   EmojiEvents,
   Verified
 } from '@mui/icons-material';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { updateUser } from '../redux/slices/authSlice';
 import api from '../services/api';
 
 const ProfilePage = () => {
+  const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
@@ -62,6 +64,15 @@ const ProfilePage = () => {
     fetchUserStats();
   }, []);
 
+  // Update form data when user changes (after profile update)
+  useEffect(() => {
+    setFormData({
+      name: user?.name || '',
+      email: user?.email || '',
+      phone: user?.phone || ''
+    });
+  }, [user]);
+
   const fetchUserStats = async () => {
     try {
       // Fetch user statistics (you'll need to create these endpoints)
@@ -74,11 +85,13 @@ const ProfilePage = () => {
 
   const handleEditProfile = async () => {
     try {
-      await api.put('/users/profile', formData);
+      const response = await api.put('/users/profile', formData);
+      // Update Redux store with new user data
+      dispatch(updateUser(response.data.data));
       setEditDialogOpen(false);
-      // Refresh user data
     } catch (error) {
       console.error('Error updating profile:', error);
+      alert(error.response?.data?.message || 'فشل تحديث الملف الشخصي');
     }
   };
 
@@ -162,7 +175,14 @@ const ProfilePage = () => {
               <Button 
                 variant="contained" 
                 startIcon={<Edit />}
-                onClick={() => setEditDialogOpen(true)}
+                onClick={() => {
+                  setFormData({
+                    name: user?.name || '',
+                    email: user?.email || '',
+                    phone: user?.phone || ''
+                  });
+                  setEditDialogOpen(true);
+                }}
                 sx={{ 
                   bgcolor: 'white', 
                   color: 'primary.main',
