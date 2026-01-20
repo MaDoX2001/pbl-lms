@@ -104,7 +104,7 @@ exports.createSubmission = async (req, res) => {
     const submission = await TeamSubmission.create({
       team: teamId,
       project: projectId,
-      fileUrl: uploadResult.secure_url,
+      fileUrl: uploadResult.url,
       fileName: req.file.originalname,
       description,
       submittedBy: req.user._id
