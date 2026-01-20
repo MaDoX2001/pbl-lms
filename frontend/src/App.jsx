@@ -19,6 +19,7 @@ import ProjectsPage from './pages/ProjectsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import DashboardPage from './pages/DashboardPage';
 import ProfilePage from './pages/ProfilePage';
+import UserProfilePage from './pages/UserProfilePage';
 import CreateProjectPage from './pages/CreateProjectPage';
 import EditProjectPage from './pages/EditProjectPage';
 import LeaderboardPage from './pages/LeaderboardPage';
@@ -149,6 +150,11 @@ function App() {
               <Route path="/profile/:id" element={
                 <PrivateRoute>
                   <ProfilePage />
+                </PrivateRoute>
+              } />
+              <Route path="/user/:userId" element={
+                <PrivateRoute>
+                  <UserProfilePage />
                 </PrivateRoute>
               } />
               <Route path="/chat" element={

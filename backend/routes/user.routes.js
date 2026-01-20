@@ -232,6 +232,83 @@ router.put('/change-password', protect, async (req, res) => {
   }
 });
 
+// @desc    Get user public profile
+// @route   GET /api/users/:id/public
+// @access  Private
+// Rules:
+// - Teacher/Admin: can see any user
+// - Student: can only see team members and teachers/admins
+router.get('/:id/public', protect, async (req, res) => {
+  try {
+    const currentUser = req.user;
+    const targetUserId = req.params.id;
+
+    // Fetch target user
+    const targetUser = await User.findById(targetUserId)
+      .populate('completedProjects', 'title difficulty coverImage points')
+      .select('-password');
+
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'المستخدم غير موجود'
+      });
+    }
+
+    // ACCESS CONTROL
+    // Teacher/Admin can see everyone
+    if (currentUser.role === 'teacher' || currentUser.role === 'admin') {
+      return res.json({
+        success: true,
+        data: targetUser
+      });
+    }
+
+    // Students can only see:
+    // 1. Teachers and Admins
+    // 2. Team members (students in same team)
+    if (currentUser.role === 'student') {
+      // Can see teachers and admins
+      if (targetUser.role === 'teacher' || targetUser.role === 'admin') {
+        return res.json({
+          success: true,
+          data: targetUser
+        });
+      }
+
+      // Check if both are in same team
+      const Team = require('../models/Team.model');
+      const commonTeam = await Team.findOne({
+        members: { $all: [currentUser.id, targetUserId] }
+      });
+
+      if (commonTeam) {
+        return res.json({
+          success: true,
+          data: targetUser
+        });
+      }
+
+      // Not authorized
+      return res.status(403).json({
+        success: false,
+        message: 'ليس لديك صلاحية لعرض هذا الملف الشخصي'
+      });
+    }
+
+    return res.status(403).json({
+      success: false,
+      message: 'ليس لديك صلاحية لعرض الملفات الشخصية'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في جلب الملف الشخصي',
+      error: error.message
+    });
+  }
+});
+
 // @desc    Get user by ID
 // @route   GET /api/users/:id
 // @access  Private

@@ -249,7 +249,20 @@ const ProjectSubmissionsManagement = () => {
                               )}
                             </Box>
                             <Typography variant="body2" color="text.secondary">
-                              رفع بواسطة: {submission.submittedBy.name}
+                              رفع بواسطة:{' '}
+                              <Typography
+                                component="span"
+                                variant="body2"
+                                sx={{
+                                  color: 'primary.main',
+                                  cursor: 'pointer',
+                                  fontWeight: 600,
+                                  '&:hover': { textDecoration: 'underline' }
+                                }}
+                                onClick={() => navigate(`/user/${submission.submittedBy._id}`)}
+                              >
+                                {submission.submittedBy.name}
+                              </Typography>
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
                               التاريخ: {new Date(submission.submittedAt).toLocaleString('ar-EG')}

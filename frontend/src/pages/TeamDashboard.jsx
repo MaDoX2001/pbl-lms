@@ -117,10 +117,25 @@ const TeamDashboard = () => {
         <Grid container spacing={2} sx={{ mt: 1 }}>
           {team.members.map((member) => (
             <Grid item xs={12} sm={4} key={member._id}>
-              <Card variant="outlined">
+              <Card 
+                variant="outlined"
+                sx={{ 
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    boxShadow: 3,
+                    transform: 'translateY(-4px)',
+                    borderColor: 'primary.main'
+                  }
+                }}
+                onClick={() => navigate(`/user/${member._id}`)}
+              >
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Avatar sx={{ bgcolor: 'secondary.main' }}>
+                    <Avatar 
+                      src={member.avatar}
+                      sx={{ bgcolor: 'secondary.main' }}
+                    >
                       {member.name.charAt(0)}
                     </Avatar>
                     <Box>
