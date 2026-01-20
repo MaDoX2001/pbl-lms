@@ -99,14 +99,26 @@ function App() {
               <Route path="/signup" element={!isAuthenticated ? <PublicRegisterPage /> : <Navigate to="/dashboard" />} />
               <Route path="/verify-email" element={<EmailVerificationPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/projects" element={<ProjectsPage />} />
-              <Route path="/projects/:id" element={<ProjectDetailPage />} />
+              <Route path="/projects" element={
+                <PrivateRoute>
+                  <ProjectsPage />
+                </PrivateRoute>
+              } />
+              <Route path="/projects/:id" element={
+                <PrivateRoute>
+                  <ProjectDetailPage />
+                </PrivateRoute>
+              } />
               <Route path="/leaderboard" element={
                 <PrivateRoute roles={['teacher', 'admin']}>
                   <LeaderboardPage />
                 </PrivateRoute>
               } />
-              <Route path="/arduino-simulator" element={<ArduinoSimulatorPage />} />
+              <Route path="/arduino-simulator" element={
+                <PrivateRoute>
+                  <ArduinoSimulatorPage />
+                </PrivateRoute>
+              } />
               <Route path="/live-lectures" element={
                 <PrivateRoute>
                   <LiveLecturesPage />

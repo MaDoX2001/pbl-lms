@@ -32,9 +32,7 @@ const Sidebar = ({ open, onClose }) => {
   // Navigation items based on user role
   const getNavItems = () => {
     const baseItems = [
-      { to: '/', icon: <HomeIcon />, label: 'الرئيسية', public: true },
-      { to: '/projects', icon: <FolderIcon />, label: 'المشاريع', public: true },
-      { to: '/arduino-simulator', icon: <CodeIcon />, label: 'محاكي Arduino', public: true }
+      { to: '/', icon: <HomeIcon />, label: 'الرئيسية', public: true }
     ];
 
     if (!isAuthenticated) {
@@ -42,6 +40,8 @@ const Sidebar = ({ open, onClose }) => {
     }
 
     const authenticatedItems = [
+      { to: '/projects', icon: <FolderIcon />, label: 'المشاريع' },
+      { to: '/arduino-simulator', icon: <CodeIcon />, label: 'محاكي Arduino' },
       { to: '/dashboard', icon: <DashboardIcon />, label: 'لوحة التحكم' },
       { to: '/chat', icon: <ChatIcon />, label: 'المحادثات' },
       { to: '/live-lectures', icon: <VideocamIcon />, label: 'المحاضرات المباشرة' }
