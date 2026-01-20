@@ -17,6 +17,11 @@ const userSchema = new mongoose.Schema({
     trim: true,
     match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'البريد الإلكتروني غير صالح']
   },
+  phone: {
+    type: String,
+    trim: true,
+    match: [/^[0-9]{10,15}$/, 'رقم الهاتف غير صالح (يجب أن يكون من 10 إلى 15 رقم)']
+  },
   password: {
     type: String,
     required: [true, 'كلمة المرور مطلوبة'],
