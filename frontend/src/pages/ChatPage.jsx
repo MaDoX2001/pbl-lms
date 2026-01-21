@@ -220,10 +220,11 @@ const ChatPage = () => {
       const response = await api.post('/chat/conversations/team');
       const conversation = response.data.data;
       setSelectedConversation(conversation);
-      setChatType('team');
       fetchConversations();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'فشل فتح محادثة الفريق');
+      const errorMsg = error.response?.data?.message || 'فشل فتح محادثة الفريق';
+      toast.error(errorMsg);
+      console.error('Team chat error:', error);
     }
   };
 
@@ -232,10 +233,11 @@ const ChatPage = () => {
       const response = await api.post('/chat/conversations/team-teachers');
       const conversation = response.data.data;
       setSelectedConversation(conversation);
-      setChatType('team_teachers');
       fetchConversations();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'فشل فتح محادثة الفريق + المعلمين');
+      const errorMsg = error.response?.data?.message || 'فشل فتح محادثة الفريق + المعلمين';
+      toast.error(errorMsg);
+      console.error('Team teachers chat error:', error);
     }
   };
 
@@ -244,10 +246,11 @@ const ChatPage = () => {
       const response = await api.post('/chat/conversations/general');
       const conversation = response.data.data;
       setSelectedConversation(conversation);
-      setChatType('general');
       fetchConversations();
     } catch (error) {
-      toast.error('فشل فتح المحادثة العامة');
+      const errorMsg = error.response?.data?.message || 'فشل فتح المحادثة العامة';
+      toast.error(errorMsg);
+      console.error('General chat error:', error);
     }
   };
 
