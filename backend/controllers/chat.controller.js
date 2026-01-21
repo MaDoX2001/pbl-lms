@@ -339,11 +339,15 @@ exports.getUsers = async (req, res) => {
 // @access  Private (Student in team)
 exports.getOrCreateTeamConversation = async (req, res) => {
   try {
+    console.log('Team chat request from user:', req.user.id, 'role:', req.user.role);
+    
     // Get user's team
     const team = await Team.findOne({
       members: req.user.id,
       isActive: true
     }).populate('members', 'name avatar email role');
+
+    console.log('Found team:', team ? team._id : 'null');
 
     if (!team) {
       return res.status(404).json({
@@ -360,6 +364,8 @@ exports.getOrCreateTeamConversation = async (req, res) => {
       .populate('participants', 'name avatar email role')
       .populate('team', 'name');
 
+    console.log('Existing team conversation:', conversation ? conversation._id : 'null');
+
     if (!conversation) {
       // Create team conversation
       conversation = await Conversation.create({
@@ -371,6 +377,8 @@ exports.getOrCreateTeamConversation = async (req, res) => {
 
       await conversation.populate('participants', 'name avatar email role');
       await conversation.populate('team', 'name');
+      
+      console.log('Created new team conversation:', conversation._id);
     }
 
     res.json({
@@ -378,6 +386,7 @@ exports.getOrCreateTeamConversation = async (req, res) => {
       data: conversation
     });
   } catch (error) {
+    console.error('Team chat error:', error);
     res.status(500).json({
       success: false,
       message: 'خطأ في إنشاء محادثة الفريق',
@@ -391,6 +400,8 @@ exports.getOrCreateTeamConversation = async (req, res) => {
 // @access  Private (Student/Teacher)
 exports.getOrCreateTeamTeachersConversation = async (req, res) => {
   try {
+    console.log('Team+Teachers chat request from user:', req.user.id, 'role:', req.user.role);
+    
     let team;
     
     if (req.user.role === 'student') {
@@ -425,6 +436,8 @@ exports.getOrCreateTeamTeachersConversation = async (req, res) => {
       }
     }
 
+    console.log('Found team:', team._id);
+
     // Check if conversation exists
     let conversation = await Conversation.findOne({
       type: 'team_teachers',
@@ -433,11 +446,15 @@ exports.getOrCreateTeamTeachersConversation = async (req, res) => {
       .populate('participants', 'name avatar email role')
       .populate('team', 'name');
 
+    console.log('Existing team+teachers conversation:', conversation ? conversation._id : 'null');
+
     if (!conversation) {
       // Get all teachers and admins
       const teachers = await User.find({
         role: { $in: ['teacher', 'admin'] }
       }).select('_id');
+
+      console.log('Found teachers count:', teachers.length);
 
       // Create conversation with team + teachers
       const participants = [
@@ -449,11 +466,13 @@ exports.getOrCreateTeamTeachersConversation = async (req, res) => {
         type: 'team_teachers',
         name: `${team.name} + المعلمين`,
         team: team._id,
-        participants: [...new Set(participants)] // Remove duplicates
+        participants: [...new Set(participants.map(p => p.toString()))] // Remove duplicates
       });
 
       await conversation.populate('participants', 'name avatar email role');
       await conversation.populate('team', 'name');
+      
+      console.log('Created new team+teachers conversation:', conversation._id);
     }
 
     res.json({
@@ -461,6 +480,7 @@ exports.getOrCreateTeamTeachersConversation = async (req, res) => {
       data: conversation
     });
   } catch (error) {
+    console.error('Team+Teachers chat error:', error);
     res.status(500).json({
       success: false,
       message: 'خطأ في إنشاء محادثة الفريق + المعلمين',
