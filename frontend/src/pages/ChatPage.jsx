@@ -328,10 +328,19 @@ const ChatPage = () => {
     getConversationName(conv).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleTabChange = (event, newValue) => {
+  const handleTabChange = async (event, newValue) => {
     setChatType(newValue);
     setSelectedConversation(null);
     setMessages([]);
+    
+    // Auto-open team/team_teachers/general chats when switching to their tabs
+    if (newValue === 'team' && user?.role === 'student') {
+      await handleOpenTeamChat();
+    } else if (newValue === 'team_teachers' && user?.role === 'student') {
+      await handleOpenTeamTeachersChat();
+    } else if (newValue === 'general') {
+      await handleOpenGeneralChat();
+    }
   };
 
   if (loading) {
@@ -417,7 +426,7 @@ const ChatPage = () => {
                   محادثة جديدة
                 </Button>
               )}
-              {chatType === 'team' && user?.role === 'student' && (
+              {chatType === 'team' && user?.role === 'student' && filteredConversations.length === 0 && (
                 <Button
                   fullWidth
                   variant="contained"
@@ -427,7 +436,7 @@ const ChatPage = () => {
                   فتح محادثة الفريق
                 </Button>
               )}
-              {chatType === 'team_teachers' && user?.role === 'student' && (
+              {chatType === 'team_teachers' && user?.role === 'student' && filteredConversations.length === 0 && (
                 <Button
                   fullWidth
                   variant="contained"
@@ -437,7 +446,7 @@ const ChatPage = () => {
                   فتح محادثة الفريق + المعلمين
                 </Button>
               )}
-              {chatType === 'general' && (
+              {chatType === 'general' && filteredConversations.length === 0 && (
                 <Button
                   fullWidth
                   variant="contained"
