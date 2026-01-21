@@ -457,16 +457,19 @@ exports.getOrCreateTeamTeachersConversation = async (req, res) => {
       console.log('Found teachers count:', teachers.length);
 
       // Create conversation with team + teachers
-      const participants = [
-        ...team.members.map(m => m._id),
-        ...teachers.map(t => t._id)
+      const allParticipants = [
+        ...team.members.map(m => m._id.toString()),
+        ...teachers.map(t => t._id.toString())
       ];
+      
+      // Remove duplicates and convert back to ObjectIds
+      const uniqueParticipants = [...new Set(allParticipants)];
 
       conversation = await Conversation.create({
         type: 'team_teachers',
         name: `${team.name} + المعلمين`,
         team: team._id,
-        participants: [...new Set(participants.map(p => p.toString()))] // Remove duplicates
+        participants: uniqueParticipants
       });
 
       await conversation.populate('participants', 'name avatar email role');
@@ -513,8 +516,14 @@ exports.getOrCreateGeneralConversation = async (req, res) => {
 
       await conversation.populate('participants', 'name avatar email role');
     } else {
-      // Add current user if not in participants
-      if (!conversation.hasParticipant(req.user.id)) {
+      // Check if current user is in participants (compare with unpopulated IDs)
+      const participantIds = conversation.participants.map(p => 
+        typeof p === 'object' ? p._id.toString() : p.toString()
+      );
+      
+      if (!participantIds.includes(req.user.id.toString())) {
+        // Re-fetch conversation without population to add user
+        conversation = await Conversation.findById(conversation._id);
         conversation.participants.push(req.user.id);
         await conversation.save();
         await conversation.populate('participants', 'name avatar email role');
