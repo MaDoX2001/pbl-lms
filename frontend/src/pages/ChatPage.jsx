@@ -63,6 +63,11 @@ const ChatPage = () => {
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
+  // Debug: Watch chatType changes
+  useEffect(() => {
+    console.log('chatType changed to:', chatType);
+  }, [chatType]);
+
   useEffect(() => {
     if (token) {
       socketService.connect(token);
@@ -388,7 +393,8 @@ const ChatPage = () => {
               <Tabs 
                 value={chatType} 
                 onChange={handleTabChange} 
-                variant="fullWidth"
+                variant="scrollable"
+                scrollButtons="auto"
                 sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
               >
                 <Tab 
@@ -398,20 +404,20 @@ const ChatPage = () => {
                   iconPosition="start"
                 />
                 {user?.role === 'student' && (
-                  <>
-                    <Tab 
-                      value="team" 
-                      label="الفريق" 
-                      icon={<GroupIcon />}
-                      iconPosition="start"
-                    />
-                    <Tab 
-                      value="team_teachers" 
-                      label="فريق+معلمين" 
-                      icon={<GroupsIcon />}
-                      iconPosition="start"
-                    />
-                  </>
+                  <Tab 
+                    value="team" 
+                    label="الفريق" 
+                    icon={<GroupIcon />}
+                    iconPosition="start"
+                  />
+                )}
+                {user?.role === 'student' && (
+                  <Tab 
+                    value="team_teachers" 
+                    label="فريق+معلمين" 
+                    icon={<GroupsIcon />}
+                    iconPosition="start"
+                  />
                 )}
                 <Tab 
                   value="general" 
