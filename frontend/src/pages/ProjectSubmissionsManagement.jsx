@@ -39,6 +39,9 @@ import api from '../services/api';
  * Teacher/Admin view of all team submissions for a project.
  * Can add feedback and grades.
  * Access: Teacher/Admin only
+ * 
+ * BUSINESS RULE: Multiple submissions are allowed.
+ * Only the latest submission before the deadline is graded.
  */
 const ProjectSubmissionsManagement = () => {
   const { projectId } = useParams();
@@ -217,6 +220,7 @@ const ProjectSubmissionsManagement = () => {
               </Box>
             </AccordionSummary>
             <AccordionDetails>
+              {/* Multiple submissions allowed - only latest before deadline is graded */}
               {teamSubmissions
                 .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
                 .map((submission, index) => {
