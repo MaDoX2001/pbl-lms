@@ -42,6 +42,10 @@ import { ar } from 'date-fns/locale';
 
 const ChatPage = () => {
   const { user, token } = useSelector((state) => state.auth);
+  
+  console.log('ChatPage - User:', user);
+  console.log('ChatPage - User role:', user?.role);
+  
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -333,13 +337,17 @@ const ChatPage = () => {
     setSelectedConversation(null);
     setMessages([]);
     
-    // Auto-open team/team_teachers/general chats when switching to their tabs
-    if (newValue === 'team' && user?.role === 'student') {
-      await handleOpenTeamChat();
-    } else if (newValue === 'team_teachers' && user?.role === 'student') {
-      await handleOpenTeamTeachersChat();
-    } else if (newValue === 'general') {
-      await handleOpenGeneralChat();
+    try {
+      // Auto-open team/team_teachers/general chats when switching to their tabs
+      if (newValue === 'team' && user?.role === 'student') {
+        await handleOpenTeamChat();
+      } else if (newValue === 'team_teachers' && user?.role === 'student') {
+        await handleOpenTeamTeachersChat();
+      } else if (newValue === 'general') {
+        await handleOpenGeneralChat();
+      }
+    } catch (error) {
+      console.error('Error in handleTabChange:', error);
     }
   };
 
@@ -382,12 +390,14 @@ const ChatPage = () => {
                       label="الفريق" 
                       icon={<GroupIcon />}
                       iconPosition="start"
+                      onClick={() => console.log('Team tab clicked')}
                     />
                     <Tab 
                       value="team_teachers" 
                       label="فريق+معلمين" 
                       icon={<GroupsIcon />}
                       iconPosition="start"
+                      onClick={() => console.log('Team+Teachers tab clicked')}
                     />
                   </>
                 )}
@@ -396,6 +406,7 @@ const ChatPage = () => {
                   label="عامة" 
                   icon={<PublicIcon />}
                   iconPosition="start"
+                  onClick={() => console.log('General tab clicked')}
                 />
               </Tabs>
 
