@@ -1,23 +1,29 @@
 const mongoose = require('mongoose');
 
 const conversationSchema = new mongoose.Schema({
-  // Type: direct (1-on-1) or group
+  // Type: direct (1-to-1), team, team_teachers, general
   type: {
     type: String,
-    enum: ['direct', 'group'],
+    enum: ['direct', 'team', 'team_teachers', 'general'],
     required: true,
     default: 'direct'
   },
   
-  // Group name (only for group chats)
+  // Group/conversation name
   name: {
     type: String,
     trim: true
   },
   
-  // Group avatar (only for group chats)
+  // Avatar for conversation
   avatar: {
     type: String
+  },
+  
+  // Reference to team (for team and team_teachers types)
+  team: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Team'
   },
   
   // Participants in the conversation
@@ -27,7 +33,7 @@ const conversationSchema = new mongoose.Schema({
     required: true
   }],
   
-  // Group admin (only for group chats)
+  // Conversation admin (for team_teachers, general)
   admin: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'

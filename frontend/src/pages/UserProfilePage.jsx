@@ -18,7 +18,13 @@ import {
   ListItemIcon,
   ListItemText,
   Button,
-  Avatar
+  Avatar,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField
 } from '@mui/material';
 import {
   Email,
@@ -29,7 +35,8 @@ import {
   Assignment,
   TrendingUp,
   EmojiEvents,
-  Verified
+  Verified,
+  ChatBubble as ChatBubbleIcon
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../services/api';
@@ -56,6 +63,9 @@ const UserProfilePage = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+  const [messageText, setMessageText] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
 
   useEffect(() => {
     fetchUserProfile();
@@ -83,6 +93,38 @@ const UserProfilePage = () => {
       setLoading(false);
       setError(err.response?.data?.message || 'فشل تحميل الملف الشخصي');
       toast.error(error);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!messageText.trim()) {
+      toast.error('يرجى كتابة رسالة');
+      return;
+    }
+
+    setSendingMessage(true);
+    try {
+      // Create or get conversation
+      const convResponse = await api.post('/chat/conversations/direct', { userId });
+      const conversation = convResponse.data.data;
+
+      // Send message
+      await api.post(`/chat/conversations/${conversation._id}/messages`, {
+        content: messageText,
+        type: 'text'
+      });
+
+      toast.success('تم إرسال الرسالة بنجاح');
+      setMessageDialogOpen(false);
+      setMessageText('');
+      
+      // Navigate to chat page
+      navigate('/chat');
+    } catch (err) {
+      toast.error('فشل إرسال الرسالة');
+      console.error(err);
+    } finally {
+      setSendingMessage(false);
     }
   };
 
@@ -178,6 +220,21 @@ const UserProfilePage = () => {
               </Typography>
               {user?.emailVerified && (
                 <Verified sx={{ fontSize: 32, color: '#4caf50' }} />
+              )}
+              {/* Message Button - only show if viewing someone else's profile */}
+              {currentUser?.id !== userId && (
+                <IconButton
+                  onClick={() => setMessageDialogOpen(true)}
+                  sx={{
+                    bgcolor: 'rgba(255,255,255,0.2)',
+                    color: 'white',
+                    '&:hover': {
+                      bgcolor: 'rgba(255,255,255,0.3)'
+                    }
+                  }}
+                >
+                  <ChatBubbleIcon />
+                </IconButton>
               )}
             </Box>
             <Box display="flex" gap={1} mb={2}>
@@ -326,6 +383,47 @@ const UserProfilePage = () => {
           </Grid>
         </Paper>
       )}
+
+      {/* Send Message Dialog */}
+      <Dialog 
+        open={messageDialogOpen} 
+        onClose={() => setMessageDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          إرسال رسالة إلى {user?.name}
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            multiline
+            rows={4}
+            fullWidth
+            placeholder="اكتب رسالتك هنا..."
+            value={messageText}
+            onChange={(e) => setMessageText(e.target.value)}
+            disabled={sendingMessage}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setMessageDialogOpen(false)}
+            disabled={sendingMessage}
+          >
+            إلغاء
+          </Button>
+          <Button 
+            onClick={handleSendMessage}
+            variant="contained"
+            disabled={sendingMessage || !messageText.trim()}
+            startIcon={sendingMessage ? <CircularProgress size={20} /> : <ChatBubbleIcon />}
+          >
+            إرسال
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

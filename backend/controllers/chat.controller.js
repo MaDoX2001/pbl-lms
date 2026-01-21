@@ -1,18 +1,23 @@
 const Conversation = require('../models/Conversation.model');
 const Message = require('../models/Message.model');
 const User = require('../models/User.model');
+const Team = require('../models/Team.model');
 
-// @desc    Get all conversations for current user
+// @desc    Get all conversations for current user (grouped by type)
 // @route   GET /api/chat/conversations
 // @access  Private
 exports.getConversations = async (req, res) => {
   try {
-    const conversations = await Conversation.find({
-      participants: req.user.id
-    })
+    const { type } = req.query; // Optional filter by type
+    
+    const query = { participants: req.user.id };
+    if (type) query.type = type;
+    
+    const conversations = await Conversation.find(query)
       .populate('participants', 'name avatar email role')
       .populate('lastMessage.sender', 'name avatar')
       .populate('admin', 'name avatar')
+      .populate('team', 'name')
       .sort({ updatedAt: -1 });
 
     res.json({
@@ -324,6 +329,186 @@ exports.getUsers = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'خطأ في جلب المستخدمين',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get or create team conversation (team members only)
+// @route   POST /api/chat/conversations/team
+// @access  Private (Student in team)
+exports.getOrCreateTeamConversation = async (req, res) => {
+  try {
+    // Get user's team
+    const team = await Team.findOne({
+      members: req.user.id,
+      isActive: true
+    }).populate('members', 'name avatar email role');
+
+    if (!team) {
+      return res.status(404).json({
+        success: false,
+        message: 'أنت لست عضواً في أي فريق'
+      });
+    }
+
+    // Check if conversation exists
+    let conversation = await Conversation.findOne({
+      type: 'team',
+      team: team._id
+    })
+      .populate('participants', 'name avatar email role')
+      .populate('team', 'name');
+
+    if (!conversation) {
+      // Create team conversation
+      conversation = await Conversation.create({
+        type: 'team',
+        name: `${team.name} - محادثة الفريق`,
+        team: team._id,
+        participants: team.members.map(m => m._id)
+      });
+
+      await conversation.populate('participants', 'name avatar email role');
+      await conversation.populate('team', 'name');
+    }
+
+    res.json({
+      success: true,
+      data: conversation
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في إنشاء محادثة الفريق',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get or create team+teachers conversation
+// @route   POST /api/chat/conversations/team-teachers
+// @access  Private (Student/Teacher)
+exports.getOrCreateTeamTeachersConversation = async (req, res) => {
+  try {
+    let team;
+    
+    if (req.user.role === 'student') {
+      // Get student's team
+      team = await Team.findOne({
+        members: req.user.id,
+        isActive: true
+      }).populate('members', 'name avatar email role');
+
+      if (!team) {
+        return res.status(404).json({
+          success: false,
+          message: 'أنت لست عضواً في أي فريق'
+        });
+      }
+    } else {
+      // Teacher/Admin: get team by ID from request
+      const { teamId } = req.body;
+      if (!teamId) {
+        return res.status(400).json({
+          success: false,
+          message: 'معرف الفريق مطلوب'
+        });
+      }
+      
+      team = await Team.findById(teamId).populate('members', 'name avatar email role');
+      if (!team) {
+        return res.status(404).json({
+          success: false,
+          message: 'الفريق غير موجود'
+        });
+      }
+    }
+
+    // Check if conversation exists
+    let conversation = await Conversation.findOne({
+      type: 'team_teachers',
+      team: team._id
+    })
+      .populate('participants', 'name avatar email role')
+      .populate('team', 'name');
+
+    if (!conversation) {
+      // Get all teachers and admins
+      const teachers = await User.find({
+        role: { $in: ['teacher', 'admin'] }
+      }).select('_id');
+
+      // Create conversation with team + teachers
+      const participants = [
+        ...team.members.map(m => m._id),
+        ...teachers.map(t => t._id)
+      ];
+
+      conversation = await Conversation.create({
+        type: 'team_teachers',
+        name: `${team.name} + المعلمين`,
+        team: team._id,
+        participants: [...new Set(participants)] // Remove duplicates
+      });
+
+      await conversation.populate('participants', 'name avatar email role');
+      await conversation.populate('team', 'name');
+    }
+
+    res.json({
+      success: true,
+      data: conversation
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في إنشاء محادثة الفريق + المعلمين',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get or create general conversation (all users)
+// @route   POST /api/chat/conversations/general
+// @access  Private
+exports.getOrCreateGeneralConversation = async (req, res) => {
+  try {
+    // Check if general conversation exists
+    let conversation = await Conversation.findOne({
+      type: 'general'
+    })
+      .populate('participants', 'name avatar email role');
+
+    if (!conversation) {
+      // Get all active users
+      const users = await User.find({ isActive: true }).select('_id');
+
+      // Create general conversation
+      conversation = await Conversation.create({
+        type: 'general',
+        name: 'المحادثة العامة',
+        participants: users.map(u => u._id)
+      });
+
+      await conversation.populate('participants', 'name avatar email role');
+    } else {
+      // Add current user if not in participants
+      if (!conversation.hasParticipant(req.user.id)) {
+        conversation.participants.push(req.user.id);
+        await conversation.save();
+        await conversation.populate('participants', 'name avatar email role');
+      }
+    }
+
+    res.json({
+      success: true,
+      data: conversation
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في إنشاء المحادثة العامة',
       error: error.message
     });
   }

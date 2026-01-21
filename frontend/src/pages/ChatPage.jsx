@@ -21,12 +21,19 @@ import {
   Badge,
   InputAdornment,
   CircularProgress,
-  Autocomplete
+  Autocomplete,
+  Tabs,
+  Tab,
+  Divider
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import SearchIcon from '@mui/icons-material/Search';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
+import GroupIcon from '@mui/icons-material/Group';
+import GroupsIcon from '@mui/icons-material/Groups';
+import PublicIcon from '@mui/icons-material/Public';
+import PersonIcon from '@mui/icons-material/Person';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import socketService from '../services/socket';
@@ -41,6 +48,7 @@ const ChatPage = () => {
   const [messageText, setMessageText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [chatType, setChatType] = useState('direct'); // direct, team, team_teachers, general
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [newChatDialogOpen, setNewChatDialogOpen] = useState(false);
   const [users, setUsers] = useState([]);
@@ -62,6 +70,10 @@ const ChatPage = () => {
       socketService.disconnect();
     };
   }, [token]);
+
+  useEffect(() => {
+    fetchConversations();
+  }, [chatType]);
 
   useEffect(() => {
     socketService.onNewMessage((data) => {
@@ -110,7 +122,7 @@ const ChatPage = () => {
 
   const fetchConversations = async () => {
     try {
-      const response = await api.get('/chat/conversations');
+      const response = await api.get(`/chat/conversations?type=${chatType}`);
       setConversations(response.data.data);
     } catch (error) {
       console.error('Error fetching conversations:', error);
@@ -196,9 +208,46 @@ const ChatPage = () => {
       const conversation = response.data.data;
       setSelectedConversation(conversation);
       setNewChatDialogOpen(false);
+      setChatType('direct');
       fetchConversations();
     } catch (error) {
       toast.error('فشل بدء المحادثة');
+    }
+  };
+
+  const handleOpenTeamChat = async () => {
+    try {
+      const response = await api.post('/chat/conversations/team');
+      const conversation = response.data.data;
+      setSelectedConversation(conversation);
+      setChatType('team');
+      fetchConversations();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'فشل فتح محادثة الفريق');
+    }
+  };
+
+  const handleOpenTeamTeachersChat = async () => {
+    try {
+      const response = await api.post('/chat/conversations/team-teachers');
+      const conversation = response.data.data;
+      setSelectedConversation(conversation);
+      setChatType('team_teachers');
+      fetchConversations();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'فشل فتح محادثة الفريق + المعلمين');
+    }
+  };
+
+  const handleOpenGeneralChat = async () => {
+    try {
+      const response = await api.post('/chat/conversations/general');
+      const conversation = response.data.data;
+      setSelectedConversation(conversation);
+      setChatType('general');
+      fetchConversations();
+    } catch (error) {
+      toast.error('فشل فتح المحادثة العامة');
     }
   };
 
@@ -227,19 +276,45 @@ const ChatPage = () => {
   };
 
   const getConversationName = (conversation) => {
+    if (conversation.type === 'team') {
+      return conversation.name || `${conversation.team?.name || 'الفريق'} - محادثة الفريق`;
+    }
+    if (conversation.type === 'team_teachers') {
+      return conversation.name || `${conversation.team?.name || 'الفريق'} + المعلمين`;
+    }
+    if (conversation.type === 'general') {
+      return conversation.name || 'المحادثة العامة';
+    }
     if (conversation.type === 'group') {
       return conversation.name;
     }
+    // Direct conversation
     const otherUser = conversation.participants.find(p => p._id !== user.id);
     return otherUser?.name || 'مستخدم';
   };
 
   const getConversationAvatar = (conversation) => {
+    if (conversation.type === 'team') {
+      return null; // Will show icon
+    }
+    if (conversation.type === 'team_teachers') {
+      return null; // Will show icon
+    }
+    if (conversation.type === 'general') {
+      return null; // Will show icon
+    }
     if (conversation.type === 'group') {
       return conversation.avatar || '/group-default.png';
     }
     const otherUser = conversation.participants.find(p => p._id !== user.id);
     return otherUser?.avatar;
+  };
+
+  const getConversationIcon = (conversation) => {
+    if (conversation.type === 'team') return <GroupIcon />;
+    if (conversation.type === 'team_teachers') return <GroupsIcon />;
+    if (conversation.type === 'general') return <PublicIcon />;
+    return null;
   };
 
   const getUnreadCount = (conversation) => {
@@ -249,6 +324,12 @@ const ChatPage = () => {
   const filteredConversations = conversations.filter((conv) =>
     getConversationName(conv).toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleTabChange = (event, newValue) => {
+    setChatType(newValue);
+    setSelectedConversation(null);
+    setMessages([]);
+  };
 
   if (loading) {
     return (
@@ -268,6 +349,44 @@ const ChatPage = () => {
               <Typography variant="h6" gutterBottom>
                 المحادثات
               </Typography>
+              
+              {/* Chat Type Tabs */}
+              <Tabs 
+                value={chatType} 
+                onChange={handleTabChange} 
+                variant="fullWidth"
+                sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
+              >
+                <Tab 
+                  value="direct" 
+                  label="خاصة" 
+                  icon={<PersonIcon />}
+                  iconPosition="start"
+                />
+                {user?.role === 'student' && (
+                  <>
+                    <Tab 
+                      value="team" 
+                      label="الفريق" 
+                      icon={<GroupIcon />}
+                      iconPosition="start"
+                    />
+                    <Tab 
+                      value="team_teachers" 
+                      label="فريق+معلمين" 
+                      icon={<GroupsIcon />}
+                      iconPosition="start"
+                    />
+                  </>
+                )}
+                <Tab 
+                  value="general" 
+                  label="عامة" 
+                  icon={<PublicIcon />}
+                  iconPosition="start"
+                />
+              </Tabs>
+
               <TextField
                 fullWidth
                 size="small"
@@ -283,7 +402,9 @@ const ChatPage = () => {
                 }}
                 sx={{ mb: 1 }}
               />
-              <Box sx={{ display: 'flex', gap: 1 }}>
+
+              {/* Action Buttons based on chat type */}
+              {chatType === 'direct' && (
                 <Button
                   fullWidth
                   variant="outlined"
@@ -292,54 +413,86 @@ const ChatPage = () => {
                 >
                   محادثة جديدة
                 </Button>
-                {(user?.role === 'teacher' || user?.role === 'admin') && (
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    startIcon={<GroupAddIcon />}
-                    onClick={() => setGroupDialogOpen(true)}
-                  >
-                    مجموعة جديدة
-                  </Button>
-                )}
-              </Box>
-            </Box>
-            <List sx={{ flex: 1, overflow: 'auto' }}>
-              {filteredConversations.map((conversation) => (
-                <ListItem
-                  key={conversation._id}
-                  button
-                  selected={selectedConversation?._id === conversation._id}
-                  onClick={() => setSelectedConversation(conversation)}
+              )}
+              {chatType === 'team' && user?.role === 'student' && (
+                <Button
+                  fullWidth
+                  variant="contained"
+                  startIcon={<GroupIcon />}
+                  onClick={handleOpenTeamChat}
                 >
-                  <ListItemAvatar>
-                    <Badge badgeContent={getUnreadCount(conversation)} color="error">
-                      <Avatar src={getConversationAvatar(conversation)}>
-                        {getConversationName(conversation)[0]}
-                      </Avatar>
-                    </Badge>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={getConversationName(conversation)}
-                    secondary={
-                      conversation.lastMessage?.text
-                        ? `${conversation.lastMessage.text.substring(0, 30)}...`
-                        : 'لا توجد رسائل'
-                    }
-                    secondaryTypographyProps={{
-                      sx: { fontWeight: getUnreadCount(conversation) > 0 ? 'bold' : 'normal' }
-                    }}
-                  />
-                  {conversation.lastMessage?.timestamp && (
-                    <Typography variant="caption" color="text.secondary">
-                      {formatDistanceToNow(new Date(conversation.lastMessage.timestamp), {
-                        addSuffix: true,
-                        locale: ar
-                      })}
-                    </Typography>
-                  )}
-                </ListItem>
-              ))}
+                  فتح محادثة الفريق
+                </Button>
+              )}
+              {chatType === 'team_teachers' && user?.role === 'student' && (
+                <Button
+                  fullWidth
+                  variant="contained"
+                  startIcon={<GroupsIcon />}
+                  onClick={handleOpenTeamTeachersChat}
+                >
+                  فتح محادثة الفريق + المعلمين
+                </Button>
+              )}
+              {chatType === 'general' && (
+                <Button
+                  fullWidth
+                  variant="contained"
+                  startIcon={<PublicIcon />}
+                  onClick={handleOpenGeneralChat}
+                >
+                  فتح المحادثة العامة
+                </Button>
+              )}
+            </Box>
+            
+            <List sx={{ flex: 1, overflow: 'auto' }}>
+              {filteredConversations.length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 4 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {chatType === 'direct' && 'لا توجد محادثات خاصة'}
+                    {chatType === 'team' && 'لا توجد محادثة فريق'}
+                    {chatType === 'team_teachers' && 'لا توجد محادثة فريق + معلمين'}
+                    {chatType === 'general' && 'لا توجد محادثة عامة'}
+                  </Typography>
+                </Box>
+              ) : (
+                filteredConversations.map((conversation) => (
+                  <ListItem
+                    key={conversation._id}
+                    button
+                    selected={selectedConversation?._id === conversation._id}
+                    onClick={() => setSelectedConversation(conversation)}
+                  >
+                    <ListItemAvatar>
+                      <Badge badgeContent={getUnreadCount(conversation)} color="error">
+                        <Avatar src={getConversationAvatar(conversation)}>
+                          {getConversationIcon(conversation) || getConversationName(conversation)[0]}
+                        </Avatar>
+                      </Badge>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={getConversationName(conversation)}
+                      secondary={
+                        conversation.lastMessage?.text
+                          ? `${conversation.lastMessage.text.substring(0, 30)}...`
+                          : 'لا توجد رسائل'
+                      }
+                      secondaryTypographyProps={{
+                        sx: { fontWeight: getUnreadCount(conversation) > 0 ? 'bold' : 'normal' }
+                      }}
+                    />
+                    {conversation.lastMessage?.timestamp && (
+                      <Typography variant="caption" color="text.secondary">
+                        {formatDistanceToNow(new Date(conversation.lastMessage.timestamp), {
+                          addSuffix: true,
+                          locale: ar
+                        })}
+                      </Typography>
+                    )}
+                  </ListItem>
+                ))
+              )}
             </List>
           </Paper>
         </Grid>
@@ -351,15 +504,13 @@ const ChatPage = () => {
               {/* Header */}
               <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Avatar src={getConversationAvatar(selectedConversation)}>
-                  {getConversationName(selectedConversation)[0]}
+                  {getConversationIcon(selectedConversation) || getConversationName(selectedConversation)[0]}
                 </Avatar>
                 <Box>
                   <Typography variant="h6">{getConversationName(selectedConversation)}</Typography>
-                  {selectedConversation.type === 'group' && (
-                    <Typography variant="caption" color="text.secondary">
-                      {selectedConversation.participants.length} عضو
-                    </Typography>
-                  )}
+                  <Typography variant="caption" color="text.secondary">
+                    {selectedConversation.participants.length} عضو
+                  </Typography>
                 </Box>
               </Box>
 
@@ -384,7 +535,11 @@ const ChatPage = () => {
                         boxShadow: 1
                       }}
                     >
-                      {selectedConversation.type === 'group' && message.sender._id !== user.id && (
+                      {(selectedConversation.type === 'team' || 
+                        selectedConversation.type === 'team_teachers' || 
+                        selectedConversation.type === 'general' ||
+                        selectedConversation.type === 'group') && 
+                        message.sender._id !== user.id && (
                         <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
                           {message.sender.name}
                         </Typography>
