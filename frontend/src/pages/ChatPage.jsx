@@ -404,14 +404,12 @@ const ChatPage = () => {
                       label="الفريق" 
                       icon={<GroupIcon />}
                       iconPosition="start"
-                      onClick={() => console.log('Team tab clicked')}
                     />
                     <Tab 
                       value="team_teachers" 
                       label="فريق+معلمين" 
                       icon={<GroupsIcon />}
                       iconPosition="start"
-                      onClick={() => console.log('Team+Teachers tab clicked')}
                     />
                   </>
                 )}
@@ -420,7 +418,6 @@ const ChatPage = () => {
                   label="عامة" 
                   icon={<PublicIcon />}
                   iconPosition="start"
-                  onClick={() => console.log('General tab clicked')}
                 />
               </Tabs>
 
