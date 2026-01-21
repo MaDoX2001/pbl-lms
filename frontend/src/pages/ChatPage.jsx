@@ -220,28 +220,36 @@ const ChatPage = () => {
   };
 
   const handleOpenTeamChat = async () => {
+    console.log('handleOpenTeamChat called');
     try {
+      console.log('Sending POST request to /chat/conversations/team');
       const response = await api.post('/chat/conversations/team');
+      console.log('Team chat response:', response.data);
       const conversation = response.data.data;
       setSelectedConversation(conversation);
       fetchConversations();
     } catch (error) {
       const errorMsg = error.response?.data?.message || 'فشل فتح محادثة الفريق';
-      toast.error(errorMsg);
       console.error('Team chat error:', error);
+      console.error('Error response:', error.response?.data);
+      toast.error(errorMsg);
     }
   };
 
   const handleOpenTeamTeachersChat = async () => {
+    console.log('handleOpenTeamTeachersChat called');
     try {
+      console.log('Sending POST request to /chat/conversations/team-teachers');
       const response = await api.post('/chat/conversations/team-teachers');
+      console.log('Team+Teachers chat response:', response.data);
       const conversation = response.data.data;
       setSelectedConversation(conversation);
       fetchConversations();
     } catch (error) {
       const errorMsg = error.response?.data?.message || 'فشل فتح محادثة الفريق + المعلمين';
-      toast.error(errorMsg);
       console.error('Team teachers chat error:', error);
+      console.error('Error response:', error.response?.data);
+      toast.error(errorMsg);
     }
   };
 
@@ -333,6 +341,9 @@ const ChatPage = () => {
   );
 
   const handleTabChange = async (event, newValue) => {
+    console.log('handleTabChange called with:', newValue);
+    console.log('Current user role:', user?.role);
+    
     setChatType(newValue);
     setSelectedConversation(null);
     setMessages([]);
@@ -340,10 +351,13 @@ const ChatPage = () => {
     try {
       // Auto-open team/team_teachers/general chats when switching to their tabs
       if (newValue === 'team' && user?.role === 'student') {
+        console.log('Opening team chat...');
         await handleOpenTeamChat();
       } else if (newValue === 'team_teachers' && user?.role === 'student') {
+        console.log('Opening team+teachers chat...');
         await handleOpenTeamTeachersChat();
       } else if (newValue === 'general') {
+        console.log('Opening general chat...');
         await handleOpenGeneralChat();
       }
     } catch (error) {
