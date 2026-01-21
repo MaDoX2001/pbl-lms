@@ -22,7 +22,8 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import AddBoxIcon from '@mui/icons-material/AddBox';
 import HomeIcon from '@mui/icons-material/Home';
 import GroupsIcon from '@mui/icons-material/Groups';
-import AssignmentIcon from '@mui/icons-material/Assignment';
+import SchoolIcon from '@mui/icons-material/School';
+import PeopleIcon from '@mui/icons-material/People';
 
 const DRAWER_WIDTH = 280;
 
@@ -49,16 +50,18 @@ const Sidebar = ({ open, onClose }) => {
 
     if (user?.role === 'student') {
       authenticatedItems.push({ to: '/team/dashboard', icon: <GroupsIcon />, label: 'فريقي', student: true });
+      authenticatedItems.push({ to: '/teachers', icon: <SchoolIcon />, label: 'المعلمين', student: true });
     }
 
     if (user?.role === 'teacher' || user?.role === 'admin') {
       authenticatedItems.push({ to: '/leaderboard', icon: <LeaderboardIcon />, label: 'لوحة المتصدرين', teacher: true });
       authenticatedItems.push({ to: '/create-project', icon: <AddBoxIcon />, label: 'إنشاء مشروع', teacher: true });
       authenticatedItems.push({ to: '/admin/student-projects', icon: <AssignmentIcon />, label: 'مشروعات الطلاب', teacher: true });
+      authenticatedItems.push({ to: '/admin/teams', icon: <GroupsIcon />, label: 'إدارة الفرق', teacher: true });
+      authenticatedItems.push({ to: '/users', icon: <PeopleIcon />, label: 'كل المستخدمين', teacher: true });
     }
 
     if (user?.role === 'admin') {
-      authenticatedItems.push({ to: '/admin/teams', icon: <GroupsIcon />, label: 'إدارة الفرق', admin: true });
       authenticatedItems.push({ to: '/admin', icon: <AdminPanelSettingsIcon />, label: 'إدارة النظام', admin: true });
     }
 

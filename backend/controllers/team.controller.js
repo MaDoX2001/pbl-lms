@@ -12,16 +12,16 @@ const User = require('../models/User.model');
 
 // @desc    Create a new team
 // @route   POST /api/teams
-// @access  Admin only
+// @access  Teacher/Admin
 exports.createTeam = async (req, res) => {
   try {
     const { name, members, description } = req.body;
 
-    // Validate: Admin only
-    if (req.user.role !== 'admin') {
+    // Validate: Teacher or Admin only
+    if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
       return res.status(403).json({
         success: false,
-        message: 'فقط المدير يمكنه إنشاء الفرق'
+        message: 'فقط المعلم أو المدير يمكنه إنشاء الفرق'
       });
     }
 
@@ -211,14 +211,14 @@ exports.getMyTeam = async (req, res) => {
 
 // @desc    Update team
 // @route   PUT /api/teams/:id
-// @access  Admin only
+// @access  Teacher/Admin
 exports.updateTeam = async (req, res) => {
   try {
-    // Validate: Admin only
-    if (req.user.role !== 'admin') {
+    // Validate: Teacher or Admin only
+    if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
       return res.status(403).json({
         success: false,
-        message: 'فقط المدير يمكنه تعديل الفرق'
+        message: 'فقط المعلم أو المدير يمكنه تعديل الفرق'
       });
     }
 
@@ -308,14 +308,14 @@ exports.updateTeam = async (req, res) => {
 
 // @desc    Delete team (soft delete)
 // @route   DELETE /api/teams/:id
-// @access  Admin only
+// @access  Teacher/Admin
 exports.deleteTeam = async (req, res) => {
   try {
-    // Validate: Admin only
-    if (req.user.role !== 'admin') {
+    // Validate: Teacher or Admin only
+    if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
       return res.status(403).json({
         success: false,
-        message: 'فقط المدير يمكنه حذف الفرق'
+        message: 'فقط المعلم أو المدير يمكنه حذف الفرق'
       });
     }
 

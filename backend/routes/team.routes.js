@@ -13,6 +13,7 @@ const { protect } = require('../middleware/auth.middleware');
 /**
  * Team Routes
  * All routes require authentication
+ * Teachers and Admins have full team management access
  */
 
 // Get my team (for students)
@@ -20,13 +21,13 @@ router.get('/my-team', protect, getMyTeam);
 
 // Get all teams / Create team
 router.route('/')
-  .get(protect, getAllTeams)      // Teacher/Admin only
-  .post(protect, createTeam);     // Admin only
+  .get(protect, getAllTeams)      // Teacher/Admin
+  .post(protect, createTeam);     // Teacher/Admin
 
 // Get/Update/Delete specific team
 router.route('/:id')
   .get(protect, getTeamById)      // Team member, Teacher, Admin
-  .put(protect, updateTeam)       // Admin only
-  .delete(protect, deleteTeam);   // Admin only
+  .put(protect, updateTeam)       // Teacher/Admin
+  .delete(protect, deleteTeam);   // Teacher/Admin
 
 module.exports = router;

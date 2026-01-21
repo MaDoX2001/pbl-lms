@@ -37,6 +37,8 @@ import TeamsManagement from './pages/TeamsManagement';
 import TeamProjectPage from './pages/TeamProjectPage';
 import ProjectSubmissionsManagement from './pages/ProjectSubmissionsManagement';
 import StudentProjectsManagement from './pages/StudentProjectsManagement';
+import TeachersListPage from './pages/TeachersListPage';
+import AllUsersPage from './pages/AllUsersPage';
 
 // Import actions
 import { loadUser } from './redux/slices/authSlice';
@@ -190,7 +192,7 @@ function App() {
                 </PrivateRoute>
               } />
               <Route path="/admin/teams" element={
-                <PrivateRoute roles={['admin']}>
+                <PrivateRoute roles={['teacher', 'admin']}>
                   <TeamsManagement />
                 </PrivateRoute>
               } />
@@ -202,6 +204,18 @@ function App() {
               <Route path="/admin/student-projects" element={
                 <PrivateRoute roles={['teacher', 'admin']}>
                   <StudentProjectsManagement />
+                </PrivateRoute>
+              } />
+
+              {/* Users Routes */}
+              <Route path="/teachers" element={
+                <PrivateRoute roles={['student']}>
+                  <TeachersListPage />
+                </PrivateRoute>
+              } />
+              <Route path="/users" element={
+                <PrivateRoute roles={['teacher', 'admin']}>
+                  <AllUsersPage />
                 </PrivateRoute>
               } />
 
