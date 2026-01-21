@@ -45,14 +45,9 @@ const CreateProjectPage = () => {
     teachingStrategy: `1. التعلم القائم على المشروعات
 2. التعلم التعاوني`,
     finalReportNote: 'يقوم المتعلم بإعداد تقرير شامل عن المشروع باستخدام النموذج المرفق ويُعد هذا التقرير هو المنتج النهائي للمشروع',
-    abcdModel: {
-      audience: '',
-      behavior: '',
-      condition: '',
-      degree: ''
-    },
     points: 100,
-    isPublished: false
+    isPublished: false,
+    showObjectives: true
   });
 
   const difficulties = [
@@ -75,16 +70,6 @@ const CreateProjectPage = () => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
-    });
-  };
-
-  const handleAbcdChange = (field, value) => {
-    setFormData({
-      ...formData,
-      abcdModel: {
-        ...formData.abcdModel,
-        [field]: value
-      }
     });
   };
 
@@ -269,14 +254,31 @@ const CreateProjectPage = () => {
                 <Typography variant="h6">
                   أهداف المشروع
                 </Typography>
-                <Button
-                  startIcon={<AddIcon />}
-                  onClick={handleAddObjective}
-                  disabled={loading}
-                >
-                  إضافة هدف
-                </Button>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button
+                    variant="outlined"
+                    onClick={() => setFormData({ ...formData, showObjectives: !formData.showObjectives })}
+                    disabled={loading}
+                  >
+                    {formData.showObjectives ? 'إخفاء الأهداف في المشروع' : 'إظهار الأهداف في المشروع'}
+                  </Button>
+                  <Button
+                    startIcon={<AddIcon />}
+                    onClick={handleAddObjective}
+                    disabled={loading}
+                  >
+                    إضافة هدف
+                  </Button>
+                </Box>
               </Box>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                <Typography variant="body2" fontWeight={600} gutterBottom>
+                  اكتب الأهداف بأسلوب ABCD (الجمهور، السلوك، الظروف، الدرجة):
+                </Typography>
+                <Typography variant="body2">
+                  <strong>مثال:</strong> أن يتمكن <em>(الطلاب)</em> من <em>(تصميم وتطوير تطبيق ويب تفاعلي)</em> باستخدام <em>(React و Node.js)</em> بدقة <em>(لا تقل عن 85%)</em>
+                </Typography>
+              </Alert>
               {formData.objectives.map((objective, index) => (
                 <Box key={index} sx={{ display: 'flex', gap: 1, mb: 2 }}>
                   <TextField
@@ -285,7 +287,9 @@ const CreateProjectPage = () => {
                     value={objective}
                     onChange={(e) => handleObjectiveChange(index, e.target.value)}
                     disabled={loading}
-                    placeholder="ماذا سيتعلم الطالب من هذا المشروع؟"
+                    placeholder="مثال: أن يتمكن الطلاب من تصميم وتطوير..."
+                    multiline
+                    rows={2}
                   />
                   <IconButton
                     color="error"
@@ -296,72 +300,6 @@ const CreateProjectPage = () => {
                   </IconButton>
                 </Box>
               ))}
-            </Grid>
-
-            {/* ABCD Model */}
-            <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                نموذج ABCD للأهداف التعليمية
-              </Typography>
-              <Typography variant="body2" color="text.secondary" paragraph>
-                نموذج تصميم الأهداف التعليمية (Audience, Behavior, Condition, Degree)
-              </Typography>
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="الجمهور المستهدف (Audience)"
-                value={formData.abcdModel.audience}
-                onChange={(e) => handleAbcdChange('audience', e.target.value)}
-                disabled={loading}
-                multiline
-                rows={2}
-                placeholder="من هم الطلاب المستهدفون؟ (مثال: طلاب السنة الثانية في علوم الحاسوب)"
-                helperText="حدد المتعلمين المستهدفين"
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="السلوك المتوقع (Behavior)"
-                value={formData.abcdModel.behavior}
-                onChange={(e) => handleAbcdChange('behavior', e.target.value)}
-                disabled={loading}
-                multiline
-                rows={2}
-                placeholder="ماذا سيفعل الطلاب؟ (مثال: تطوير تطبيق ويب كامل)"
-                helperText="الإجراء أو المهارة القابلة للقياس"
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="الظروف (Condition)"
-                value={formData.abcdModel.condition}
-                onChange={(e) => handleAbcdChange('condition', e.target.value)}
-                disabled={loading}
-                multiline
-                rows={2}
-                placeholder="في أي ظروف؟ (مثال: باستخدام React و Node.js)"
-                helperText="البيئة أو الموارد المتاحة"
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="الدرجة المطلوبة (Degree)"
-                value={formData.abcdModel.degree}
-                onChange={(e) => handleAbcdChange('degree', e.target.value)}
-                disabled={loading}
-                multiline
-                rows={2}
-                placeholder="ما مستوى الإتقان المطلوب؟ (مثال: بدقة 90% وبدون أخطاء)"
-                helperText="معيار النجاح أو مستوى الأداء"
-              />
             </Grid>
 
             {/* Learning Scenario & Strategy */}

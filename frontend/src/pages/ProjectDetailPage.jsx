@@ -408,7 +408,7 @@ const ProjectDetailPage = () => {
           </Paper>
 
           {/* Objectives */}
-          {project.objectives?.length > 0 && (
+          {project.showObjectives && project.objectives?.length > 0 && (
             <Paper sx={{ p: 3, mb: 3 }}>
               <Typography variant="h5" gutterBottom fontWeight={600}>
                 أهداف التعلم
@@ -421,49 +421,6 @@ const ProjectDetailPage = () => {
                   </ListItem>
                 ))}
               </List>
-            </Paper>
-          )}
-
-          {/* ABCD Model */}
-          {(project.abcdModel?.audience || project.abcdModel?.behavior || project.abcdModel?.condition || project.abcdModel?.degree) && (
-            <Paper sx={{ p: 3, mb: 3 }}>
-              <Typography variant="h5" gutterBottom fontWeight={600}>
-                نموذج ABCD للأهداف التعليمية
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {project.abcdModel?.audience && (
-                  <Box>
-                    <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom>
-                      الجمهور المستهدف (Audience)
-                    </Typography>
-                    <Typography variant="body2">{project.abcdModel.audience}</Typography>
-                  </Box>
-                )}
-                {project.abcdModel?.behavior && (
-                  <Box>
-                    <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom>
-                      السلوك المتوقع (Behavior)
-                    </Typography>
-                    <Typography variant="body2">{project.abcdModel.behavior}</Typography>
-                  </Box>
-                )}
-                {project.abcdModel?.condition && (
-                  <Box>
-                    <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom>
-                      الظروف (Condition)
-                    </Typography>
-                    <Typography variant="body2">{project.abcdModel.condition}</Typography>
-                  </Box>
-                )}
-                {project.abcdModel?.degree && (
-                  <Box>
-                    <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom>
-                      الدرجة المطلوبة (Degree)
-                    </Typography>
-                    <Typography variant="body2">{project.abcdModel.degree}</Typography>
-                  </Box>
-                )}
-              </Box>
             </Paper>
           )}
 
