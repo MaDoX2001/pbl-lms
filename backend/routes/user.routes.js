@@ -22,12 +22,21 @@ const upload = multer({
   }
 });
 
-// @desc    Get all users
+// @desc    Get all users (with role filtering)
 // @route   GET /api/users
-// @access  Private (Admin)
-router.get('/', protect, authorize('admin'), async (req, res) => {
+// @access  Private (Students see teachers/admins only, Teachers/Admins see all)
+router.get('/', protect, async (req, res) => {
   try {
-    const users = await User.find().select('-password');
+    let query = {};
+    
+    // Students can only see teachers and admins
+    if (req.user.role === 'student') {
+      query.role = { $in: ['teacher', 'admin'] };
+    }
+    // Teachers and Admins can see all users
+    // No filter needed, query remains empty {}
+    
+    const users = await User.find(query).select('-password');
     
     res.json({
       success: true,
