@@ -189,20 +189,6 @@ const CreateProjectPage = () => {
               />
             </Grid>
 
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="الوصف التفصيلي"
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                disabled={loading}
-                multiline
-                rows={6}
-                helperText="اشرح المشروع بالتفصيل: الأهداف، المتطلبات، ما سيتعلمه الطالب"
-              />
-            </Grid>
-
             <Grid item xs={12} sm={4}>
               <FormControl fullWidth>
                 <InputLabel>المستوى</InputLabel>
@@ -220,63 +206,6 @@ const CreateProjectPage = () => {
                   ))}
                 </Select>
               </FormControl>
-            </Grid>
-
-            <Grid item xs={12} sm={4}>
-              <FormControl fullWidth>
-                <InputLabel>التصنيف</InputLabel>
-                <Select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                  disabled={loading}
-                  label="التصنيف"
-                >
-                  {categories.map((cat) => (
-                    <MenuItem key={cat.value} value={cat.value}>
-                      {cat.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="التقنيات المستخدمة"
-                placeholder="أدخل التقنية واضغط Enter (مثال: React, Node.js, MongoDB)"
-                disabled={loading}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && e.target.value.trim()) {
-                    e.preventDefault();
-                    const tech = e.target.value.trim();
-                    if (!formData.technologies.includes(tech)) {
-                      setFormData({
-                        ...formData,
-                        technologies: [...formData.technologies, tech]
-                      });
-                    }
-                    e.target.value = '';
-                  }
-                }}
-                helperText="اضغط Enter لإضافة التقنية"
-              />
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                {formData.technologies.map((tech, index) => (
-                  <Chip
-                    key={index}
-                    label={tech}
-                    onDelete={() => {
-                      setFormData({
-                        ...formData,
-                        technologies: formData.technologies.filter((_, i) => i !== index)
-                      });
-                    }}
-                    disabled={loading}
-                  />
-                ))}
-              </Box>
             </Grid>
 
             <Grid item xs={12} sm={4}>
