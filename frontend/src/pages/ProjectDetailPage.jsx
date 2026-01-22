@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   Box,
@@ -54,6 +54,7 @@ import api from '../services/api';
 
 const ProjectDetailPage = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const { currentProject: project, loading } = useSelector((state) => state.projects);
   const { user, isAuthenticated } = useSelector((state) => state.auth);
@@ -300,7 +301,7 @@ const ProjectDetailPage = () => {
   // Admin can manage any project, Teacher can only manage their own projects
   const canManageProject = user && (
     user.role === 'admin' || 
-    (user.role === 'teacher' && project.instructor?._id === user.id)
+    (user.role === 'teacher' && project.instructor?._id === user._id)
   );
   const difficultyLabel = {
     beginner: 'مبتدئ',
