@@ -42,9 +42,6 @@ import api from '../services/api';
  * Shows project details and all submissions for the team.
  * Students can upload new submissions.
  * Teachers can view all team submissions.
- * 
- * BUSINESS RULE: Multiple submissions are allowed.
- * Only the latest submission before the deadline is graded.
  */
 const TeamProjectPage = () => {
   const { projectId } = useParams();
@@ -78,15 +75,11 @@ const TeamProjectPage = () => {
       const teamResponse = await api.get('/teams/my-team');
       setTeam(teamResponse.data.data);
 
-      // Get submissions (sorted by submittedAt DESC - latest first)
+      // Get submissions
       const submissionsResponse = await api.get(
         `/team-submissions/team/${teamResponse.data.data._id}/project/${projectId}`
       );
-      // Multiple submissions allowed - only the latest before deadline is graded
-      const sortedSubmissions = (submissionsResponse.data.data || []).sort(
-        (a, b) => new Date(b.submittedAt) - new Date(a.submittedAt)
-      );
-      setSubmissions(sortedSubmissions);
+      setSubmissions(submissionsResponse.data.data);
 
       setLoading(false);
     } catch (err) {
@@ -197,39 +190,18 @@ const TeamProjectPage = () => {
       {user.role === 'student' && (
         <Box sx={{ mb: 3 }}>
           {project.deadline && new Date() > new Date(project.deadline) ? (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
-                ⛔ انتهى موعد التسليم
-              </Typography>
-              <Typography variant="body2">
-                سيتم تقييم <strong>آخر تسليمة فقط</strong> تم رفعها قبل الموعد النهائي.
-              </Typography>
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              انتهى موعد تسليم المشروع
             </Alert>
           ) : (
-            <>
-              {project.deadline && (
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  <Typography variant="body2">
-                    <strong>الموعد النهائي للتسليم:</strong>{' '}
-                    {new Date(project.deadline).toLocaleString('ar-EG', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </Typography>
-                </Alert>
-              )}
-              <Button
-                variant="contained"
-                startIcon={<UploadIcon />}
-                onClick={() => setOpenUploadDialog(true)}
-                fullWidth
-              >
-                رفع تسليم جديد
-              </Button>
-            </>
+            <Button
+              variant="contained"
+              startIcon={<UploadIcon />}
+              onClick={() => setOpenUploadDialog(true)}
+              fullWidth
+            >
+              رفع تسليم جديد
+            </Button>
           )}
         </Box>
       )}
@@ -241,70 +213,30 @@ const TeamProjectPage = () => {
         </Typography>
         <Divider sx={{ mb: 2 }} />
 
-        {/* Permanent explanatory notice - ALWAYS visible */}
-        <Alert severity="warning" sx={{ mb: 3 }}>
-          <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
-            ⚠️ تنبيه مهم
-          </Typography>
-          <Typography variant="body2">
-            يتم التقييم على <strong>آخر تسليمة فقط</strong> قبل الموعد النهائي للمشروع.
-            يمكنك رفع أكثر من تسليمة، لكن <strong>آخر واحدة هي المعتمدة</strong>.
-          </Typography>
-        </Alert>
-
         {submissions.length === 0 ? (
           <Alert severity="info">لم يتم رفع أي تسليم بعد</Alert>
         ) : (
           <List>
-            {/* Multiple submissions allowed - sorted by submittedAt DESC */}
-            {/* First submission is the latest (final one that will be graded) */}
-            {submissions.map((submission, index) => {
-              const isLatestSubmission = index === 0; // First in sorted list = most recent
-              
-              return (
-                <Card 
-                  key={submission._id} 
-                  sx={{ 
-                    mb: 2,
-                    border: isLatestSubmission ? '2px solid #1976d2' : '1px solid #e0e0e0',
-                    bgcolor: isLatestSubmission ? '#e3f2fd' : 'transparent'
-                  }}
-                >
-                  <CardContent>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
-                      <Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                          <Typography variant="h6">
-                            التسليم #{submissions.length - index}
-                          </Typography>
-                          {/* Badge to distinguish final submission from older ones */}
-                          {isLatestSubmission ? (
-                            <Chip 
-                              label="آخر تسليمة – سيتم التقييم عليها" 
-                              color="primary" 
-                              size="small"
-                              sx={{ fontWeight: 'bold' }}
-                            />
-                          ) : (
-                            <Chip 
-                              label="تسليمة سابقة" 
-                              variant="outlined"
-                              size="small"
-                            />
-                          )}
-                        </Box>
-                        <Typography variant="body2" color="text.secondary">
-                          رفع بواسطة: {submission.submittedBy.name}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          التاريخ: {new Date(submission.submittedAt).toLocaleString('ar-EG')}
-                        </Typography>
-                      </Box>
-                      <Chip
-                        label={getStatusLabel(submission.status)}
-                        color={getStatusColor(submission.status)}
-                      />
+            {submissions.map((submission, index) => (
+              <Card key={submission._id} sx={{ mb: 2 }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
+                    <Box>
+                      <Typography variant="h6">
+                        التسليم #{submissions.length - index}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        رفع بواسطة: {submission.submittedBy.name}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        التاريخ: {new Date(submission.submittedAt).toLocaleString('ar-EG')}
+                      </Typography>
                     </Box>
+                    <Chip
+                      label={getStatusLabel(submission.status)}
+                      color={getStatusColor(submission.status)}
+                    />
+                  </Box>
 
                   {/* File Info */}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -359,8 +291,7 @@ const TeamProjectPage = () => {
                   )}
                 </CardContent>
               </Card>
-              );
-            })}
+            ))}
           </List>
         )}
       </Paper>
