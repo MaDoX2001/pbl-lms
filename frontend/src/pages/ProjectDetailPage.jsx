@@ -461,29 +461,6 @@ const ProjectDetailPage = () => {
             </Paper>
           )}
 
-          {/* Milestones */}
-          {project.milestones?.length > 0 && (
-            <Paper sx={{ p: 3, mb: 3 }}>
-              <Typography variant="h5" gutterBottom fontWeight={600}>
-                المراحل
-              </Typography>
-              <List>
-                {project.milestones.map((milestone, index) => (
-                  <Box key={index}>
-                    <ListItem>
-                      <ListItemText
-                        primary={`${index + 1}. ${milestone.title}`}
-                        secondary={milestone.description}
-                      />
-                      <Chip label={`${milestone.points} نقطة`} size="small" color="primary" />
-                    </ListItem>
-                    {index < project.milestones.length - 1 && <Divider />}
-                  </Box>
-                ))}
-              </List>
-            </Paper>
-          )}
-
           {/* Resources */}
           {project.resources?.length > 0 && (
             <Paper sx={{ p: 3 }}>
