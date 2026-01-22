@@ -37,6 +37,10 @@ const projectSchema = new mongoose.Schema({
   objectives: [{
     type: String
   }],
+  showObjectives: {
+    type: Boolean,
+    default: true
+  },
   milestones: [{
     title: {
       type: String,
