@@ -403,7 +403,7 @@ const ProjectDetailPage = () => {
             <Typography variant="h5" gutterBottom fontWeight={600}>
               نظرة عامة
             </Typography>
-            <Typography variant="body1" paragraph>
+            <Typography variant="body1" paragraph sx={{ whiteSpace: 'pre-line' }}>
               {project.description}
             </Typography>
           </Paper>
