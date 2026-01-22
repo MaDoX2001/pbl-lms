@@ -174,6 +174,20 @@ const CreateProjectPage = () => {
               />
             </Grid>
 
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="الوصف التفصيلي"
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                disabled={loading}
+                multiline
+                rows={6}
+                helperText="اشرح المشروع بالتفصيل: الأهداف، المتطلبات، ما سيتعلمه الطالب"
+              />
+            </Grid>
+
             <Grid item xs={12} sm={4}>
               <FormControl fullWidth>
                 <InputLabel>المستوى</InputLabel>
