@@ -296,13 +296,22 @@ const EditProjectPage = () => {
                 <Typography variant="h6">
                   أهداف المشروع
                 </Typography>
-                <Button
-                  startIcon={<AddIcon />}
-                  onClick={handleAddObjective}
-                  disabled={loading}
-                >
-                  إضافة هدف
-                </Button>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button
+                    variant="outlined"
+                    onClick={() => setFormData({ ...formData, showObjectives: !formData.showObjectives })}
+                    disabled={loading}
+                  >
+                    {formData.showObjectives ? 'إخفاء الأهداف في المشروع' : 'إظهار الأهداف في المشروع'}
+                  </Button>
+                  <Button
+                    startIcon={<AddIcon />}
+                    onClick={handleAddObjective}
+                    disabled={loading}
+                  >
+                    إضافة هدف
+                  </Button>
+                </Box>
               </Box>
               {formData.objectives.map((objective, index) => (
                 <Box key={index} sx={{ display: 'flex', gap: 1, mb: 2 }}>
