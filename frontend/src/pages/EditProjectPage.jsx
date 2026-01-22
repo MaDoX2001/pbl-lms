@@ -77,9 +77,6 @@ const EditProjectPage = () => {
         isPublished: project.isPublished || false,
         showObjectives: project.showObjectives !== undefined ? project.showObjectives : true
       });
-        points: project.points || 100,
-        isPublished: project.isPublished || false
-      });
     } catch (error) {
       console.error('Error fetching project:', error);
       toast.error('فشل تحميل بيانات المشروع');
