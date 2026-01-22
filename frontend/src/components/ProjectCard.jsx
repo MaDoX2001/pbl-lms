@@ -51,11 +51,6 @@ const ProjectCard = ({ project }) => {
             size="small" 
             color={difficultyColor[project.difficulty]} 
           />
-          <Chip 
-            label={project.category} 
-            size="small" 
-            variant="outlined"
-          />
         </Box>
 
         <Typography gutterBottom variant="h6" component="div" fontWeight={600}>
