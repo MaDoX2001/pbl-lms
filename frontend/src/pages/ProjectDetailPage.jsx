@@ -378,7 +378,9 @@ const ProjectDetailPage = () => {
             }} 
           />
           <Chip label={difficultyLabel[project.difficulty]} sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
-          <Chip label={project.category} sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
+          {project.category && project.category !== 'other' && (
+            <Chip label={project.category} sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
+          )}
           {project.technologies?.map((tech, i) => (
             <Chip key={i} label={tech} sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
           ))}
