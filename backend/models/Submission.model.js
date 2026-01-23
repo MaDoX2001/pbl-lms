@@ -62,6 +62,21 @@ const submissionSchema = new mongoose.Schema({
     type: String,
     enum: ['submitted', 'graded', 'returned'],
     default: 'submitted'
+  },
+  // Assessment system fields
+  evaluationStatus: {
+    type: String,
+    enum: ['pending', 'under_evaluation', 'passed', 'failed'],
+    default: 'pending'
+  },
+  evaluationAttempt: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'EvaluationAttempt'
+  },
+  finalScore: {
+    type: Number,
+    min: 0,
+    max: 100
   }
 }, {
   timestamps: true

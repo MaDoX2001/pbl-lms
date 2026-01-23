@@ -36,4 +36,21 @@ api.interceptors.response.use(
   }
 );
 
+// Assessment API endpoints
+export const assessmentAPI = {
+  // Observation Card
+  createOrUpdateObservationCard: (data) => api.post('/assessment/observation-card', data),
+  getObservationCard: (projectId) => api.get(`/assessment/observation-card/${projectId}`),
+  
+  // Evaluation
+  createEvaluation: (data) => api.post('/assessment/evaluate', data),
+  getEvaluation: (submissionId) => api.get(`/assessment/evaluation/${submissionId}`),
+  getStudentAttempts: (projectId, studentId) => api.get(`/assessment/student-attempts/${projectId}/${studentId}`),
+  
+  // Badges
+  createOrUpdateBadge: (data) => api.post('/assessment/badge', data),
+  getProjectBadge: (projectId) => api.get(`/assessment/badge/${projectId}`),
+  getStudentBadges: (studentId) => api.get(`/assessment/badges/${studentId}`)
+};
+
 export default api;

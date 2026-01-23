@@ -1,28 +1,29 @@
 const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/auth.middleware');
+const {
+  createOrUpdateObservationCard,
+  getObservationCard,
+  createEvaluation,
+  getEvaluation,
+  getStudentAttempts,
+  getStudentBadges,
+  createOrUpdateBadge,
+  getProjectBadge
+} = require('../controllers/assessment.controller');
 
-// Placeholder for assessment routes
-// This can be expanded based on specific assessment needs
+// Observation Card routes
+router.post('/observation-card', protect, authorize('teacher', 'admin'), createOrUpdateObservationCard);
+router.get('/observation-card/:projectId', protect, getObservationCard);
 
-// @desc    Create assessment/quiz for a project
-// @route   POST /api/assessments/:projectId
-// @access  Private (Teacher/Admin)
-router.post('/:projectId', protect, authorize('teacher', 'admin'), async (req, res) => {
-  res.json({
-    success: true,
-    message: 'Assessment creation endpoint - to be implemented'
-  });
-});
+// Evaluation routes
+router.post('/evaluate', protect, authorize('teacher', 'admin'), createEvaluation);
+router.get('/evaluation/:submissionId', protect, getEvaluation);
+router.get('/student-attempts/:projectId/:studentId', protect, getStudentAttempts);
 
-// @desc    Get assessments for a project
-// @route   GET /api/assessments/:projectId
-// @access  Public
-router.get('/:projectId', async (req, res) => {
-  res.json({
-    success: true,
-    message: 'Get assessments endpoint - to be implemented'
-  });
-});
+// Badge routes
+router.post('/badge', protect, authorize('teacher', 'admin'), createOrUpdateBadge);
+router.get('/badge/:projectId', protect, getProjectBadge);
+router.get('/badges/:studentId', protect, getStudentBadges);
 
 module.exports = router;
