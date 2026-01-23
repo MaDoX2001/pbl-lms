@@ -97,7 +97,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/resources', resourceRoutes);
 app.use('/api/submissions', submissionRoutes);
 app.use('/api/progress', progressRoutes);
-app.use('/api/assessments', assessmentRoutes);
+app.use('/api/assessment', assessmentRoutes);
 app.use('/api/discussions', discussionRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/otp', otpRoutes);
