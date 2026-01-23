@@ -244,6 +244,20 @@ const projectSchema = new mongoose.Schema({
   badgeEnabled: {
     type: Boolean,
     default: false
+  },
+  projectLevel: {
+    type: String,
+    enum: ['beginner', 'intermediate', 'advanced', 'expert'],
+    default: 'beginner'
+  },
+  projectOrder: {
+    type: Number,
+    min: 1,
+    max: 6
+  },
+  isTeamProject: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

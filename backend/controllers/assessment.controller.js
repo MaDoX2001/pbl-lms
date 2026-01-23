@@ -1,15 +1,17 @@
 const ObservationCard = require('../models/ObservationCard.model');
 const EvaluationAttempt = require('../models/EvaluationAttempt.model');
+const FinalEvaluation = require('../models/FinalEvaluation.model');
+const StudentLevel = require('../models/StudentLevel.model');
 const Badge = require('../models/Badge.model');
 const Submission = require('../models/Submission.model');
 const Project = require('../models/Project.model');
 
-// @desc    Create or update observation card for a project
+// @desc    Create or update observation card for a project phase
 // @route   POST /api/assessment/observation-card
 // @access  Private (Teacher/Admin)
 exports.createOrUpdateObservationCard = async (req, res) => {
   try {
-    const { projectId, assessmentParts } = req.body;
+    const { projectId, phase, sections } = req.body;
 
     // Verify project exists and user has permission
     const project = await Project.findById(projectId);
@@ -27,18 +29,22 @@ exports.createOrUpdateObservationCard = async (req, res) => {
       });
     }
 
-    // Check if observation card already exists
-    let observationCard = await ObservationCard.findOne({ project: projectId });
+    // Check if observation card already exists for this phase
+    let observationCard = await ObservationCard.findOne({ 
+      project: projectId,
+      phase 
+    });
 
     if (observationCard) {
       // Update existing
-      observationCard.assessmentParts = assessmentParts;
+      observationCard.sections = sections;
       await observationCard.save();
     } else {
       // Create new
       observationCard = await ObservationCard.create({
         project: projectId,
-        assessmentParts,
+        phase,
+        sections,
         createdBy: req.user.id
       });
     }
