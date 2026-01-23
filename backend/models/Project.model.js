@@ -235,6 +235,15 @@ const projectSchema = new mongoose.Schema({
       type: Number,
       default: 0
     }
+  },
+  // Assessment system integration
+  hasObservationCard: {
+    type: Boolean,
+    default: false
+  },
+  badgeEnabled: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

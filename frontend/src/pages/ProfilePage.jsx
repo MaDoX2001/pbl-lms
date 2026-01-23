@@ -39,6 +39,7 @@ import {
 import { useSelector, useDispatch } from 'react-redux';
 import { updateUser } from '../redux/slices/authSlice';
 import api from '../services/api';
+import { assessmentAPI } from '../services/api';
 import { toast } from 'react-toastify';
 
 const ProfilePage = () => {
@@ -66,6 +67,23 @@ const ProfilePage = () => {
     newPassword: '',
     confirmPassword: ''
   });
+  const [badges, setBadges] = useState([]);
+
+  useEffect(() => {
+    fetchUserStats();
+    if (user?.role === 'student') {
+      fetchBadges();
+    }
+  }, [user]);
+
+  const fetchBadges = async () => {
+    try {
+      const response = await assessmentAPI.getStudentBadges(user._id);
+      setBadges(response.data.data);
+    } catch (error) {
+      console.error('Error fetching badges:', error);
+    }
+  };
 
   useEffect(() => {
     fetchUserStats();
@@ -333,6 +351,52 @@ const ProfilePage = () => {
               </Card>
             </Grid>
           </>
+        )}
+
+        {/* Badges Section */}
+        {user?.role === 'student' && badges.length > 0 && (
+          <Grid item xs={12}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #e0e0e0' }}>
+              <Typography variant="h5" fontWeight={700} mb={3} color="text.primary">
+                الشارات المكتسبة
+              </Typography>
+              <Grid container spacing={2}>
+                {badges.map((badge) => (
+                  <Grid item xs={12} sm={6} md={4} key={badge._id}>
+                    <Card 
+                      elevation={0} 
+                      sx={{ 
+                        borderRadius: 2, 
+                        border: '2px solid', 
+                        borderColor: badge.color || '#FFD700',
+                        bgcolor: `${badge.color || '#FFD700'}15`,
+                        textAlign: 'center',
+                        p: 2
+                      }}
+                    >
+                      <Box sx={{ fontSize: 48, mb: 1 }}>
+                        {badge.icon || '🏆'}
+                      </Box>
+                      <Typography variant="h6" fontWeight={600}>
+                        {badge.name}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        {badge.description}
+                      </Typography>
+                      <Chip 
+                        label={badge.project?.title} 
+                        size="small" 
+                        sx={{ bgcolor: 'primary.main', color: 'white' }}
+                      />
+                      <Typography variant="caption" display="block" sx={{ mt: 1 }} color="text.secondary">
+                        {new Date(badge.awardedAt).toLocaleDateString('ar-EG')}
+                      </Typography>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            </Paper>
+          </Grid>
         )}
 
         {/* Personal Information */}
