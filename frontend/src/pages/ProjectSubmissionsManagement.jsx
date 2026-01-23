@@ -29,6 +29,7 @@ import {
   Grade as GradeIcon,
   ArrowBack as ArrowBackIcon,
   Description as DescriptionIcon,
+  Assessment as AssessmentIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../services/api';
@@ -348,15 +349,25 @@ const ProjectSubmissionsManagement = () => {
                         ) : (
                           <Alert severity="warning">لم يتم التقييم بعد</Alert>
                         )}
-                        <Button
-                          variant="outlined"
-                          startIcon={<GradeIcon />}
-                          onClick={() => handleOpenGradeDialog(submission)}
-                          sx={{ mt: 1 }}
-                          size="small"
-                        >
-                          {submission.score !== null ? 'تعديل الدرجة' : 'إضافة درجة'}
-                        </Button>
+                        <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                          <Button
+                            variant="contained"
+                            color="primary"
+                            startIcon={<AssessmentIcon />}
+                            onClick={() => navigate(`/evaluate/${submission._id}`)}
+                            size="small"
+                          >
+                            تقييم رقمي
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            startIcon={<GradeIcon />}
+                            onClick={() => handleOpenGradeDialog(submission)}
+                            size="small"
+                          >
+                            {submission.score !== null ? 'تعديل الدرجة' : 'إضافة درجة'}
+                          </Button>
+                        </Box>
                       </Box>
                     </CardContent>
                   </Card>

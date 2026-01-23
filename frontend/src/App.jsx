@@ -39,6 +39,7 @@ import ProjectSubmissionsManagement from './pages/ProjectSubmissionsManagement';
 import StudentProjectsManagement from './pages/StudentProjectsManagement';
 import TeachersListPage from './pages/TeachersListPage';
 import AllUsersPage from './pages/AllUsersPage';
+import EvaluationPage from './pages/EvaluationPage';
 
 // Import actions
 import { loadUser } from './redux/slices/authSlice';
@@ -199,6 +200,11 @@ function App() {
               <Route path="/projects/:projectId/submissions" element={
                 <PrivateRoute roles={['teacher', 'admin']}>
                   <ProjectSubmissionsManagement />
+                </PrivateRoute>
+              } />
+              <Route path="/evaluate/:submissionId" element={
+                <PrivateRoute roles={['teacher', 'admin']}>
+                  <EvaluationPage />
                 </PrivateRoute>
               } />
               <Route path="/admin/student-projects" element={
