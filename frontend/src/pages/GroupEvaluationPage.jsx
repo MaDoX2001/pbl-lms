@@ -21,7 +21,7 @@ import {
   Breadcrumbs,
   Link
 } from '@mui/material';
-import { NavigateNext as NavigateNextIcon } from '@mui/icons-material';
+import { NavigateNext as NavigateNextIcon, ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import axios from 'axios';
 
 const GroupEvaluationPage = () => {
@@ -187,6 +187,15 @@ const GroupEvaluationPage = () => {
 
   return (
     <Box>
+      {/* Back Button */}
+      <Button
+        startIcon={<ArrowBackIcon />}
+        onClick={() => navigate('/student-projects-management')}
+        sx={{ mb: 2 }}
+      >
+        العودة إلى مشروعات الطلاب
+      </Button>
+
       {/* Breadcrumbs */}
       <Breadcrumbs separator={<NavigateNextIcon fontSize="small" />} sx={{ mb: 3 }}>
         <Link underline="hover" color="inherit" href="/projects">المشاريع</Link>

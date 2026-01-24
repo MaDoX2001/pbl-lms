@@ -41,6 +41,8 @@ import { updateUser } from '../redux/slices/authSlice';
 import api from '../services/api';
 import { assessmentAPI } from '../services/api';
 import { toast } from 'react-toastify';
+import StudentLevelBadge from '../components/StudentLevelBadge';
+import BadgeCollection from '../components/BadgeCollection';
 
 const ProfilePage = () => {
   const dispatch = useDispatch();
@@ -233,6 +235,9 @@ const ProfilePage = () => {
               {user?.emailVerified && (
                 <Verified sx={{ fontSize: 32, color: '#4caf50' }} />
               )}
+              {user?.role === 'student' && (
+                <StudentLevelBadge studentId={user._id} compact={true} />
+              )}
             </Box>
             <Box display="flex" gap={1} mb={2}>
               <Chip 
@@ -353,48 +358,14 @@ const ProfilePage = () => {
           </>
         )}
 
-        {/* Badges Section */}
-        {user?.role === 'student' && badges.length > 0 && (
+        {/* Badges Section with BadgeCollection Component */}
+        {user?.role === 'student' && (
           <Grid item xs={12}>
             <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #e0e0e0' }}>
               <Typography variant="h5" fontWeight={700} mb={3} color="text.primary">
-                الشارات المكتسبة
+                الشارات والإنجازات
               </Typography>
-              <Grid container spacing={2}>
-                {badges.map((badge) => (
-                  <Grid item xs={12} sm={6} md={4} key={badge._id}>
-                    <Card 
-                      elevation={0} 
-                      sx={{ 
-                        borderRadius: 2, 
-                        border: '2px solid', 
-                        borderColor: badge.color || '#FFD700',
-                        bgcolor: `${badge.color || '#FFD700'}15`,
-                        textAlign: 'center',
-                        p: 2
-                      }}
-                    >
-                      <Box sx={{ fontSize: 48, mb: 1 }}>
-                        {badge.icon || '🏆'}
-                      </Box>
-                      <Typography variant="h6" fontWeight={600}>
-                        {badge.name}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        {badge.description}
-                      </Typography>
-                      <Chip 
-                        label={badge.project?.title} 
-                        size="small" 
-                        sx={{ bgcolor: 'primary.main', color: 'white' }}
-                      />
-                      <Typography variant="caption" display="block" sx={{ mt: 1 }} color="text.secondary">
-                        {new Date(badge.awardedAt).toLocaleDateString('ar-EG')}
-                      </Typography>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
+              <BadgeCollection studentId={user._id} />
             </Paper>
           </Grid>
         )}

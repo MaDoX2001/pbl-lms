@@ -19,6 +19,7 @@ import {
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../services/api';
+import ObservationCardBuilder from '../components/ObservationCardBuilder';
 
 const CreateProjectPage = () => {
   const navigate = useNavigate();
@@ -49,6 +50,11 @@ const CreateProjectPage = () => {
     isPublished: false,
     showObjectives: true
   });
+
+  // Observation cards state
+  const [groupCard, setGroupCard] = useState(null);
+  const [individualCard, setIndividualCard] = useState(null);
+  const [savingCards, setSavingCards] = useState(false);
 
   const difficulties = [
     { value: 'beginner', label: 'مبتدئ' },
@@ -112,9 +118,37 @@ const CreateProjectPage = () => {
       };
 
       const response = await api.post('/projects', cleanData);
+      const projectId = response.data.data._id;
+
+      // Save observation cards if they exist
+      if (groupCard || individualCard) {
+        setSavingCards(true);
+        try {
+          if (groupCard) {
+            await api.post('/assessment/observation-card', {
+              projectId,
+              phase: 'group',
+              sections: groupCard.sections
+            });
+          }
+          if (individualCard) {
+            await api.post('/assessment/observation-card', {
+              projectId,
+              phase: 'individual_oral',
+              sections: individualCard.sections
+            });
+          }
+          toast.success('تم إنشاء المشروع وبطاقات الملاحظات بنجاح');
+        } catch (cardError) {
+          console.error('Error saving observation cards:', cardError);
+          toast.warning('تم إنشاء المشروع لكن فشل حفظ بطاقات الملاحظات');
+        }
+        setSavingCards(false);
+      } else {
+        toast.success('تم إنشاء المشروع بنجاح');
+      }
       
-      toast.success('تم إنشاء المشروع بنجاح');
-      navigate(`/projects/${response.data.data._id}`);
+      navigate(`/projects/${projectId}`);
     } catch (error) {
       console.error('Error creating project:', error);
       setError(error.response?.data?.message || 'فشل إنشاء المشروع');
@@ -368,6 +402,53 @@ const CreateProjectPage = () => {
               />
             </Grid>
 
+            {/* Observation Cards Section */}
+            <Grid item xs={12}>
+              <Divider sx={{ my: 3 }} />
+              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                بطاقات التقييم الرقمي
+              </Typography>
+              <Alert severity="info" sx={{ mb: 3 }}>
+                قم بإنشاء بطاقتي الملاحظات للتقييم الثنائي المرحلي (التقييم الجماعي + التقييم الفردي والشفهي)
+              </Alert>
+            </Grid>
+
+            {/* Group Observation Card */}
+            <Grid item xs={12}>
+              <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
+                <Typography variant="h6" gutterBottom color="primary">
+                  بطاقة الملاحظات – التقييم الجماعي (المرحلة الأولى)
+                </Typography>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  تُستخدم لتقييم أداء الفريق ككل في المشروع
+                </Typography>
+                <ObservationCardBuilder
+                  projectId={null}
+                  phase="group"
+                  isTeamProject={true}
+                  onSave={setGroupCard}
+                />
+              </Paper>
+            </Grid>
+
+            {/* Individual + Oral Observation Card */}
+            <Grid item xs={12}>
+              <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
+                <Typography variant="h6" gutterBottom color="secondary">
+                  بطاقة الملاحظات – التقييم الفردي والشفهي (المرحلة الثانية)
+                </Typography>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  تُستخدم لتقييم أداء كل طالب حسب دوره + التقييم الشفهي
+                </Typography>
+                <ObservationCardBuilder
+                  projectId={null}
+                  phase="individual_oral"
+                  isTeamProject={true}
+                  onSave={setIndividualCard}
+                />
+              </Paper>
+            </Grid>
+
             {/* Submit Buttons */}
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 3 }}>
@@ -381,10 +462,10 @@ const CreateProjectPage = () => {
                 <Button
                   type="submit"
                   variant="contained"
-                  disabled={loading}
+                  disabled={loading || savingCards}
                   size="large"
                 >
-                  {loading ? 'جاري الإنشاء...' : 'إنشاء المشروع'}
+                  {loading || savingCards ? 'جاري الإنشاء...' : 'إنشاء المشروع'}
                 </Button>
               </Box>
             </Grid>

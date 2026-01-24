@@ -19,6 +19,7 @@ import {
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../services/api';
+import ObservationCardBuilder from '../components/ObservationCardBuilder';
 
 const EditProjectPage = () => {
   const { id } = useParams();
@@ -42,6 +43,13 @@ const EditProjectPage = () => {
     isPublished: false,
     showObjectives: true
   });
+
+  // Observation cards state
+  const [groupCard, setGroupCard] = useState(null);
+  const [individualCard, setIndividualCard] = useState(null);
+  const [existingGroupCard, setExistingGroupCard] = useState(null);
+  const [existingIndividualCard, setExistingIndividualCard] = useState(null);
+  const [savingCards, setSavingCards] = useState(false);
 
   const difficulties = [
     { value: 'beginner', label: 'مبتدئ' },
@@ -77,6 +85,18 @@ const EditProjectPage = () => {
         isPublished: project.isPublished || false,
         showObjectives: project.showObjectives !== undefined ? project.showObjectives : true
       });
+
+      // Fetch existing observation cards
+      try {
+        const cardsResponse = await api.get(`/assessment/observation-cards/${id}`);
+        const cards = cardsResponse.data.data;
+        const groupCard = cards.find(c => c.phase === 'group');
+        const individualCard = cards.find(c => c.phase === 'individual_oral');
+        if (groupCard) setExistingGroupCard(groupCard);
+        if (individualCard) setExistingIndividualCard(individualCard);
+      } catch (cardError) {
+        console.log('No existing observation cards found');
+      }
     } catch (error) {
       console.error('Error fetching project:', error);
       toast.error('فشل تحميل بيانات المشروع');
@@ -132,8 +152,47 @@ const EditProjectPage = () => {
       };
 
       await api.put(`/projects/${id}`, cleanData);
+
+      // Update observation cards if changed
+      if (groupCard || individualCard) {
+        setSavingCards(true);
+        try {
+          if (groupCard) {
+            if (existingGroupCard) {
+              await api.put(`/assessment/observation-card/${existingGroupCard._id}`, {
+                sections: groupCard.sections
+              });
+            } else {
+              await api.post('/assessment/observation-card', {
+                projectId: id,
+                phase: 'group',
+                sections: groupCard.sections
+              });
+            }
+          }
+          if (individualCard) {
+            if (existingIndividualCard) {
+              await api.put(`/assessment/observation-card/${existingIndividualCard._id}`, {
+                sections: individualCard.sections
+              });
+            } else {
+              await api.post('/assessment/observation-card', {
+                projectId: id,
+                phase: 'individual_oral',
+                sections: individualCard.sections
+              });
+            }
+          }
+          toast.success('تم تحديث المشروع وبطاقات الملاحظات بنجاح');
+        } catch (cardError) {
+          console.error('Error updating observation cards:', cardError);
+          toast.warning('تم تحديث المشروع لكن فشل حفظ بطاقات الملاحظات');
+        }
+        setSavingCards(false);
+      } else {
+        toast.success('تم تحديث المشروع بنجاح');
+      }
       
-      toast.success('تم تحديث المشروع بنجاح');
       navigate(`/projects/${id}`);
     } catch (error) {
       console.error('Error updating project:', error);
@@ -386,6 +445,55 @@ const EditProjectPage = () => {
               />
             </Grid>
 
+            {/* Observation Cards Section */}
+            <Grid item xs={12}>
+              <Divider sx={{ my: 3 }} />
+              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                بطاقات التقييم الرقمي
+              </Typography>
+              <Alert severity="info" sx={{ mb: 3 }}>
+                يمكنك تعديل بطاقتي الملاحظات للتقييم الثنائي المرحلي (التقييم الجماعي + التقييم الفردي والشفهي)
+              </Alert>
+            </Grid>
+
+            {/* Group Observation Card */}
+            <Grid item xs={12}>
+              <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
+                <Typography variant="h6" gutterBottom color="primary">
+                  بطاقة الملاحظات – التقييم الجماعي (المرحلة الأولى)
+                </Typography>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  تُستخدم لتقييم أداء الفريق ككل في المشروع
+                </Typography>
+                <ObservationCardBuilder
+                  projectId={id}
+                  phase="group"
+                  isTeamProject={true}
+                  initialData={existingGroupCard}
+                  onSave={setGroupCard}
+                />
+              </Paper>
+            </Grid>
+
+            {/* Individual + Oral Observation Card */}
+            <Grid item xs={12}>
+              <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
+                <Typography variant="h6" gutterBottom color="secondary">
+                  بطاقة الملاحظات – التقييم الفردي والشفهي (المرحلة الثانية)
+                </Typography>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  تُستخدم لتقييم أداء كل طالب حسب دوره + التقييم الشفهي
+                </Typography>
+                <ObservationCardBuilder
+                  projectId={id}
+                  phase="individual_oral"
+                  isTeamProject={true}
+                  initialData={existingIndividualCard}
+                  onSave={setIndividualCard}
+                />
+              </Paper>
+            </Grid>
+
             {/* Submit Buttons */}
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 3 }}>
@@ -399,10 +507,10 @@ const EditProjectPage = () => {
                 <Button
                   type="submit"
                   variant="contained"
-                  disabled={loading}
+                  disabled={loading || savingCards}
                   size="large"
                 >
-                  {loading ? 'جاري التحديث...' : 'حفظ التعديلات'}
+                  {loading || savingCards ? 'جاري التحديث...' : 'حفظ التعديلات'}
                 </Button>
               </Box>
             </Grid>

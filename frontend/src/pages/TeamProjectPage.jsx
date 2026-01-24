@@ -35,6 +35,8 @@ import {
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../services/api';
+import StudentEvaluationStatus from '../components/StudentEvaluationStatus';
+import FinalEvaluationSummary from '../components/FinalEvaluationSummary';
 
 /**
  * TeamProjectPage Component
@@ -185,6 +187,21 @@ const TeamProjectPage = () => {
           <Chip label={`الفريق: ${team.name}`} color="primary" />
         </Box>
       </Paper>
+
+      {/* Student Evaluation Status - Only show for students */}
+      {user.role === 'student' && (
+        <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+          <Typography variant="h5" gutterBottom>
+            حالة التقييم
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+          <StudentEvaluationStatus 
+            projectId={projectId}
+            studentId={user._id}
+            teamId={team._id}
+          />
+        </Paper>
+      )}
 
       {/* Upload Section */}
       {user.role === 'student' && (

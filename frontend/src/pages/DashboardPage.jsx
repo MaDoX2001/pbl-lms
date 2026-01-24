@@ -1,11 +1,13 @@
 import React, { useEffect } from 'react';
-import { Box, Typography, Paper, Grid, Avatar, LinearProgress } from '@mui/material';
+import { Box, Typography, Paper, Grid, Avatar, LinearProgress, Accordion, AccordionSummary, AccordionDetails, Divider } from '@mui/material';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { fetchStudentProgress } from '../redux/slices/progressSlice';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import StudentEvaluationStatus from '../components/StudentEvaluationStatus';
 
 const DashboardPage = () => {
   const dispatch = useDispatch();
@@ -97,31 +99,38 @@ const DashboardPage = () => {
           <Grid container spacing={2}>
             {inProgressProjects.map((progress) => (
               <Grid item xs={12} key={progress._id}>
-                <Paper 
-                  sx={{ 
-                    p: 3, 
-                    cursor: 'pointer',
-                    '&:hover': { boxShadow: 4 }
-                  }}
-                  onClick={() => navigate(`/projects/${progress.project._id}`)}
-                >
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="h6" fontWeight={600}>
-                      {progress.project.title}
+                <Accordion>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', mr: 2 }}>
+                      <Typography variant="h6" fontWeight={600}>
+                        {progress.project.title}
+                      </Typography>
+                      <Typography variant="body2" color="primary">
+                        {progress.completionPercentage}%
+                      </Typography>
+                    </Box>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Box sx={{ mb: 2 }}>
+                      <LinearProgress 
+                        variant="determinate" 
+                        value={progress.completionPercentage} 
+                        sx={{ mb: 1, height: 8, borderRadius: 4 }}
+                      />
+                      <Typography variant="body2" color="text.secondary">
+                        آخر نشاط: {new Date(progress.lastActivityAt).toLocaleDateString('ar-EG')}
+                      </Typography>
+                    </Box>
+                    <Divider sx={{ my: 2 }} />
+                    <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                      حالة التقييم
                     </Typography>
-                    <Typography variant="body2" color="primary">
-                      {progress.completionPercentage}%
-                    </Typography>
-                  </Box>
-                  <LinearProgress 
-                    variant="determinate" 
-                    value={progress.completionPercentage} 
-                    sx={{ mb: 1, height: 8, borderRadius: 4 }}
-                  />
-                  <Typography variant="body2" color="text.secondary">
-                    آخر نشاط: {new Date(progress.lastActivityAt).toLocaleDateString('ar-EG')}
-                  </Typography>
-                </Paper>
+                    <StudentEvaluationStatus 
+                      projectId={progress.project._id}
+                      studentId={user._id}
+                    />
+                  </AccordionDetails>
+                </Accordion>
               </Grid>
             ))}
           </Grid>

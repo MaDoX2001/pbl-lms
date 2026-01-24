@@ -25,7 +25,7 @@ import {
   FormControl,
   InputLabel
 } from '@mui/material';
-import { NavigateNext as NavigateNextIcon, Lock as LockIcon } from '@mui/icons-material';
+import { NavigateNext as NavigateNextIcon, Lock as LockIcon, ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import axios from 'axios';
 
 const ROLES = {
@@ -276,6 +276,15 @@ const IndividualEvaluationPage = () => {
 
   return (
     <Box>
+      {/* Back Button */}
+      <Button
+        startIcon={<ArrowBackIcon />}
+        onClick={() => navigate('/student-projects-management')}
+        sx={{ mb: 2 }}
+      >
+        العودة إلى مشروعات الطلاب
+      </Button>
+
       {/* Breadcrumbs */}
       <Breadcrumbs separator={<NavigateNextIcon fontSize="small" />} sx={{ mb: 3 }}>
         <Link underline="hover" color="inherit" href="/projects">المشاريع</Link>
