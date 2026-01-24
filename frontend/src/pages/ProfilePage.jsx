@@ -69,27 +69,14 @@ const ProfilePage = () => {
     newPassword: '',
     confirmPassword: ''
   });
-  const [badges, setBadges] = useState([]);
 
   useEffect(() => {
     fetchUserStats();
-    if (user?.role === 'student') {
-      fetchBadges();
-    }
   }, [user]);
 
-  const fetchBadges = async () => {
-    try {
-      const response = await assessmentAPI.getStudentBadges(user._id);
-      setBadges(response.data.data);
-    } catch (error) {
-      console.error('Error fetching badges:', error);
-    }
-  };
-
   useEffect(() => {
     fetchUserStats();
-  }, []);
+  }, [user]);
 
   // Update form data when user changes (after profile update)
   useEffect(() => {

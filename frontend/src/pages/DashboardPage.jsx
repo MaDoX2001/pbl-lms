@@ -97,16 +97,22 @@ const DashboardPage = () => {
           </Paper>
         ) : (
           <Grid container spacing={2}>
-            {inProgressProjects.map((progress) => (
+            {inProgressProjects.map((progress) => {
+              // Add null guards
+              if (!progress || !progress.project || !progress.project._id) {
+                return null;
+              }
+              
+              return (
               <Grid item xs={12} key={progress._id}>
                 <Accordion>
                   <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', mr: 2 }}>
                       <Typography variant="h6" fontWeight={600}>
-                        {progress.project.title}
+                        {progress.project?.title || 'مشروع بدون عنوان'}
                       </Typography>
                       <Typography variant="body2" color="primary">
-                        {progress.completionPercentage}%
+                        {progress.completionPercentage || 0}%
                       </Typography>
                     </Box>
                   </AccordionSummary>
@@ -114,11 +120,11 @@ const DashboardPage = () => {
                     <Box sx={{ mb: 2 }}>
                       <LinearProgress 
                         variant="determinate" 
-                        value={progress.completionPercentage} 
+                        value={progress.completionPercentage || 0} 
                         sx={{ mb: 1, height: 8, borderRadius: 4 }}
                       />
                       <Typography variant="body2" color="text.secondary">
-                        آخر نشاط: {new Date(progress.lastActivityAt).toLocaleDateString('ar-EG')}
+                        آخر نشاط: {progress.lastActivityAt ? new Date(progress.lastActivityAt).toLocaleDateString('ar-EG') : 'غير متوفر'}
                       </Typography>
                     </Box>
                     <Divider sx={{ my: 2 }} />
@@ -128,11 +134,13 @@ const DashboardPage = () => {
                     <StudentEvaluationStatus 
                       projectId={progress.project._id}
                       studentId={user._id}
+                      isTeamProject={progress.project.isTeamProject}
                     />
                   </AccordionDetails>
                 </Accordion>
               </Grid>
-            ))}
+              );
+            })}
           </Grid>
         )}
       </Box>

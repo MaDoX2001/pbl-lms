@@ -279,10 +279,10 @@ const IndividualEvaluationPage = () => {
       {/* Back Button */}
       <Button
         startIcon={<ArrowBackIcon />}
-        onClick={() => navigate('/student-projects-management')}
+        onClick={() => navigate(-1)}
         sx={{ mb: 2 }}
       >
-        العودة إلى مشروعات الطلاب
+        العودة
       </Button>
 
       {/* Breadcrumbs */}

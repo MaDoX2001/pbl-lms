@@ -88,14 +88,20 @@ const EditProjectPage = () => {
 
       // Fetch existing observation cards
       try {
-        const cardsResponse = await api.get(`/assessment/observation-cards/${id}`);
-        const cards = cardsResponse.data.data;
-        const groupCard = cards.find(c => c.phase === 'group');
-        const individualCard = cards.find(c => c.phase === 'individual_oral');
-        if (groupCard) setExistingGroupCard(groupCard);
-        if (individualCard) setExistingIndividualCard(individualCard);
+        // Fetch both phases
+        const groupCardPromise = api.get(`/assessment/observation-card/${id}/group`);
+        const individualCardPromise = api.get(`/assessment/observation-card/${id}/individual_oral`);
+        
+        const [groupResult, individualResult] = await Promise.allSettled([groupCardPromise, individualCardPromise]);
+        
+        if (groupResult.status === 'fulfilled') {
+          setExistingGroupCard(groupResult.value.data.data);
+        }
+        if (individualResult.status === 'fulfilled') {
+          setExistingIndividualCard(individualResult.value.data.data);
+        }
       } catch (cardError) {
-        console.log('No existing observation cards found');
+        console.log('No existing observation cards found or error fetching them');
       }
     } catch (error) {
       console.error('Error fetching project:', error);

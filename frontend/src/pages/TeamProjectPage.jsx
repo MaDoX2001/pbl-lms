@@ -71,17 +71,35 @@ const TeamProjectPage = () => {
 
       // Get project details
       const projectResponse = await api.get(`/projects/${projectId}`);
-      setProject(projectResponse.data.data);
+      const projectData = projectResponse.data.data;
+      setProject(projectData);
 
-      // Get my team
-      const teamResponse = await api.get('/teams/my-team');
-      setTeam(teamResponse.data.data);
+      // Get my team (only if team project)
+      if (projectData.isTeamProject) {
+        try {
+          const teamResponse = await api.get('/teams/my-team');
+          setTeam(teamResponse.data.data);
 
-      // Get submissions
-      const submissionsResponse = await api.get(
-        `/team-submissions/team/${teamResponse.data.data._id}/project/${projectId}`
-      );
-      setSubmissions(submissionsResponse.data.data);
+          // Get team submissions
+          const submissionsResponse = await api.get(
+            `/team-submissions/team/${teamResponse.data.data._id}/project/${projectId}`
+          );
+          setSubmissions(submissionsResponse.data.data);
+        } catch (teamErr) {
+          console.error('Team fetch error:', teamErr);
+          toast.warning('لم يتم العثور على فريق لهذا المشروع');
+        }
+      } else {
+        // Individual project - get individual submissions
+        try {
+          const submissionsResponse = await api.get(
+            `/submissions/project/${projectId}/student/${user._id}`
+          );
+          setSubmissions(submissionsResponse.data.data);
+        } catch (subErr) {
+          console.error('Submissions fetch error:', subErr);
+        }
+      }
 
       setLoading(false);
     } catch (err) {
@@ -183,8 +201,16 @@ const TeamProjectPage = () => {
           {project.description}
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          <Chip label={`المستوى: ${project.level || 'غير محدد'}`} />
-          <Chip label={`الفريق: ${team.name}`} color="primary" />
+          <Chip label={`المستوى: ${project.projectLevel || project.difficulty || 'غير محدد'}`} />
+          {project.isTeamProject && team && (
+            <Chip label={`الفريق: ${team.name}`} color="primary" />
+          )}
+          {!project.isTeamProject && (
+            <Chip label="مشروع فردي" color="secondary" />
+          )}
+          {project.projectOrder && (
+            <Chip label={`الترتيب: ${project.projectOrder}`} variant="outlined" />
+          )}
         </Box>
       </Paper>
 
@@ -198,7 +224,8 @@ const TeamProjectPage = () => {
           <StudentEvaluationStatus 
             projectId={projectId}
             studentId={user._id}
-            teamId={team._id}
+            teamId={team?._id}
+            isTeamProject={project?.isTeamProject || false}
           />
         </Paper>
       )}
