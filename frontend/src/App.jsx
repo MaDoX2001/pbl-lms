@@ -40,6 +40,8 @@ import StudentProjectsManagement from './pages/StudentProjectsManagement';
 import TeachersListPage from './pages/TeachersListPage';
 import AllUsersPage from './pages/AllUsersPage';
 import EvaluationPage from './pages/EvaluationPage';
+import GroupEvaluationPage from './pages/GroupEvaluationPage';
+import IndividualEvaluationPage from './pages/IndividualEvaluationPage';
 
 // Import actions
 import { loadUser } from './redux/slices/authSlice';
@@ -207,6 +209,19 @@ function App() {
                   <EvaluationPage />
                 </PrivateRoute>
               } />
+              
+              {/* Two-Phase Assessment Routes */}
+              <Route path="/evaluate/group/:projectId/:teamId/:submissionId" element={
+                <PrivateRoute roles={['teacher', 'admin']}>
+                  <GroupEvaluationPage />
+                </PrivateRoute>
+              } />
+              <Route path="/evaluate/individual/:projectId/:studentId/:submissionId" element={
+                <PrivateRoute roles={['teacher', 'admin']}>
+                  <IndividualEvaluationPage />
+                </PrivateRoute>
+              } />
+              
               <Route path="/admin/student-projects" element={
                 <PrivateRoute roles={['teacher', 'admin']}>
                   <StudentProjectsManagement />
