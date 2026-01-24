@@ -156,12 +156,24 @@ const StudentProjectsManagement = () => {
     navigate(`/projects/${projectId}/submissions`);
   };
 
-  const handlePhase1Evaluation = (projectId, teamId, submissionId) => {
-    navigate(`/evaluate/group/${projectId}/${teamId}/${submissionId}`);
+  const handlePhase1Evaluation = async (projectId, teamId, submissionId) => {
+    // Check if observation card exists
+    try {
+      await api.get(`/assessment/observation-card/${projectId}/group`);
+      navigate(`/evaluate/group/${projectId}/${teamId}/${submissionId}`);
+    } catch (err) {
+      toast.error('لا يمكن التقييم قبل إنشاء بطاقة الملاحظة للتقييم الجماعي');
+    }
   };
 
-  const handlePhase2Evaluation = (projectId, studentId, submissionId) => {
-    navigate(`/evaluate/individual/${projectId}/${studentId}/${submissionId}`);
+  const handlePhase2Evaluation = async (projectId, studentId, submissionId) => {
+    // Check if observation card exists
+    try {
+      await api.get(`/assessment/observation-card/${projectId}/individual_oral`);
+      navigate(`/evaluate/individual/${projectId}/${studentId}/${submissionId}`);
+    } catch (err) {
+      toast.error('لا يمكن التقييم قبل إنشاء بطاقة الملاحظة للتقييم الفردي والشفهي');
+    }
   };
 
   const handleViewFinalEvaluation = async (projectId, studentId) => {

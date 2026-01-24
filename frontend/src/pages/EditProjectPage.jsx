@@ -20,6 +20,7 @@ import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import ObservationCardBuilder from '../components/ObservationCardBuilder';
+import ObservationCardStatus from '../components/ObservationCardStatus';
 
 const EditProjectPage = () => {
   const { id } = useParams();
@@ -457,6 +458,7 @@ const EditProjectPage = () => {
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 بطاقات التقييم الرقمي
               </Typography>
+              <ObservationCardStatus projectId={id} />
               <Alert severity="info" sx={{ mb: 3 }}>
                 يمكنك تعديل بطاقتي الملاحظات للتقييم الثنائي المرحلي (التقييم الجماعي + التقييم الفردي والشفهي)
               </Alert>
