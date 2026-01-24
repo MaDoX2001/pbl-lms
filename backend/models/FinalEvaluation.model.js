@@ -17,8 +17,8 @@ const finalEvaluationSchema = new mongoose.Schema({
   },
   groupEvaluation: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'EvaluationAttempt',
-    required: true
+    ref: 'EvaluationAttempt'
+    // Optional - individual projects don't have group evaluation
   },
   individualEvaluation: {
     type: mongoose.Schema.Types.ObjectId,

@@ -20,8 +20,8 @@ const badgeSchema = new mongoose.Schema({
   },
   project: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Project',
-    required: true
+    ref: 'Project'
+    // Not required - level badges don't have projects
   },
   awardedTo: [{
     student: {
@@ -39,8 +39,8 @@ const badgeSchema = new mongoose.Schema({
   }],
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+    ref: 'User'
+    // Not required - system badges (level badges) have null createdBy
   }
 }, {
   timestamps: true

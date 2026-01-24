@@ -533,7 +533,9 @@ exports.finalizeEvaluation = async (req, res) => {
   try {
     const { projectId, studentId } = req.body;
 
-    // Get project
+    // ========================================================================
+    // STEP 1: VALIDATE PROJECT & FETCH DATA
+    // ========================================================================
     const project = await Project.findById(projectId);
     if (!project) {
       return res.status(404).json({
@@ -542,7 +544,7 @@ exports.finalizeEvaluation = async (req, res) => {
       });
     }
 
-    // Get individual evaluation
+    // Get individual evaluation (required for all projects)
     const individualEval = await EvaluationAttempt.findOne({
       project: projectId,
       student: studentId,
@@ -561,7 +563,9 @@ exports.finalizeEvaluation = async (req, res) => {
     let groupEvaluation = null;
     let teamId = null;
 
-    // Get group evaluation if team project
+    // ========================================================================
+    // STEP 2: GET GROUP EVALUATION (IF TEAM PROJECT)
+    // ========================================================================
     if (project.isTeamProject) {
       // Find student's team
       const team = await Team.findOne({
@@ -597,14 +601,16 @@ exports.finalizeEvaluation = async (req, res) => {
 
     const individualScore = individualEval.calculatedScore;
 
-    // Calculate final score
-    const finalScore = groupScore + individualScore; // 0-200
-    const finalPercentage = (finalScore / 200) * 100; // 0-100%
+    // ========================================================================
+    // STEP 3: CALCULATE FINAL SCORES
+    // ========================================================================
+    // For team projects: finalScore = group + individual (0-200)
+    // For individual projects: finalScore = individual only (0-100)
+    const maxScore = project.isTeamProject ? 200 : 100;
+    const finalScore = groupScore + individualScore;
+    const finalPercentage = (finalScore / maxScore) * 100;
 
-    // Determine status
-    const status = finalPercentage >= 60 ? 'passed' : 'failed';
-
-    // Calculate verbal grade
+    // Determine verbal grade
     let verbalGrade;
     if (finalPercentage >= 85) verbalGrade = 'ممتاز';
     else if (finalPercentage >= 75) verbalGrade = 'جيد جدًا';
@@ -612,7 +618,56 @@ exports.finalizeEvaluation = async (req, res) => {
     else if (finalPercentage >= 60) verbalGrade = 'مقبول';
     else verbalGrade = 'غير مجتاز';
 
-    // Get previous final evaluations count
+    // ========================================================================
+    // STEP 4: CAPSTONE PROJECT VALIDATION (PROJECT 6)
+    // ========================================================================
+    let status = finalPercentage >= 60 ? 'passed' : 'failed';
+    
+    if (project.projectOrder === 6 && finalPercentage >= 60) {
+      // Capstone requires ALL previous projects (1-5) to be passed
+      const studentLevel = await StudentLevel.findOne({ student: studentId });
+      
+      if (studentLevel) {
+        const passedProjectOrders = await Promise.all(
+          studentLevel.completedProjects.map(async (cp) => {
+            const proj = await Project.findById(cp.project);
+            return proj?.projectOrder;
+          })
+        );
+
+        const requiredOrders = [1, 2, 3, 4, 5];
+        const hasAllPrevious = requiredOrders.every(order => 
+          passedProjectOrders.includes(order)
+        );
+
+        if (!hasAllPrevious) {
+          status = 'failed'; // Override to failed even if score >= 60%
+          verbalGrade = 'غير مجتاز';
+          
+          return res.status(400).json({
+            success: false,
+            message: 'لا يمكن اجتياز المشروع النهائي قبل إكمال جميع المشاريع السابقة (1-5)',
+            data: {
+              passedProjects: passedProjectOrders.filter(o => o).sort(),
+              requiredProjects: requiredOrders
+            }
+          });
+        }
+      } else {
+        // No level record means no previous projects passed
+        status = 'failed';
+        verbalGrade = 'غير مجتاز';
+        
+        return res.status(400).json({
+          success: false,
+          message: 'لا يمكن اجتياز المشروع النهائي قبل إكمال جميع المشاريع السابقة (1-5)'
+        });
+      }
+    }
+
+    // ========================================================================
+    // STEP 5: MANAGE ATTEMPT HISTORY
+    // ========================================================================
     const previousFinals = await FinalEvaluation.find({
       project: projectId,
       student: studentId
@@ -622,7 +677,7 @@ exports.finalizeEvaluation = async (req, res) => {
       ? previousFinals[0].attemptNumber + 1 
       : 1;
 
-    // Mark old finals as not latest
+    // Mark old finals as not latest (maintain history)
     await FinalEvaluation.updateMany(
       { 
         project: projectId,
@@ -632,7 +687,9 @@ exports.finalizeEvaluation = async (req, res) => {
       { isLatest: false }
     );
 
-    // Create final evaluation
+    // ========================================================================
+    // STEP 6: CREATE FINAL EVALUATION RECORD
+    // ========================================================================
     const finalEvaluation = await FinalEvaluation.create({
       project: projectId,
       student: studentId,
@@ -649,58 +706,46 @@ exports.finalizeEvaluation = async (req, res) => {
       attemptNumber
     });
 
-    // If passed, award badge and update level
+    // ========================================================================
+    // STEP 7: IF PASSED - AWARD BADGES & UPDATE LEVEL
+    // ========================================================================
     if (status === 'passed') {
-      // Award badge
-      const badge = await Badge.findOne({ project: projectId });
-      if (badge) {
-        const alreadyAwarded = badge.awardedTo.some(
-          award => award.student.toString() === studentId.toString()
-        );
-        
-        if (!alreadyAwarded) {
-          badge.awardedTo.push({
-            student: studentId,
-            evaluationAttempt: finalEvaluation._id,
-            awardedAt: new Date()
-          });
-          await badge.save();
-        }
+      // ---------------------------------------------------------------------
+      // 7A: AWARD PROJECT BADGE
+      // ---------------------------------------------------------------------
+      await awardProjectBadge(projectId, studentId, finalEvaluation._id);
+
+      // ---------------------------------------------------------------------
+      // 7B: UPDATE STUDENT LEVEL
+      // ---------------------------------------------------------------------
+      const newLevel = await updateStudentLevel(projectId, studentId, finalPercentage);
+
+      // ---------------------------------------------------------------------
+      // 7C: AWARD LEVEL BADGE (IF LEVEL CHANGED)
+      // ---------------------------------------------------------------------
+      await awardLevelBadge(studentId, newLevel);
+
+      // ---------------------------------------------------------------------
+      // 7D: AWARD CAPSTONE BADGE (PROJECT 6 ONLY)
+      // ---------------------------------------------------------------------
+      if (project.projectOrder === 6) {
+        await awardCapstoneBadge(studentId, projectId, finalEvaluation._id);
       }
-
-      // Update student level
-      const projectLevelMap = {
-        1: 'beginner', 2: 'beginner',
-        3: 'intermediate', 4: 'intermediate',
-        5: 'advanced',
-        6: 'expert'
-      };
-
-      const newLevel = projectLevelMap[project.projectOrder] || 'beginner';
-
-      await StudentLevel.findOneAndUpdate(
-        { student: studentId },
-        {
-          $set: { currentLevel: newLevel },
-          $push: {
-            completedProjects: {
-              project: projectId,
-              projectLevel: newLevel,
-              completedAt: new Date(),
-              finalScore: finalPercentage
-            }
-          }
-        },
-        { upsert: true, new: true }
-      );
     }
 
+    // ========================================================================
+    // STEP 8: RETURN SUCCESS RESPONSE
+    // ========================================================================
     res.json({
       success: true,
-      message: 'تم حساب التقييم النهائي بنجاح',
+      message: status === 'passed' 
+        ? 'تم حساب التقييم النهائي بنجاح - مبروك النجاح!' 
+        : 'تم حساب التقييم النهائي',
       data: finalEvaluation
     });
+
   } catch (error) {
+    console.error('Finalize Evaluation Error:', error);
     res.status(500).json({
       success: false,
       message: 'خطأ في حساب التقييم النهائي',
@@ -708,6 +753,347 @@ exports.finalizeEvaluation = async (req, res) => {
     });
   }
 };
+
+// ============================================================================
+// HELPER FUNCTIONS FOR BADGE AWARDING & LEVEL PROGRESSION
+// ============================================================================
+
+/**
+ * Award project badge to student
+ * Prevents duplicate badge awarding
+ * 
+ * @param {String} projectId - Project ID
+ * @param {String} studentId - Student ID
+ * @param {String} finalEvalId - Final Evaluation ID
+ */
+async function awardProjectBadge(projectId, studentId, finalEvalId) {
+  try {
+    // Find or create project badge
+    let badge = await Badge.findOne({ project: projectId });
+    
+    if (!badge) {
+      // Create default badge if doesn't exist
+      const project = await Project.findById(projectId);
+      badge = await Badge.create({
+        name: `${project.title} Badge`,
+        description: `شارة إتمام مشروع ${project.title}`,
+        icon: project.projectOrder === 6 ? '🏆' : '🎖️',
+        color: project.projectOrder === 6 ? '#FFD700' : '#4CAF50',
+        project: projectId,
+        createdBy: project.instructor,
+        awardedTo: []
+      });
+    }
+
+    // Check if already awarded
+    const alreadyAwarded = badge.awardedTo.some(
+      award => award.student.toString() === studentId.toString()
+    );
+    
+    if (!alreadyAwarded) {
+      badge.awardedTo.push({
+        student: studentId,
+        awardedAt: new Date(),
+        evaluationAttempt: finalEvalId
+      });
+      await badge.save();
+      
+      console.log(`✓ Project badge awarded to student ${studentId}`);
+    } else {
+      console.log(`✓ Project badge already awarded to student ${studentId}`);
+    }
+
+    // Add badge reference to StudentLevel
+    const studentLevel = await StudentLevel.findOne({ student: studentId });
+    if (studentLevel) {
+      const badgeExists = studentLevel.badges.some(
+        b => b.badge.toString() === badge._id.toString()
+      );
+      
+      if (!badgeExists) {
+        studentLevel.badges.push({
+          badge: badge._id,
+          awardedAt: new Date()
+        });
+        await studentLevel.save();
+      }
+    }
+    
+    return badge;
+  } catch (error) {
+    console.error('Error awarding project badge:', error);
+    // Don't throw - badge awarding shouldn't break finalization
+  }
+}
+
+/**
+ * Update student level based on highest passed project
+ * 
+ * Level Mapping:
+ * - Projects 1-2: Beginner
+ * - Projects 3-4: Intermediate  
+ * - Project 5: Advanced
+ * - Project 6: Expert (Capstone)
+ * 
+ * @param {String} projectId - Project ID
+ * @param {String} studentId - Student ID
+ * @param {Number} finalPercentage - Final score percentage
+ * @returns {String} New level
+ */
+async function updateStudentLevel(projectId, studentId, finalPercentage) {
+  try {
+    const project = await Project.findById(projectId);
+    
+    // Determine level for this project
+    const projectLevelMap = {
+      1: 'beginner', 
+      2: 'beginner',
+      3: 'intermediate', 
+      4: 'intermediate',
+      5: 'advanced',
+      6: 'expert'
+    };
+
+    const thisProjectLevel = projectLevelMap[project.projectOrder] || 'beginner';
+
+    // Get or create StudentLevel record
+    let studentLevel = await StudentLevel.findOne({ student: studentId });
+    
+    if (!studentLevel) {
+      studentLevel = await StudentLevel.create({
+        student: studentId,
+        currentLevel: 'beginner',
+        completedProjects: [],
+        badges: []
+      });
+    }
+
+    // Check if this project already completed
+    const alreadyCompleted = studentLevel.completedProjects.some(
+      cp => cp.project.toString() === projectId.toString()
+    );
+
+    if (!alreadyCompleted) {
+      // Add to completed projects
+      studentLevel.completedProjects.push({
+        project: projectId,
+        projectLevel: thisProjectLevel,
+        completedAt: new Date(),
+        finalScore: finalPercentage
+      });
+    } else {
+      // Update existing entry (retry case)
+      const existingIndex = studentLevel.completedProjects.findIndex(
+        cp => cp.project.toString() === projectId.toString()
+      );
+      
+      if (existingIndex !== -1) {
+        studentLevel.completedProjects[existingIndex].completedAt = new Date();
+        studentLevel.completedProjects[existingIndex].finalScore = finalPercentage;
+        studentLevel.completedProjects[existingIndex].projectLevel = thisProjectLevel;
+      }
+    }
+
+    // Determine highest level achieved
+    const levelHierarchy = {
+      'beginner': 1,
+      'intermediate': 2,
+      'advanced': 3,
+      'expert': 4
+    };
+
+    let highestLevel = 'beginner';
+    let highestLevelValue = 1;
+
+    for (const completed of studentLevel.completedProjects) {
+      const levelValue = levelHierarchy[completed.projectLevel] || 1;
+      if (levelValue > highestLevelValue) {
+        highestLevelValue = levelValue;
+        highestLevel = completed.projectLevel;
+      }
+    }
+
+    // Update current level (never downgrade)
+    const currentLevelValue = levelHierarchy[studentLevel.currentLevel] || 1;
+    if (highestLevelValue > currentLevelValue) {
+      studentLevel.currentLevel = highestLevel;
+      console.log(`✓ Student ${studentId} leveled up to ${highestLevel}`);
+    } else {
+      console.log(`✓ Student ${studentId} remains at ${studentLevel.currentLevel}`);
+    }
+
+    await studentLevel.save();
+    
+    return highestLevel;
+  } catch (error) {
+    console.error('Error updating student level:', error);
+    return 'beginner'; // Safe fallback
+  }
+}
+
+/**
+ * Award level badge when student reaches new level
+ * Creates level badges if they don't exist
+ * 
+ * @param {String} studentId - Student ID
+ * @param {String} level - Level achieved (beginner/intermediate/advanced/expert)
+ */
+async function awardLevelBadge(studentId, level) {
+  try {
+    // Level badge definitions
+    const levelBadgeDefinitions = {
+      'beginner': {
+        name: 'مبتدئ',
+        description: 'شارة المستوى المبتدئ',
+        icon: '🌱',
+        color: '#8BC34A'
+      },
+      'intermediate': {
+        name: 'متوسط',
+        description: 'شارة المستوى المتوسط',
+        icon: '📘',
+        color: '#2196F3'
+      },
+      'advanced': {
+        name: 'متقدم',
+        description: 'شارة المستوى المتقدم',
+        icon: '🎓',
+        color: '#9C27B0'
+      },
+      'expert': {
+        name: 'خبير',
+        description: 'شارة المستوى الخبير',
+        icon: '🏆',
+        color: '#FFD700'
+      }
+    };
+
+    const badgeInfo = levelBadgeDefinitions[level];
+    if (!badgeInfo) return;
+
+    // Find or create level badge (use a special project ID for level badges)
+    let levelBadge = await Badge.findOne({ 
+      name: badgeInfo.name,
+      description: badgeInfo.description
+    });
+
+    if (!levelBadge) {
+      // Create system badge for this level
+      levelBadge = await Badge.create({
+        name: badgeInfo.name,
+        description: badgeInfo.description,
+        icon: badgeInfo.icon,
+        color: badgeInfo.color,
+        project: null, // Level badges not tied to specific project
+        createdBy: null, // System-generated
+        awardedTo: []
+      });
+    }
+
+    // Check if already awarded
+    const alreadyAwarded = levelBadge.awardedTo.some(
+      award => award.student.toString() === studentId.toString()
+    );
+
+    if (!alreadyAwarded) {
+      levelBadge.awardedTo.push({
+        student: studentId,
+        awardedAt: new Date()
+      });
+      await levelBadge.save();
+      
+      console.log(`✓ Level badge "${badgeInfo.name}" awarded to student ${studentId}`);
+    }
+
+    // Add to StudentLevel badges array
+    const studentLevel = await StudentLevel.findOne({ student: studentId });
+    if (studentLevel) {
+      const badgeExists = studentLevel.badges.some(
+        b => b.badge && b.badge.toString() === levelBadge._id.toString()
+      );
+      
+      if (!badgeExists) {
+        studentLevel.badges.push({
+          badge: levelBadge._id,
+          awardedAt: new Date()
+        });
+        await studentLevel.save();
+      }
+    }
+  } catch (error) {
+    console.error('Error awarding level badge:', error);
+  }
+}
+
+/**
+ * Award special capstone badge for completing Project 6
+ * Only awarded if all previous projects (1-5) are completed
+ * 
+ * @param {String} studentId - Student ID
+ * @param {String} projectId - Project ID (must be Project 6)
+ * @param {String} finalEvalId - Final Evaluation ID
+ */
+async function awardCapstoneBadge(studentId, projectId, finalEvalId) {
+  try {
+    const project = await Project.findById(projectId);
+    
+    if (project.projectOrder !== 6) {
+      return; // Not capstone project
+    }
+
+    // Find or create capstone badge
+    let capstoneBadge = await Badge.findOne({ 
+      name: 'Capstone Master',
+      description: 'شارة إتمام المشروع النهائي (Capstone)'
+    });
+
+    if (!capstoneBadge) {
+      capstoneBadge = await Badge.create({
+        name: 'Capstone Master',
+        description: 'شارة إتمام المشروع النهائي (Capstone)',
+        icon: '👑',
+        color: '#FFD700',
+        project: projectId,
+        createdBy: project.instructor,
+        awardedTo: []
+      });
+    }
+
+    // Check if already awarded
+    const alreadyAwarded = capstoneBadge.awardedTo.some(
+      award => award.student.toString() === studentId.toString()
+    );
+
+    if (!alreadyAwarded) {
+      capstoneBadge.awardedTo.push({
+        student: studentId,
+        awardedAt: new Date(),
+        evaluationAttempt: finalEvalId
+      });
+      await capstoneBadge.save();
+
+      console.log(`✓ CAPSTONE BADGE awarded to student ${studentId}!`);
+    }
+
+    // Add to StudentLevel
+    const studentLevel = await StudentLevel.findOne({ student: studentId });
+    if (studentLevel) {
+      const badgeExists = studentLevel.badges.some(
+        b => b.badge && b.badge.toString() === capstoneBadge._id.toString()
+      );
+      
+      if (!badgeExists) {
+        studentLevel.badges.push({
+          badge: capstoneBadge._id,
+          awardedAt: new Date()
+        });
+        await studentLevel.save();
+      }
+    }
+  } catch (error) {
+    console.error('Error awarding capstone badge:', error);
+  }
+}
 
 // @desc    Get final evaluation for a student
 // @route   GET /api/assessment/final/:projectId/:studentId
