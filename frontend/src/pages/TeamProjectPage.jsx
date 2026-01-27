@@ -12,6 +12,7 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  Skeleton,
   Alert,
   Dialog,
   DialogTitle,
@@ -37,6 +38,8 @@ import { toast } from 'react-toastify';
 import api from '../services/api';
 import StudentEvaluationStatus from '../components/StudentEvaluationStatus';
 import FinalEvaluationSummary from '../components/FinalEvaluationSummary';
+import EvaluationProgressBar from '../components/EvaluationProgressBar';
+import BadgeCelebrationPopup from '../components/BadgeCelebrationPopup';
 
 /**
  * TeamProjectPage Component
@@ -60,6 +63,8 @@ const TeamProjectPage = () => {
     description: ''
   });
   const [uploading, setUploading] = useState(false);
+  const [evaluationStatus, setEvaluationStatus] = useState(null);
+  const [badgePopup, setBadgePopup] = useState({ open: false, badge: null });
 
   useEffect(() => {
     fetchData();
@@ -101,10 +106,61 @@ const TeamProjectPage = () => {
         }
       }
 
+      // Fetch evaluation status for progress bar
+      if (user.role === 'student') {
+        await fetchEvaluationStatus(projectData);
+      }
+
       setLoading(false);
     } catch (err) {
       toast.error(err.response?.data?.message || 'حدث خطأ في جلب البيانات');
       setLoading(false);
+    }
+  };
+
+  const fetchEvaluationStatus = async (projectData) => {
+    try {
+      let phase1Complete = false;
+      let phase2Complete = false;
+      let finalEval = null;
+
+      // Phase 1 status
+      if (projectData?.isTeamProject && team) {
+        try {
+          const phase1Res = await api.get(`/assessment/group-status/${projectId}/${team._id}`);
+          phase1Complete = phase1Res.data.data?.phase1Complete || false;
+        } catch (err) {
+          phase1Complete = false;
+        }
+      } else {
+        phase1Complete = true; // Individual project, skip phase 1
+      }
+
+      // Phase 2 status
+      try {
+        const phase2Res = await api.get(`/assessment/individual-status/${projectId}/${user._id}`);
+        phase2Complete = phase2Res.data.data?.phase2Complete || false;
+      } catch (err) {
+        phase2Complete = false;
+      }
+
+      // Final evaluation
+      try {
+        const finalRes = await api.get(`/assessment/final/${projectId}/${user._id}`);
+        finalEval = finalRes.data.data;
+      } catch (err) {
+        finalEval = null;
+      }
+
+      setEvaluationStatus({
+        phase1Complete,
+        phase2Complete,
+        finalComplete: !!finalEval,
+        finalStatus: finalEval?.status,
+        retry: finalEval?.retryAllowed
+      });
+    } catch (err) {
+      console.error('Error fetching evaluation status:', err);
     }
   };
 
@@ -168,8 +224,20 @@ const TeamProjectPage = () => {
 
   if (loading) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
-        <CircularProgress />
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Skeleton variant="rectangular" height={40} width={150} sx={{ mb: 2 }} />
+        <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+          <Skeleton variant="text" height={50} width="60%" sx={{ mb: 2 }} />
+          <Skeleton variant="text" height={20} width="100%" />
+          <Skeleton variant="text" height={20} width="90%" />
+          <Skeleton variant="text" height={20} width="95%" sx={{ mb: 2 }} />
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Skeleton variant="rounded" height={32} width={100} />
+            <Skeleton variant="rounded" height={32} width={120} />
+          </Box>
+        </Paper>
+        <Skeleton variant="rectangular" height={200} sx={{ mb: 2 }} />
+        <Skeleton variant="rectangular" height={400} />
       </Container>
     );
   }
@@ -215,12 +283,22 @@ const TeamProjectPage = () => {
       </Paper>
 
       {/* Student Evaluation Status - Only show for students */}
-      {user.role === 'student' && (
+      {user.role === 'student' && evaluationStatus && (
         <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
           <Typography variant="h5" gutterBottom>
             حالة التقييم
           </Typography>
           <Divider sx={{ mb: 2 }} />
+          
+          {/* Progress Bar */}
+          <Box sx={{ mb: 3 }}>
+            <EvaluationProgressBar 
+              status={evaluationStatus}
+              isTeamProject={project?.isTeamProject || false}
+            />
+          </Box>
+
+          {/* Detailed Status */}
           <StudentEvaluationStatus 
             projectId={projectId}
             studentId={user._id}
@@ -383,6 +461,13 @@ const TeamProjectPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Badge Celebration Popup */}
+      <BadgeCelebrationPopup
+        open={badgePopup.open}
+        onClose={() => setBadgePopup({ open: false, badge: null })}
+        badge={badgePopup.badge}
+      />
     </Container>
   );
 };
