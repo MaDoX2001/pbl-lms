@@ -41,6 +41,8 @@ import {
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import FinalEvaluationSummary from '../components/FinalEvaluationSummary';
+import EvaluationProgressBar from '../components/EvaluationProgressBar';
+import SmartEvaluationButton from '../components/SmartEvaluationButton';
 
 /**
  * StudentProjectsManagement Component
