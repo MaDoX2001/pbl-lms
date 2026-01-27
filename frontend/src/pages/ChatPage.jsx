@@ -296,6 +296,8 @@ const ChatPage = () => {
   };
 
   const getConversationName = (conversation) => {
+    if (!conversation) return 'محادثة';
+    
     if (conversation.type === 'team') {
       return conversation.name || `${conversation.team?.name || 'الفريق'} - محادثة الفريق`;
     }
@@ -306,14 +308,19 @@ const ChatPage = () => {
       return conversation.name || 'المحادثة العامة';
     }
     if (conversation.type === 'group') {
-      return conversation.name;
+      return conversation.name || 'مجموعة';
     }
     // Direct conversation
-    const otherUser = conversation.participants.find(p => p._id !== user.id);
+    if (!conversation.participants || conversation.participants.length === 0) {
+      return 'محادثة مباشرة';
+    }
+    const otherUser = conversation.participants.find(p => p?._id !== user.id);
     return otherUser?.name || 'مستخدم';
   };
 
   const getConversationAvatar = (conversation) => {
+    if (!conversation) return null;
+    
     if (conversation.type === 'team') {
       return null; // Will show icon
     }
@@ -326,7 +333,10 @@ const ChatPage = () => {
     if (conversation.type === 'group') {
       return conversation.avatar || '/group-default.png';
     }
-    const otherUser = conversation.participants.find(p => p._id !== user.id);
+    if (!conversation.participants || conversation.participants.length === 0) {
+      return null;
+    }
+    const otherUser = conversation.participants.find(p => p?._id !== user.id);
     return otherUser?.avatar;
   };
 
@@ -556,41 +566,45 @@ const ChatPage = () => {
 
               {/* Messages */}
               <Box sx={{ flex: 1, overflow: 'auto', p: 2, bgcolor: '#f5f5f5' }}>
-                {messages.map((message) => (
-                  <Box
-                    key={message._id}
-                    sx={{
-                      display: 'flex',
-                      justifyContent: message.sender._id === user.id ? 'flex-end' : 'flex-start',
-                      mb: 2
-                    }}
-                  >
+                {messages.map((message) => {
+                  if (!message.sender) return null;
+                  
+                  return (
                     <Box
+                      key={message._id}
                       sx={{
-                        maxWidth: '70%',
-                        bgcolor: message.sender._id === user.id ? 'primary.main' : 'white',
-                        color: message.sender._id === user.id ? 'white' : 'text.primary',
-                        p: 1.5,
-                        borderRadius: 2,
-                        boxShadow: 1
+                        display: 'flex',
+                        justifyContent: message.sender._id === user.id ? 'flex-end' : 'flex-start',
+                        mb: 2
                       }}
                     >
-                      {(selectedConversation.type === 'team' || 
-                        selectedConversation.type === 'team_teachers' || 
-                        selectedConversation.type === 'general' ||
-                        selectedConversation.type === 'group') && 
-                        message.sender._id !== user.id && (
-                        <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
-                          {message.sender.name}
+                      <Box
+                        sx={{
+                          maxWidth: '70%',
+                          bgcolor: message.sender._id === user.id ? 'primary.main' : 'white',
+                          color: message.sender._id === user.id ? 'white' : 'text.primary',
+                          p: 1.5,
+                          borderRadius: 2,
+                          boxShadow: 1
+                        }}
+                      >
+                        {(selectedConversation.type === 'team' || 
+                          selectedConversation.type === 'team_teachers' || 
+                          selectedConversation.type === 'general' ||
+                          selectedConversation.type === 'group') && 
+                          message.sender._id !== user.id && (
+                          <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
+                            {message.sender.name}
+                          </Typography>
+                        )}
+                        <Typography variant="body1">{message.content}</Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.7, display: 'block', mt: 0.5 }}>
+                          {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true, locale: ar })}
                         </Typography>
-                      )}
-                      <Typography variant="body1">{message.content}</Typography>
-                      <Typography variant="caption" sx={{ opacity: 0.7, display: 'block', mt: 0.5 }}>
-                        {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true, locale: ar })}
-                      </Typography>
+                      </Box>
                     </Box>
-                  </Box>
-                ))}
+                  );
+                })}
                 {typingUsers.size > 0 && (
                   <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                     يكتب...
