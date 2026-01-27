@@ -323,10 +323,10 @@ const CreateProjectPage = () => {
               </Box>
               <Alert severity="info" sx={{ mb: 2 }}>
                 <Typography variant="body2" fontWeight={600} gutterBottom>
-                  اكتب الأهداف بأسلوب ABCD (الجمهور، السلوك، الظروف، الدرجة):
+                  اكتب الأهداف مع مراعاة أن تكون مصاغة سلوكياً:
                 </Typography>
                 <Typography variant="body2">
-                  <strong>مثال:</strong> أن يتمكن <em>(الطلاب)</em> من <em>(تصميم وتطوير تطبيق ويب تفاعلي)</em> باستخدام <em>(React و Node.js)</em> بدقة <em>(لا تقل عن 85%)</em>
+                  <strong>مثال:</strong> أن يكتب الطالب برنامجًا للأردوينو لقراءة قيمة حساس وعرضها عبر المنفذ التسلسلي.
                 </Typography>
               </Alert>
               {formData.objectives.map((objective, index) => (
