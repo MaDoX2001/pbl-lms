@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useSelector } from 'react-redux';
 import {
   Box,
@@ -40,6 +40,42 @@ import socketService from '../services/socket';
 import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
 
+// Memoized Message Component for better performance
+const MessageItem = memo(({ message, isOwn, showSenderName }) => {
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: isOwn ? 'flex-end' : 'flex-start',
+        mb: 2
+      }}
+    >
+      <Box
+        sx={{
+          maxWidth: '70%',
+          bgcolor: isOwn ? 'primary.main' : 'white',
+          color: isOwn ? 'white' : 'text.primary',
+          p: 1.5,
+          borderRadius: 2,
+          boxShadow: 1
+        }}
+      >
+        {showSenderName && !isOwn && (
+          <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
+            {message.sender.name}
+          </Typography>
+        )}
+        <Typography variant="body1">{message.content}</Typography>
+        <Typography variant="caption" sx={{ opacity: 0.7, display: 'block', mt: 0.5 }}>
+          {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true, locale: ar })}
+        </Typography>
+      </Box>
+    </Box>
+  );
+});
+
+MessageItem.displayName = 'MessageItem';
+
 const ChatPage = () => {
   const { user, token } = useSelector((state) => state.auth);
   
@@ -59,9 +95,15 @@ const ChatPage = () => {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [groupName, setGroupName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [typingUsers, setTypingUsers] = useState(new Set());
+  const [messagesPage, setMessagesPage] = useState(1);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const searchTimeoutRef = useRef(null);
 
   // Debug: Watch chatType changes
   useEffect(() => {
@@ -79,6 +121,23 @@ const ChatPage = () => {
       socketService.disconnect();
     };
   }, [token]);
+
+  // Debounce search query
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery]);
 
   useEffect(() => {
     fetchConversations();
@@ -115,7 +174,9 @@ const ChatPage = () => {
 
   useEffect(() => {
     if (selectedConversation) {
-      fetchMessages(selectedConversation._id);
+      setMessagesPage(1);
+      setHasMoreMessages(true);
+      fetchMessages(selectedConversation._id, 1);
       socketService.joinConversation(selectedConversation._id);
       markAsRead(selectedConversation._id);
     }
@@ -129,6 +190,14 @@ const ChatPage = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Handle scroll for loading more messages
+  const handleScroll = useCallback((e) => {
+    const { scrollTop } = e.target;
+    if (scrollTop === 0 && hasMoreMessages && !loadingMore) {
+      loadMoreMessages();
+    }
+  }, [hasMoreMessages, loadingMore, loadMoreMessages]);
+
   const fetchConversations = async () => {
     try {
       const response = await api.get(`/chat/conversations?type=${chatType}`);
@@ -140,14 +209,31 @@ const ChatPage = () => {
     }
   };
 
-  const fetchMessages = async (conversationId) => {
+  const fetchMessages = async (conversationId, page = 1) => {
     try {
-      const response = await api.get(`/chat/conversations/${conversationId}/messages`);
-      setMessages(response.data.data);
+      const response = await api.get(`/chat/conversations/${conversationId}/messages?page=${page}&limit=20`);
+      const newMessages = response.data.data;
+      
+      if (page === 1) {
+        setMessages(newMessages);
+      } else {
+        setMessages((prev) => [...newMessages, ...prev]);
+      }
+      
+      setHasMoreMessages(newMessages.length === 20);
+      setMessagesPage(page);
     } catch (error) {
       toast.error('فشل تحميل الرسائل');
     }
   };
+
+  const loadMoreMessages = useCallback(async () => {
+    if (!selectedConversation || loadingMore || !hasMoreMessages) return;
+    
+    setLoadingMore(true);
+    await fetchMessages(selectedConversation._id, messagesPage + 1);
+    setLoadingMore(false);
+  }, [selectedConversation, messagesPage, hasMoreMessages, loadingMore]);
 
   const fetchUsers = async () => {
     try {
@@ -351,9 +437,11 @@ const ChatPage = () => {
     return conversation.unreadCount?.get?.(user.id) || 0;
   };
 
-  const filteredConversations = conversations.filter((conv) =>
-    getConversationName(conv).toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredConversations = useMemo(() => {
+    return conversations.filter((conv) =>
+      getConversationName(conv).toLowerCase().includes(debouncedSearch.toLowerCase())
+    );
+  }, [conversations, debouncedSearch]);
 
   const handleTabChange = async (event, newValue) => {
     console.log('handleTabChange called with:', newValue);
@@ -565,44 +653,34 @@ const ChatPage = () => {
               </Box>
 
               {/* Messages */}
-              <Box sx={{ flex: 1, overflow: 'auto', p: 2, bgcolor: '#f5f5f5' }}>
+              <Box 
+                ref={messagesContainerRef}
+                onScroll={handleScroll}
+                sx={{ flex: 1, overflow: 'auto', p: 2, bgcolor: '#f5f5f5' }}
+              >
+                {loadingMore && (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                    <CircularProgress size={20} />
+                  </Box>
+                )}
                 {messages.map((message) => {
                   if (!message.sender) return null;
                   
+                  const isOwn = message.sender._id === user.id;
+                  const showSenderName = (
+                    selectedConversation.type === 'team' || 
+                    selectedConversation.type === 'team_teachers' || 
+                    selectedConversation.type === 'general' ||
+                    selectedConversation.type === 'group'
+                  );
+                  
                   return (
-                    <Box
+                    <MessageItem
                       key={message._id}
-                      sx={{
-                        display: 'flex',
-                        justifyContent: message.sender._id === user.id ? 'flex-end' : 'flex-start',
-                        mb: 2
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          maxWidth: '70%',
-                          bgcolor: message.sender._id === user.id ? 'primary.main' : 'white',
-                          color: message.sender._id === user.id ? 'white' : 'text.primary',
-                          p: 1.5,
-                          borderRadius: 2,
-                          boxShadow: 1
-                        }}
-                      >
-                        {(selectedConversation.type === 'team' || 
-                          selectedConversation.type === 'team_teachers' || 
-                          selectedConversation.type === 'general' ||
-                          selectedConversation.type === 'group') && 
-                          message.sender._id !== user.id && (
-                          <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
-                            {message.sender.name}
-                          </Typography>
-                        )}
-                        <Typography variant="body1">{message.content}</Typography>
-                        <Typography variant="caption" sx={{ opacity: 0.7, display: 'block', mt: 0.5 }}>
-                          {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true, locale: ar })}
-                        </Typography>
-                      </Box>
-                    </Box>
+                      message={message}
+                      isOwn={isOwn}
+                      showSenderName={showSenderName}
+                    />
                   );
                 })}
                 {typingUsers.size > 0 && (
