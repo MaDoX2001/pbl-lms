@@ -42,7 +42,7 @@ const studentLevelSchema = new mongoose.Schema({
 });
 
 // Index for efficient queries
-studentLevelSchema.index({ student: 1 });
+// Note: student field has unique: true which creates an index automatically
 studentLevelSchema.index({ currentLevel: 1 });
 
 module.exports = mongoose.model('StudentLevel', studentLevelSchema);
