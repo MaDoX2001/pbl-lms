@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import {
   Box,
@@ -59,9 +59,23 @@ const ChatPage = () => {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [groupName, setGroupName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [typingUsers, setTypingUsers] = useState(new Set());
+  const [messagePage, setMessagePage] = useState(1);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+
+  // Debounce search query for better performance
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
 
   // Debug: Watch chatType changes
   useEffect(() => {
@@ -115,7 +129,9 @@ const ChatPage = () => {
 
   useEffect(() => {
     if (selectedConversation) {
-      fetchMessages(selectedConversation._id);
+      setMessagePage(1);
+      setMessages([]);
+      fetchMessages(selectedConversation._id, 1);
       socketService.joinConversation(selectedConversation._id);
       markAsRead(selectedConversation._id);
     }
@@ -140,12 +156,32 @@ const ChatPage = () => {
     }
   };
 
-  const fetchMessages = async (conversationId) => {
+  const fetchMessages = async (conversationId, page = 1) => {
     try {
-      const response = await api.get(`/chat/conversations/${conversationId}/messages`);
-      setMessages(response.data.data);
+      setLoadingMessages(true);
+      const response = await api.get(`/chat/conversations/${conversationId}/messages?page=${page}&limit=20`);
+      const newMessages = response.data.data;
+      
+      if (page === 1) {
+        setMessages(newMessages);
+      } else {
+        // Prepend older messages
+        setMessages((prev) => [...newMessages, ...prev]);
+      }
+      
+      // Check if there are more messages
+      setHasMoreMessages(newMessages.length === 20);
+      setMessagePage(page);
     } catch (error) {
       toast.error('فشل تحميل الرسائل');
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  const loadMoreMessages = () => {
+    if (selectedConversation && !loadingMessages && hasMoreMessages) {
+      fetchMessages(selectedConversation._id, messagePage + 1);
     }
   };
 
@@ -351,9 +387,11 @@ const ChatPage = () => {
     return conversation.unreadCount?.get?.(user.id) || 0;
   };
 
-  const filteredConversations = conversations.filter((conv) =>
-    getConversationName(conv).toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredConversations = useMemo(() => {
+    return conversations.filter((conv) =>
+      getConversationName(conv).toLowerCase().includes(debouncedSearchQuery.toLowerCase())
+    );
+  }, [conversations, debouncedSearchQuery, user.id]);
 
   const handleTabChange = async (event, newValue) => {
     console.log('handleTabChange called with:', newValue);
@@ -565,7 +603,19 @@ const ChatPage = () => {
               </Box>
 
               {/* Messages */}
-              <Box sx={{ flex: 1, overflow: 'auto', p: 2, bgcolor: '#f5f5f5' }}>
+              <Box sx={{ flex: 1, overflow: 'auto', p: 2, bgcolor: '#f5f5f5' }} ref={messagesContainerRef}>
+                {hasMoreMessages && (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                    <Button
+                      size="small"
+                      onClick={loadMoreMessages}
+                      disabled={loadingMessages}
+                      variant="outlined"
+                    >
+                      {loadingMessages ? <CircularProgress size={20} /> : 'تحميل المزيد'}
+                    </Button>
+                  </Box>
+                )}
                 {messages.map((message) => {
                   if (!message.sender) return null;
                   
