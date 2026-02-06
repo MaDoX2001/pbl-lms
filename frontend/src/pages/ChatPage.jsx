@@ -40,8 +40,13 @@ import Skeleton from '@mui/material/Skeleton';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import socketService from '../services/socket';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format, isToday, isYesterday, isSameDay } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import DoneIcon from '@mui/icons-material/Done';
+import DoneAllIcon from '@mui/icons-material/DoneAll';
+import CloseIcon from '@mui/icons-material/Close';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
 const ChatPage = () => {
   const { user, token } = useSelector((state) => state.auth);
@@ -71,6 +76,11 @@ const ChatPage = () => {
   const typingTimeoutRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const [userIsNearBottom, setUserIsNearBottom] = useState(true);
+  const [inChatSearch, setInChatSearch] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
+  const [showSearch, setShowSearch] = useState(false);
+  const [lastReadMessageId, setLastReadMessageId] = useState(null);
 
   // Debounce search query for better performance
   useEffect(() => {
@@ -138,6 +148,18 @@ const ChatPage = () => {
       fetchMessages(selectedConversation._id, 1);
       socketService.joinConversation(selectedConversation._id);
       markAsRead(selectedConversation._id);
+      // Reset search
+      setInChatSearch('');
+      setShowSearch(false);
+      // Set last read message for "new messages" divider
+      if (selectedConversation.unreadCount > 0 && messages.length > 0) {
+        const unreadIndex = messages.length - selectedConversation.unreadCount;
+        if (unreadIndex > 0) {
+          setLastReadMessageId(messages[unreadIndex - 1]._id);
+        }
+      } else {
+        setLastReadMessageId(null);
+      }
     }
   }, [selectedConversation]);
 
@@ -158,6 +180,44 @@ const ChatPage = () => {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Helper: Get date header text
+  const getDateHeader = (date) => {
+    if (isToday(date)) return 'اليوم';
+    if (isYesterday(date)) return 'أمس';
+    return format(date, 'd MMMM yyyy', { locale: ar });
+  };
+
+  // Helper: Should show date separator
+  const shouldShowDateSeparator = (currentMsg, previousMsg) => {
+    if (!previousMsg) return true;
+    return !isSameDay(new Date(currentMsg.createdAt), new Date(previousMsg.createdAt));
+  };
+
+  // In-chat search
+  useEffect(() => {
+    if (inChatSearch.trim()) {
+      const results = messages.filter(msg => 
+        msg.content?.toLowerCase().includes(inChatSearch.toLowerCase())
+      );
+      setSearchResults(results);
+      setCurrentSearchIndex(0);
+    } else {
+      setSearchResults([]);
+      setCurrentSearchIndex(0);
+    }
+  }, [inChatSearch, messages]);
+
+  const handleSearchNavigation = (direction) => {
+    if (searchResults.length === 0) return;
+    const newIndex = direction === 'next' 
+      ? (currentSearchIndex + 1) % searchResults.length
+      : (currentSearchIndex - 1 + searchResults.length) % searchResults.length;
+    setCurrentSearchIndex(newIndex);
+    // Scroll to result
+    const resultMsg = searchResults[newIndex];
+    document.getElementById(`msg-${resultMsg._id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
   const fetchConversations = async () => {
@@ -658,13 +718,49 @@ const ChatPage = () => {
                 <Avatar src={getConversationAvatar(selectedConversation)}>
                   {getConversationIcon(selectedConversation) || getConversationName(selectedConversation)[0]}
                 </Avatar>
-                <Box>
+                <Box sx={{ flex: 1 }}>
                   <Typography variant="h6">{getConversationName(selectedConversation)}</Typography>
                   <Typography variant="caption" color="text.secondary">
                     {selectedConversation.participants.length} عضو
                   </Typography>
                 </Box>
+                <IconButton onClick={() => setShowSearch(!showSearch)} size="small">
+                  {showSearch ? <CloseIcon /> : <SearchIcon />}
+                </IconButton>
               </Box>
+
+              {/* In-chat Search Bar */}
+              {showSearch && (
+                <Box sx={{ p: 1, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="ابحث في المحادثة..."
+                    value={inChatSearch}
+                    onChange={(e) => setInChatSearch(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon fontSize="small" />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                  {searchResults.length > 0 && (
+                    <>
+                      <Typography variant="caption" sx={{ whiteSpace: 'nowrap' }}>
+                        {currentSearchIndex + 1}/{searchResults.length}
+                      </Typography>
+                      <IconButton size="small" onClick={() => handleSearchNavigation('prev')}>
+                        <KeyboardArrowUpIcon />
+                      </IconButton>
+                      <IconButton size="small" onClick={() => handleSearchNavigation('next')}>
+                        <KeyboardArrowDownIcon />
+                      </IconButton>
+                    </>
+                  )}
+                </Box>
+              )}
 
               {/* Messages */}
               <Box 
@@ -695,69 +791,113 @@ const ChatPage = () => {
                     ))}
                   </Box>
                 )}
-                {messages.map((message) => {
+                {messages.map((message, index) => {
                   if (!message.sender) return null;
                   
                   const isSending = message.status === 'sending';
                   const isFailed = message.status === 'failed';
                   const isOwn = message.sender._id === user.id;
                   
+                  const showDateSeparator = shouldShowDateSeparator(message, messages[index - 1]);
+                  const showNewMessagesDivider = lastReadMessageId && message._id === lastReadMessageId;
+                  
+                  const isSearchResult = searchResults.some(r => r._id === message._id);
+                  const isCurrentSearchResult = searchResults[currentSearchIndex]?._id === message._id;
+                  
                   return (
-                    <Box
-                      key={message._id}
-                      sx={{
-                        display: 'flex',
-                        justifyContent: isOwn ? 'flex-end' : 'flex-start',
-                        mb: 2,
-                        alignItems: 'center',
-                        gap: 1
-                      }}
-                    >
-                      {isFailed && isOwn && (
-                        <IconButton 
-                          size="small" 
-                          color="error"
-                          onClick={() => handleRetryMessage(message)}
-                          title="إعادة الإرسال"
-                        >
-                          <RefreshIcon fontSize="small" />
-                        </IconButton>
+                    <React.Fragment key={message._id}>
+                      {/* Date Separator */}
+                      {showDateSeparator && (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+                          <Chip 
+                            label={getDateHeader(new Date(message.createdAt))} 
+                            size="small" 
+                            sx={{ bgcolor: 'grey.200' }}
+                          />
+                        </Box>
                       )}
+                      
+                      {/* New Messages Divider */}
+                      {showNewMessagesDivider && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', my: 2 }}>
+                          <Divider sx={{ flex: 1 }} />
+                          <Chip 
+                            label="رسائل جديدة" 
+                            size="small" 
+                            color="primary" 
+                            sx={{ mx: 1 }}
+                          />
+                          <Divider sx={{ flex: 1 }} />
+                        </Box>
+                      )}
+                      
                       <Box
+                        id={`msg-${message._id}`}
                         sx={{
-                          maxWidth: '70%',
-                          bgcolor: isOwn ? 'primary.main' : 'white',
-                          color: isOwn ? 'white' : 'text.primary',
-                          p: 1.5,
-                          borderRadius: 2,
-                          boxShadow: 1,
-                          opacity: isSending ? 0.6 : 1,
-                          border: isFailed ? '1px solid #d32f2f' : 'none'
+                          display: 'flex',
+                          justifyContent: isOwn ? 'flex-end' : 'flex-start',
+                          mb: 2,
+                          alignItems: 'center',
+                          gap: 1
                         }}
                       >
-                        {(selectedConversation.type === 'team' || 
-                          selectedConversation.type === 'team_teachers' || 
-                          selectedConversation.type === 'general' ||
-                          selectedConversation.type === 'group') && 
-                          !isOwn && (
-                          <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
-                            {message.sender.name}
-                          </Typography>
+                        {isFailed && isOwn && (
+                          <IconButton 
+                            size="small" 
+                            color="error"
+                            onClick={() => handleRetryMessage(message)}
+                            title="إعادة الإرسال"
+                          >
+                            <RefreshIcon fontSize="small" />
+                          </IconButton>
                         )}
-                        <Typography variant="body1">{message.content}</Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-                          <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                            {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true, locale: ar })}
-                          </Typography>
-                          {isSending && (
-                            <CircularProgress size={10} sx={{ color: isOwn ? 'white' : 'primary.main' }} />
+                        <Box
+                          sx={{
+                            maxWidth: '70%',
+                            color: isOwn ? 'white' : 'text.primary',
+                            p: 1.5,
+                            borderRadius: 2,
+                            boxShadow: 1,
+                            opacity: isSending ? 0.6 : 1,
+                            border: isFailed ? '1px solid #d32f2f' 
+                              : isCurrentSearchResult ? '2px solid #ff9800'
+                              : isSearchResult ? '1px solid #2196f3'
+                              : 'none',
+                            bgcolor: isSearchResult && !isOwn ? '#fff3e0' : (isOwn ? 'primary.main' : 'white'),
+                            transition: 'all 0.3s'
+                          }}
+                        >
+                          {(selectedConversation.type === 'team' || 
+                            selectedConversation.type === 'team_teachers' || 
+                            selectedConversation.type === 'general' ||
+                            selectedConversation.type === 'group') && 
+                            !isOwn && (
+                            <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
+                              {message.sender.name}
+                            </Typography>
                           )}
-                          {isFailed && (
-                            <ErrorOutlineIcon sx={{ fontSize: 12, color: '#d32f2f' }} />
-                          )}
+                          <Typography variant="body1">{message.content}</Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                            <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                              {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true, locale: ar })}
+                            </Typography>
+                            {isSending && (
+                              <CircularProgress size={10} sx={{ color: isOwn ? 'white' : 'primary.main' }} />
+                            )}
+                            {isFailed && (
+                              <ErrorOutlineIcon sx={{ fontSize: 12, color: '#d32f2f' }} />
+                            )}
+                            {!isSending && !isFailed && isOwn && (
+                              message.read ? (
+                                <DoneAllIcon sx={{ fontSize: 14, color: '#2196f3' }} />
+                              ) : (
+                                <DoneIcon sx={{ fontSize: 14, opacity: 0.7 }} />
+                              )
+                            )}
+                          </Box>
                         </Box>
                       </Box>
-                    </Box>
+                    </React.Fragment>
                   );
                 })}
                 {typingUsers.size > 0 && (
@@ -775,12 +915,22 @@ const ChatPage = () => {
               <Box component="form" onSubmit={handleSendMessage} sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
                 <TextField
                   fullWidth
+                  multiline
+                  maxRows={4}
                   value={messageText}
                   onChange={(e) => {
                     setMessageText(e.target.value);
                     handleTyping();
                   }}
-                  placeholder="اكتب رسالة..."
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (messageText.trim() && !sendingMessage) {
+                        handleSendMessage(e);
+                      }
+                    }
+                  }}
+                  placeholder="اكتب رسالة... (Enter للإرسال، Shift+Enter لسطر جديد)"
                   disabled={sendingMessage}
                   InputProps={{
                     endAdornment: (
