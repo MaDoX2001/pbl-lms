@@ -94,6 +94,18 @@ class SocketService {
       this.socket.on('user-stop-typing', callback);
     }
   }
+
+  offUserTyping() {
+    if (this.socket) {
+      this.socket.off('user-typing');
+    }
+  }
+
+  offUserStopTyping() {
+    if (this.socket) {
+      this.socket.off('user-stop-typing');
+    }
+  }
 }
 
 export default new SocketService();

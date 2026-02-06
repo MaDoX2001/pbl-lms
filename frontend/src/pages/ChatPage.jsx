@@ -113,31 +113,66 @@ const ChatPage = () => {
   }, [chatType]);
 
   useEffect(() => {
-    socketService.onNewMessage((data) => {
+    const handleNewMessage = (data) => {
+      console.log('🔔 New message received:', data);
       if (selectedConversation && data.conversationId === selectedConversation._id) {
         setMessages((prev) => [...prev, data]);
         scrollToBottom();
       }
-      // Update conversation list
-      fetchConversations();
-    });
+      
+      // Update conversation list with last message instead of re-fetching
+      setConversations((prevConvs) => {
+        const convExists = prevConvs.some((conv) => conv._id === data.conversationId);
+        
+        // If conversation doesn't exist in list, fetch all conversations
+        if (!convExists) {
+          console.log('⚠️ Conversation not in list, re-fetching all conversations');
+          fetchConversations();
+          return prevConvs;
+        }
+        
+        const updated = prevConvs.map((conv) => {
+          if (conv._id === data.conversationId) {
+            return {
+              ...conv,
+              lastMessage: {
+                text: data.content,
+                timestamp: data.createdAt,
+                sender: data.sender
+              },
+              updatedAt: data.createdAt
+            };
+          }
+          return conv;
+        });
+        
+        // Sort by updatedAt
+        return updated.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+      });
+    };
 
-    socketService.onUserTyping((data) => {
+    const handleUserTyping = (data) => {
       if (selectedConversation && data.conversationId === selectedConversation._id) {
         setTypingUsers((prev) => new Map(prev).set(data.userId, data.userName || 'مستخدم'));
       }
-    });
+    };
 
-    socketService.onUserStopTyping((data) => {
+    const handleUserStopTyping = (data) => {
       setTypingUsers((prev) => {
         const newMap = new Map(prev);
         newMap.delete(data.userId);
         return newMap;
       });
-    });
+    };
+
+    socketService.onNewMessage(handleNewMessage);
+    socketService.onUserTyping(handleUserTyping);
+    socketService.onUserStopTyping(handleUserStopTyping);
 
     return () => {
       socketService.offNewMessage();
+      socketService.offUserTyping();
+      socketService.offUserStopTyping();
     };
   }, [selectedConversation]);
 
@@ -223,6 +258,8 @@ const ChatPage = () => {
   const fetchConversations = async () => {
     try {
       const response = await api.get(`/chat/conversations?type=${chatType}`);
+      console.log('Fetched conversations:', response.data.data.length, 'conversations');
+      console.log('Conversations IDs:', response.data.data.map(c => ({ id: c._id, name: getConversationName(c) })));
       setConversations(response.data.data);
     } catch (error) {
       console.error('Error fetching conversations:', error);
@@ -512,9 +549,11 @@ const ChatPage = () => {
   };
 
   const filteredConversations = useMemo(() => {
-    return conversations.filter((conv) =>
+    const filtered = conversations.filter((conv) =>
       getConversationName(conv).toLowerCase().includes(debouncedSearchQuery.toLowerCase())
     );
+    console.log('Filtered conversations:', filtered.length, 'from', conversations.length, 'total');
+    return filtered;
   }, [conversations, debouncedSearchQuery, user.id]);
 
   const handleTabChange = async (event, newValue) => {
