@@ -34,6 +34,9 @@ import GroupIcon from '@mui/icons-material/Group';
 import GroupsIcon from '@mui/icons-material/Groups';
 import PublicIcon from '@mui/icons-material/Public';
 import PersonIcon from '@mui/icons-material/Person';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import Skeleton from '@mui/material/Skeleton';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import socketService from '../services/socket';
@@ -60,13 +63,14 @@ const ChatPage = () => {
   const [groupName, setGroupName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  const [typingUsers, setTypingUsers] = useState(new Set());
+  const [typingUsers, setTypingUsers] = useState(new Map()); // userId -> userName
   const [messagePage, setMessagePage] = useState(1);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  const [userIsNearBottom, setUserIsNearBottom] = useState(true);
 
   // Debounce search query for better performance
   useEffect(() => {
@@ -110,15 +114,15 @@ const ChatPage = () => {
 
     socketService.onUserTyping((data) => {
       if (selectedConversation && data.conversationId === selectedConversation._id) {
-        setTypingUsers((prev) => new Set([...prev, data.userId]));
+        setTypingUsers((prev) => new Map(prev).set(data.userId, data.userName || 'مستخدم'));
       }
     });
 
     socketService.onUserStopTyping((data) => {
       setTypingUsers((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(data.userId);
-        return newSet;
+        const newMap = new Map(prev);
+        newMap.delete(data.userId);
+        return newMap;
       });
     });
 
@@ -138,8 +142,19 @@ const ChatPage = () => {
   }, [selectedConversation]);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (userIsNearBottom) {
+      scrollToBottom();
+    }
+  }, [messages, userIsNearBottom]);
+
+  // Check if user is near bottom
+  const handleScroll = () => {
+    if (messagesContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      setUserIsNearBottom(isNearBottom);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -207,29 +222,78 @@ const ChatPage = () => {
     e.preventDefault();
     if (!messageText.trim() || !selectedConversation) return;
 
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMessage = {
+      _id: tempId,
+      content: messageText,
+      sender: { _id: user.id, name: user.name },
+      createdAt: new Date().toISOString(),
+      status: 'sending'
+    };
+
+    // Optimistic UI - show message immediately
+    setMessages((prev) => [...prev, optimisticMessage]);
+    const contentToSend = messageText;
+    setMessageText('');
     setSendingMessage(true);
+
     try {
       const response = await api.post(`/chat/conversations/${selectedConversation._id}/messages`, {
-        content: messageText,
+        content: contentToSend,
         type: 'text'
       });
 
       const newMessage = response.data.data;
-      setMessages((prev) => [...prev, newMessage]);
-      setMessageText('');
+      // Replace temp message with real one
+      setMessages((prev) => prev.map(msg => msg._id === tempId ? newMessage : msg));
 
       // Emit via socket
       socketService.sendMessage({
         conversationId: selectedConversation._id,
-        content: messageText,
+        content: contentToSend,
         type: 'text'
       });
 
       fetchConversations();
     } catch (error) {
+      // Mark message as failed
+      setMessages((prev) => prev.map(msg => 
+        msg._id === tempId ? { ...msg, status: 'failed' } : msg
+      ));
       toast.error('فشل إرسال الرسالة');
     } finally {
       setSendingMessage(false);
+    }
+  };
+
+  const handleRetryMessage = async (message) => {
+    const tempId = message._id;
+    // Update status to sending
+    setMessages((prev) => prev.map(msg => 
+      msg._id === tempId ? { ...msg, status: 'sending' } : msg
+    ));
+
+    try {
+      const response = await api.post(`/chat/conversations/${selectedConversation._id}/messages`, {
+        content: message.content,
+        type: 'text'
+      });
+
+      const newMessage = response.data.data;
+      setMessages((prev) => prev.map(msg => msg._id === tempId ? newMessage : msg));
+
+      socketService.sendMessage({
+        conversationId: selectedConversation._id,
+        content: message.content,
+        type: 'text'
+      });
+
+      fetchConversations();
+    } catch (error) {
+      setMessages((prev) => prev.map(msg => 
+        msg._id === tempId ? { ...msg, status: 'failed' } : msg
+      ));
+      toast.error('فشل إعادة الإرسال');
     }
   };
 
@@ -603,7 +667,11 @@ const ChatPage = () => {
               </Box>
 
               {/* Messages */}
-              <Box sx={{ flex: 1, overflow: 'auto', p: 2, bgcolor: '#f5f5f5' }} ref={messagesContainerRef}>
+              <Box 
+                sx={{ flex: 1, overflow: 'auto', p: 2, bgcolor: '#f5f5f5' }} 
+                ref={messagesContainerRef}
+                onScroll={handleScroll}
+              >
                 {hasMoreMessages && (
                   <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
                     <Button
@@ -616,49 +684,89 @@ const ChatPage = () => {
                     </Button>
                   </Box>
                 )}
+                {loadingMessages && messages.length === 0 && (
+                  <Box>
+                    {[1, 2, 3].map((i) => (
+                      <Box key={i} sx={{ display: 'flex', mb: 2, justifyContent: i % 2 === 0 ? 'flex-end' : 'flex-start' }}>
+                        <Box sx={{ maxWidth: '70%' }}>
+                          <Skeleton variant="rectangular" width={200} height={60} sx={{ borderRadius: 2 }} />
+                        </Box>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
                 {messages.map((message) => {
                   if (!message.sender) return null;
+                  
+                  const isSending = message.status === 'sending';
+                  const isFailed = message.status === 'failed';
+                  const isOwn = message.sender._id === user.id;
                   
                   return (
                     <Box
                       key={message._id}
                       sx={{
                         display: 'flex',
-                        justifyContent: message.sender._id === user.id ? 'flex-end' : 'flex-start',
-                        mb: 2
+                        justifyContent: isOwn ? 'flex-end' : 'flex-start',
+                        mb: 2,
+                        alignItems: 'center',
+                        gap: 1
                       }}
                     >
+                      {isFailed && isOwn && (
+                        <IconButton 
+                          size="small" 
+                          color="error"
+                          onClick={() => handleRetryMessage(message)}
+                          title="إعادة الإرسال"
+                        >
+                          <RefreshIcon fontSize="small" />
+                        </IconButton>
+                      )}
                       <Box
                         sx={{
                           maxWidth: '70%',
-                          bgcolor: message.sender._id === user.id ? 'primary.main' : 'white',
-                          color: message.sender._id === user.id ? 'white' : 'text.primary',
+                          bgcolor: isOwn ? 'primary.main' : 'white',
+                          color: isOwn ? 'white' : 'text.primary',
                           p: 1.5,
                           borderRadius: 2,
-                          boxShadow: 1
+                          boxShadow: 1,
+                          opacity: isSending ? 0.6 : 1,
+                          border: isFailed ? '1px solid #d32f2f' : 'none'
                         }}
                       >
                         {(selectedConversation.type === 'team' || 
                           selectedConversation.type === 'team_teachers' || 
                           selectedConversation.type === 'general' ||
                           selectedConversation.type === 'group') && 
-                          message.sender._id !== user.id && (
+                          !isOwn && (
                           <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
                             {message.sender.name}
                           </Typography>
                         )}
                         <Typography variant="body1">{message.content}</Typography>
-                        <Typography variant="caption" sx={{ opacity: 0.7, display: 'block', mt: 0.5 }}>
-                          {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true, locale: ar })}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                          <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                            {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true, locale: ar })}
+                          </Typography>
+                          {isSending && (
+                            <CircularProgress size={10} sx={{ color: isOwn ? 'white' : 'primary.main' }} />
+                          )}
+                          {isFailed && (
+                            <ErrorOutlineIcon sx={{ fontSize: 12, color: '#d32f2f' }} />
+                          )}
+                        </Box>
                       </Box>
                     </Box>
                   );
                 })}
                 {typingUsers.size > 0 && (
-                  <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                    يكتب...
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CircularProgress size={12} />
+                    <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                      {Array.from(typingUsers.values()).join('، ')} يكتب...
+                    </Typography>
+                  </Box>
                 )}
                 <div ref={messagesEndRef} />
               </Box>
