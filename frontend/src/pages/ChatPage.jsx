@@ -180,7 +180,7 @@ const ChatPage = () => {
       socketService.joinConversation(selectedConversation._id);
       markAsRead(selectedConversation._id);
     }
-  }, [selectedConversation]);
+  }, [selectedConversation, fetchMessages]);
 
   useEffect(() => {
     scrollToBottom();
@@ -189,14 +189,6 @@ const ChatPage = () => {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
-
-  // Handle scroll for loading more messages
-  const handleScroll = useCallback((e) => {
-    const { scrollTop } = e.target;
-    if (scrollTop === 0 && hasMoreMessages && !loadingMore) {
-      loadMoreMessages();
-    }
-  }, [hasMoreMessages, loadingMore, loadMoreMessages]);
 
   const fetchConversations = async () => {
     try {
@@ -209,7 +201,7 @@ const ChatPage = () => {
     }
   };
 
-  const fetchMessages = async (conversationId, page = 1) => {
+  const fetchMessages = useCallback(async (conversationId, page = 1) => {
     try {
       const response = await api.get(`/chat/conversations/${conversationId}/messages?page=${page}&limit=20`);
       const newMessages = response.data.data;
@@ -225,7 +217,7 @@ const ChatPage = () => {
     } catch (error) {
       toast.error('فشل تحميل الرسائل');
     }
-  };
+  }, []);
 
   const loadMoreMessages = useCallback(async () => {
     if (!selectedConversation || loadingMore || !hasMoreMessages) return;
@@ -233,7 +225,15 @@ const ChatPage = () => {
     setLoadingMore(true);
     await fetchMessages(selectedConversation._id, messagesPage + 1);
     setLoadingMore(false);
-  }, [selectedConversation, messagesPage, hasMoreMessages, loadingMore]);
+  }, [selectedConversation, messagesPage, hasMoreMessages, loadingMore, fetchMessages]);
+
+  // Handle scroll for loading more messages
+  const handleScroll = useCallback((e) => {
+    const { scrollTop } = e.target;
+    if (scrollTop === 0 && hasMoreMessages && !loadingMore) {
+      loadMoreMessages();
+    }
+  }, [hasMoreMessages, loadingMore, loadMoreMessages]);
 
   const fetchUsers = async () => {
     try {
