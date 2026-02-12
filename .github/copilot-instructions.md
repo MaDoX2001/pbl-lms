@@ -115,6 +115,13 @@ Invoke-RestMethod -Uri "https://pbl-lms-backend.onrender.com/api/projects" `
 - **Backend**: Push triggers Render rebuild (5-10 min). Check logs at dashboard.render.com
 - **No manual builds needed** - CI/CD fully automated
 
+### Creating New Projects
+Use PowerShell template in `scripts/create-project-template.ps1`:
+```powershell
+.\scripts\create-project-template.ps1 -Token "your-admin-jwt"
+```
+Customize `$projectData` and observation cards in the script. Automatically creates project + evaluation cards via API.
+
 ## Common Pitfalls
 
 1. **Missing Imports**: MUI components like `Divider`, `Alert` often forgotten. Check compile errors in Vercel logs.

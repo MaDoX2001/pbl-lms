@@ -139,6 +139,17 @@ REACT_APP_API_URL=http://localhost:5000/api
 - `POST /api/assessments` - إنشاء تقييم
 - `GET /api/assessments/:projectId` - تقييمات مشروع
 
+## أدوات إدارة المشاريع
+
+### إنشاء مشروع جديد
+استخدم القالب الجاهز لإنشاء مشاريع مع بطاقات التقييم:
+
+```powershell
+.\scripts\create-project-template.ps1 -Token "admin-jwt-token"
+```
+
+راجع `scripts/README.md` لمزيد من التفاصيل والأدوات المتاحة.
+
 ## المساهمة
 نرحب بالمساهمات! يرجى:
 1. عمل Fork للمشروع
