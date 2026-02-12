@@ -75,7 +75,7 @@ const ProjectsPage = () => {
           </Grid>
           <Grid item xs={12} sm={4} md={2}>
             <FormControl fullWidth>
-              <InputLabel id="difficulty-label">المستوى</InputLabel>
+              <InputLabel id="difficulty-label" htmlFor="difficulty-filter">المستوى</InputLabel>
               <Select
                 labelId="difficulty-label"
                 id="difficulty-filter"
@@ -93,7 +93,7 @@ const ProjectsPage = () => {
           </Grid>
           <Grid item xs={12} sm={4} md={3}>
             <FormControl fullWidth>
-              <InputLabel id="sort-label">الترتيب</InputLabel>
+              <InputLabel id="sort-label" htmlFor="sort-filter">الترتيب</InputLabel>
               <Select
                 labelId="sort-label"
                 id="sort-filter"

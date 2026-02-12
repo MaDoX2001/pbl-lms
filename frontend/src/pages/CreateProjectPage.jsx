@@ -229,7 +229,7 @@ const CreateProjectPage = () => {
 
             <Grid item xs={12} sm={4}>
               <FormControl fullWidth>
-                <InputLabel id="difficulty-label">المستوى</InputLabel>
+                <InputLabel id="difficulty-label" htmlFor="difficulty">المستوى</InputLabel>
                 <Select
                   id="difficulty"
                   name="difficulty"
@@ -292,7 +292,7 @@ const CreateProjectPage = () => {
 
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
-                <InputLabel id="isPublished-label">الحالة</InputLabel>
+                <InputLabel id="isPublished-label" htmlFor="isPublished">الحالة</InputLabel>
                 <Select
                   id="isPublished"
                   name="isPublished"
