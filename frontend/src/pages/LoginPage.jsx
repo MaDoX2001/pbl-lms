@@ -90,6 +90,7 @@ const LoginPage = () => {
         <form onSubmit={handleSubmit}>
           <TextField
             fullWidth
+            id="email"
             label="البريد الإلكتروني"
             name="email"
             type="email"
@@ -100,6 +101,7 @@ const LoginPage = () => {
           />
           <TextField
             fullWidth
+            id="password"
             label="كلمة المرور"
             name="password"
             type="password"

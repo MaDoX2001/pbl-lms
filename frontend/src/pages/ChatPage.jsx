@@ -641,6 +641,8 @@ const ChatPage = () => {
               <TextField
                 fullWidth
                 size="small"
+                id="conversation-search"
+                name="conversationSearch"
                 placeholder="بحث..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -774,6 +776,8 @@ const ChatPage = () => {
                   <TextField
                     fullWidth
                     size="small"
+                    id="in-chat-search"
+                    name="inChatSearch"
                     placeholder="ابحث في المحادثة..."
                     value={inChatSearch}
                     onChange={(e) => setInChatSearch(e.target.value)}
@@ -956,6 +960,8 @@ const ChatPage = () => {
                   fullWidth
                   multiline
                   maxRows={4}
+                  id="message-input"
+                  name="message"
                   value={messageText}
                   onChange={(e) => {
                     setMessageText(e.target.value);
@@ -1017,6 +1023,8 @@ const ChatPage = () => {
         <DialogContent>
           <TextField
             fullWidth
+            id="group-name"
+            name="groupName"
             label="اسم المجموعة"
             value={groupName}
             onChange={(e) => setGroupName(e.target.value)}
