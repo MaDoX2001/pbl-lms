@@ -188,6 +188,7 @@ const CreateProjectPage = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
+                id="project-title"
                 label="عنوان المشروع"
                 name="title"
                 value={formData.title}
@@ -199,6 +200,7 @@ const CreateProjectPage = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
+                id="project-short-description"
                 label="وصف مختصر"
                 name="shortDescription"
                 value={formData.shortDescription}
@@ -213,6 +215,7 @@ const CreateProjectPage = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
+                id="project-description"
                 label="الوصف التفصيلي"
                 name="description"
                 value={formData.description}
@@ -246,6 +249,7 @@ const CreateProjectPage = () => {
             <Grid item xs={12} sm={4}>
               <TextField
                 fullWidth
+                id="estimated-duration"
                 label="المدة التقديرية (ساعات)"
                 name="estimatedDuration"
                 type="number"
@@ -258,6 +262,7 @@ const CreateProjectPage = () => {
             <Grid item xs={12} sm={4}>
               <TextField
                 fullWidth
+                id="project-deadline"
                 label="الموعد النهائي"
                 name="deadline"
                 type="datetime-local"
@@ -272,6 +277,7 @@ const CreateProjectPage = () => {
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
+                id="project-points"
                 label="النقاط"
                 name="points"
                 type="number"
@@ -333,7 +339,9 @@ const CreateProjectPage = () => {
                 <Box key={index} sx={{ display: 'flex', gap: 1, mb: 2 }}>
                   <TextField
                     fullWidth
+                    id={`objective-${index}`}
                     label={`الهدف ${index + 1}`}
+                    name={`objective-${index}`}
                     value={objective}
                     onChange={(e) => handleObjectiveChange(index, e.target.value)}
                     disabled={loading}
@@ -362,6 +370,7 @@ const CreateProjectPage = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
+                id="learning-scenario"
                 label="السيناريو التعليمي للمشروع"
                 name="learningScenario"
                 value={formData.learningScenario}
@@ -377,6 +386,7 @@ const CreateProjectPage = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
+                id="teaching-strategy"
                 label="الاستراتيجية التعليمية المستخدمة"
                 name="teachingStrategy"
                 value={formData.teachingStrategy}
@@ -392,6 +402,7 @@ const CreateProjectPage = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
+                id="final-report-note"
                 label="ملاحظة التقرير النهائي"
                 name="finalReportNote"
                 value={formData.finalReportNote}
