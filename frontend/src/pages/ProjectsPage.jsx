@@ -59,6 +59,8 @@ const ProjectsPage = () => {
           <Grid item xs={12} md={4}>
             <TextField
               fullWidth
+              id="project-search"
+              name="search"
               placeholder="ابحث عن مشروع..."
               value={filters.search}
               onChange={(e) => handleFilterChange('search', e.target.value)}
@@ -73,8 +75,11 @@ const ProjectsPage = () => {
           </Grid>
           <Grid item xs={12} sm={4} md={2}>
             <FormControl fullWidth>
-              <InputLabel>المستوى</InputLabel>
+              <InputLabel id="difficulty-label">المستوى</InputLabel>
               <Select
+                labelId="difficulty-label"
+                id="difficulty-filter"
+                name="difficulty"
                 value={filters.difficulty}
                 onChange={(e) => handleFilterChange('difficulty', e.target.value)}
                 label="المستوى"
@@ -88,8 +93,11 @@ const ProjectsPage = () => {
           </Grid>
           <Grid item xs={12} sm={4} md={3}>
             <FormControl fullWidth>
-              <InputLabel>الترتيب</InputLabel>
+              <InputLabel id="sort-label">الترتيب</InputLabel>
               <Select
+                labelId="sort-label"
+                id="sort-filter"
+                name="sort"
                 value={filters.sort}
                 onChange={(e) => handleFilterChange('sort', e.target.value)}
                 label="الترتيب"
