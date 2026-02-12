@@ -16,6 +16,7 @@ yarn-error.log*
 !package-lock.json
 !tsconfig.json
 !vercel.json
+!scripts/*.json
 
 # IDE
 .vscode/

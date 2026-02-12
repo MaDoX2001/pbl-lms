@@ -1,0 +1,48 @@
+{
+  "phase": "group",
+  "sections": [
+    {
+      "name": "تصميم فكرة النظام",
+      "weight": 30,
+      "criteria": [
+        {
+          "name": "تحديد المدخل والمخرج",
+          "description": "وضوح تحديد Button كمدخل وLED كمخرج",
+          "maxScore": 15
+        },
+        {
+          "name": "منطق فكرة الحل",
+          "description": "مناسبة فكرة التحكم باستخدام الزر",
+          "maxScore": 15
+        }
+      ]
+    },
+    {
+      "name": "تنفيذ المحاكاة",
+      "weight": 40,
+      "criteria": [
+        {
+          "name": "صحة التوصيلات",
+          "description": "تنفيذ توصيل Button وLED بصورة صحيحة",
+          "maxScore": 20
+        },
+        {
+          "name": "استقرار عمل النظام",
+          "description": "عمل المحاكاة دون أخطاء",
+          "maxScore": 20
+        }
+      ]
+    },
+    {
+      "name": "المنتج النهائي",
+      "weight": 30,
+      "criteria": [
+        {
+          "name": "تحقيق متطلبات المشروع",
+          "description": "التزام النظام بوظيفة التشغيل والإيقاف",
+          "maxScore": 30
+        }
+      ]
+    }
+  ]
+}
