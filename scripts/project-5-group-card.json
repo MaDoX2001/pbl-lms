@@ -1,0 +1,48 @@
+{
+  "phase": "group",
+  "sections": [
+    {
+      "name": "تصميم منطق النظام",
+      "weight": 30,
+      "criteria": [
+        {
+          "name": "تحديد المدخل والمخرج",
+          "description": "وضوح تحديد Sensor / Display / Alert",
+          "maxScore": 15
+        },
+        {
+          "name": "منطق اتخاذ القرار",
+          "description": "مناسبة تحديد قيمة Threshold",
+          "maxScore": 15
+        }
+      ]
+    },
+    {
+      "name": "تنفيذ المحاكاة",
+      "weight": 40,
+      "criteria": [
+        {
+          "name": "صحة التوصيلات",
+          "description": "توصيل الحساس والعرض والتنبيه بصورة صحيحة",
+          "maxScore": 20
+        },
+        {
+          "name": "استقرار عمل النظام",
+          "description": "عمل المحاكاة دون أخطاء",
+          "maxScore": 20
+        }
+      ]
+    },
+    {
+      "name": "المنتج النهائي",
+      "weight": 30,
+      "criteria": [
+        {
+          "name": "صحة قراءة الحرارة والتنبيه",
+          "description": "استجابة النظام وفق قيمة الحد المحدد",
+          "maxScore": 30
+        }
+      ]
+    }
+  ]
+}
