@@ -1,0 +1,37 @@
+{
+  "phase": "individual_oral",
+  "sections": [
+    {
+      "name": "الأداء الفردي حسب الدور",
+      "weight": 60,
+      "criteria": [
+        {
+          "name": "تنفيذ مهام الدور",
+          "description": "إتقان الطالب لمسؤوليات دوره",
+          "maxScore": 30
+        },
+        {
+          "name": "المساهمة التقنية",
+          "description": "جودة المشاركة في البرمجة أو التوصيل",
+          "maxScore": 30
+        }
+      ]
+    },
+    {
+      "name": "التقييم الشفهي",
+      "weight": 40,
+      "criteria": [
+        {
+          "name": "وضوح الشرح",
+          "description": "شرح فكرة الاستشعار",
+          "maxScore": 20
+        },
+        {
+          "name": "تفسير منطق القرار",
+          "description": "تفسير العلاقة بين الإضاءة وتشغيل LED",
+          "maxScore": 20
+        }
+      ]
+    }
+  ]
+}

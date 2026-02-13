@@ -1,0 +1,48 @@
+{
+  "phase": "group",
+  "sections": [
+    {
+      "name": "تصميم منطق النظام الذكي",
+      "weight": 30,
+      "criteria": [
+        {
+          "name": "تحديد المدخل والمخرج",
+          "description": "وضوح تحديد LDR كمدخل وLED كمخرج",
+          "maxScore": 15
+        },
+        {
+          "name": "منطق اتخاذ القرار",
+          "description": "مناسبة شرط تشغيل/إيقاف LED",
+          "maxScore": 15
+        }
+      ]
+    },
+    {
+      "name": "تنفيذ المحاكاة",
+      "weight": 40,
+      "criteria": [
+        {
+          "name": "صحة توصيل LDR",
+          "description": "توصيل الحساس بصورة صحيحة",
+          "maxScore": 20
+        },
+        {
+          "name": "استقرار التشغيل",
+          "description": "عمل النظام دون أخطاء",
+          "maxScore": 20
+        }
+      ]
+    },
+    {
+      "name": "المنتج النهائي",
+      "weight": 30,
+      "criteria": [
+        {
+          "name": "صحة الاستجابة التلقائية",
+          "description": "تشغيل وإيقاف LED وفق شدة الإضاءة",
+          "maxScore": 30
+        }
+      ]
+    }
+  ]
+}
