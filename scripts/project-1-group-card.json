@@ -1,46 +1,68 @@
 {
+  "projectId": "698e61d1d287e2bd028d959d",
   "phase": "group",
+  "name": "بطاقة التقييم الجماعي - المشروع 1",
   "sections": [
     {
-      "name": "تصميم فكرة النظام",
+      "name": "تصميم النظام (System Design)",
       "weight": 30,
       "criteria": [
         {
-          "name": "تحديد المدخل والمخرج",
-          "description": "وضوح تحديد Button كمدخل وLED كمخرج",
-          "maxScore": 15
+          "name": "تحليل المشكلة",
+          "description": "وضوح فهم فكرة نظام التحكم (Button → LED)",
+          "maxScore": 10
         },
         {
-          "name": "منطق فكرة الحل",
-          "description": "مناسبة فكرة التحكم باستخدام الزر",
-          "maxScore": 15
+          "name": "تحديد المدخل والمخرج",
+          "description": "تحديد Button كمدخل و LED كمخرج بصورة صحيحة",
+          "maxScore": 10
+        },
+        {
+          "name": "منطق العمل",
+          "description": "صياغة منطق إذا / إذن بصورة صحيحة",
+          "maxScore": 10
         }
       ]
     },
     {
-      "name": "تنفيذ المحاكاة",
+      "name": "التوصيلات والمحاكاة (Hardware & Simulation)",
       "weight": 40,
       "criteria": [
         {
-          "name": "صحة التوصيلات",
-          "description": "تنفيذ توصيل Button وLED بصورة صحيحة",
-          "maxScore": 20
+          "name": "توصيل Button",
+          "description": "تنفيذ توصيل صحيح للزر داخل المحاكاة",
+          "maxScore": 15
         },
         {
-          "name": "استقرار عمل النظام",
-          "description": "عمل المحاكاة دون أخطاء",
-          "maxScore": 20
+          "name": "توصيل LED + مقاومة",
+          "description": "توصيل LED باستخدام مقاومة حماية بصورة صحيحة",
+          "maxScore": 15
+        },
+        {
+          "name": "سلامة المحاكاة",
+          "description": "تشغيل المحاكاة دون أخطاء توصيل",
+          "maxScore": 10
         }
       ]
     },
     {
-      "name": "المنتج النهائي",
+      "name": "البرمجة والتحكم (Programming & Logic)",
       "weight": 30,
       "criteria": [
         {
-          "name": "تحقيق متطلبات المشروع",
-          "description": "التزام النظام بوظيفة التشغيل والإيقاف",
-          "maxScore": 30
+          "name": "استخدام digitalRead",
+          "description": "قراءة حالة الزر بصورة صحيحة",
+          "maxScore": 10
+        },
+        {
+          "name": "استخدام digitalWrite",
+          "description": "التحكم في LED بصورة صحيحة",
+          "maxScore": 10
+        },
+        {
+          "name": "اختبار النظام",
+          "description": "عمل LED وفق الضغط على الزر",
+          "maxScore": 10
         }
       ]
     }
