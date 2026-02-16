@@ -1,14 +1,19 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { protect } = require('../middleware/auth.middleware');
+const { protect, authorize } = require('../middleware/auth.middleware');
 const {
   uploadCourseMaterial,
   getCourseMaterials,
   deleteCourseMaterial,
   createAssignment,
   getAssignments,
-  deleteAssignment
+  deleteAssignment,
+  uploadSupportResource,
+  getSupportResources,
+  getSupportResource,
+  deleteSupportResource,
+  rateSupportResource
 } = require('../controllers/resource.controller');
 
 // Configure multer for memory storage
@@ -29,5 +34,24 @@ router.delete('/:projectId/materials/:materialId', protect, deleteCourseMaterial
 router.post('/:projectId/assignments', protect, createAssignment);
 router.get('/:projectId/assignments', protect, getAssignments);
 router.delete('/:projectId/assignments/:assignmentId', protect, deleteAssignment);
+
+// ============================================================================
+// SUPPORT RESOURCES ROUTES (المصادر التعليمية العامة)
+// ============================================================================
+
+// Upload support resource - accessible to authenticated users
+router.post('/support/upload', protect, upload.single('file'), uploadSupportResource);
+
+// Get all support resources - public access
+router.get('/support', getSupportResources);
+
+// Get specific support resource - increment views
+router.get('/support/:id', getSupportResource);
+
+// Delete own support resource
+router.delete('/support/:id', protect, deleteSupportResource);
+
+// Rate a support resource
+router.put('/support/:id/rate', protect, rateSupportResource);
 
 module.exports = router;

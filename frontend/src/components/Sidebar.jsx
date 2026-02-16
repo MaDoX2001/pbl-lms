@@ -25,6 +25,7 @@ import GroupsIcon from '@mui/icons-material/Groups';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import SchoolIcon from '@mui/icons-material/School';
 import PeopleIcon from '@mui/icons-material/People';
+import BookmarkIcon from '@mui/icons-material/Bookmark';
 
 const DRAWER_WIDTH = 280;
 
@@ -46,6 +47,7 @@ const Sidebar = ({ open, onClose }) => {
       { to: '/arduino-simulator', icon: <CodeIcon />, label: 'محاكي Arduino' },
       { to: '/dashboard', icon: <DashboardIcon />, label: 'لوحة التحكم' },
       { to: '/chat', icon: <ChatIcon />, label: 'المحادثات' },
+      { to: '/resources', icon: <BookmarkIcon />, label: 'المصادر الداعمة' },
       { to: '/live-lectures', icon: <VideocamIcon />, label: 'المحاضرات المباشرة' }
     ];
 

@@ -224,3 +224,274 @@ function getFileTypeFromMime(mimeType) {
   if (mimeType.includes('document') || mimeType.includes('word')) return 'document';
   return 'other';
 }
+
+// ============================================================================
+// SUPPORT RESOURCES (رابط مصادر تعليمية عامة للطلاب والمعلمين)
+// ============================================================================
+
+// @desc    Upload a support resource
+// @route   POST /api/resources/support/upload
+// @access  Private (Student/Teacher/Admin)
+exports.uploadSupportResource = async (req, res) => {
+  try {
+    const { title, description, resourceType, category, difficulty, tags } = req.body;
+
+    if (!title || !resourceType) {
+      return res.status(400).json({
+        success: false,
+        message: 'العنوان ونوع المصدر مطلوبة'
+      });
+    }
+
+    // If file uploaded
+    let fileUrl = req.body.fileUrl;
+    let cloudinaryId = req.body.cloudinaryId;
+    let fileSize = req.body.fileSize;
+    let fileType = req.body.fileType;
+
+    if (req.file) {
+      const folder = 'pbl-lms/support-resources';
+      const uploadResult = await cloudinaryService.uploadFile(
+        req.file.buffer,
+        req.file.originalname,
+        folder
+      );
+      fileUrl = uploadResult.url;
+      cloudinaryId = uploadResult.fileId;
+      fileSize = uploadResult.size;
+      fileType = req.file.mimetype;
+    }
+
+    // For links (YouTube, external resources)
+    if (!fileUrl && req.body.externalUrl) {
+      fileUrl = req.body.externalUrl;
+    }
+
+    if (!fileUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'رابط الملف أو الملف المرفوع مطلوب'
+      });
+    }
+
+    // Find or create Resource model if not exists
+    const Resource = require('../models/Resource.model');
+    
+    const resource = await Resource.create({
+      title,
+      description,
+      resourceType,
+      category: category || 'أخرى',
+      difficulty: difficulty || 'متوسط',
+      fileUrl,
+      cloudinaryId,
+      fileSize,
+      fileType,
+      tags: tags ? (Array.isArray(tags) ? tags : tags.split(',').map(t => t.trim())) : [],
+      uploadedBy: req.user.id,
+      isApproved: req.user.role === 'admin' ? true : false
+    });
+
+    await resource.populate('uploadedBy', 'name avatar email');
+
+    res.status(201).json({
+      success: true,
+      message: 'تم رفع المصدر التعليمي بنجاح',
+      data: resource
+    });
+  } catch (error) {
+    console.error('Error uploading support resource:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في رفع المصدر',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get all support resources
+// @route   GET /api/resources/support
+// @access  Public
+exports.getSupportResources = async (req, res) => {
+  try {
+    const { category, resourceType, difficulty, search, sort } = req.query;
+    const Resource = require('../models/Resource.model');
+
+    let query = { isApproved: true, isPublished: true };
+
+    if (category && category !== 'all') {
+      query.category = category;
+    }
+
+    if (resourceType && resourceType !== 'all') {
+      query.resourceType = resourceType;
+    }
+
+    if (difficulty && difficulty !== 'all') {
+      query.difficulty = difficulty;
+    }
+
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { tags: { $in: [new RegExp(search, 'i')] } }
+      ];
+    }
+
+    let sortOption = { createdAt: -1 };
+    if (sort === 'popular') {
+      sortOption = { views: -1 };
+    }
+    if (sort === 'rated') {
+      sortOption = { 'rating.average': -1 };
+    }
+    if (sort === 'downloads') {
+      sortOption = { downloads: -1 };
+    }
+
+    const resources = await Resource.find(query)
+      .populate('uploadedBy', 'name avatar email')
+      .sort(sortOption)
+      .limit(50);
+
+    res.json({
+      success: true,
+      count: resources.length,
+      data: resources
+    });
+  } catch (error) {
+    console.error('Error fetching support resources:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في جلب المصادر',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get single support resource with view increment
+// @route   GET /api/resources/support/:id
+// @access  Public
+exports.getSupportResource = async (req, res) => {
+  try {
+    const Resource = require('../models/Resource.model');
+    const resource = await Resource.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { views: 1 } },
+      { new: true }
+    ).populate('uploadedBy', 'name avatar email');
+
+    if (!resource) {
+      return res.status(404).json({
+        success: false,
+        message: 'المصدر غير موجود'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: resource
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في جلب المصدر',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Delete my support resource
+// @route   DELETE /api/resources/support/:id
+// @access  Private
+exports.deleteSupportResource = async (req, res) => {
+  try {
+    const Resource = require('../models/Resource.model');
+    const resource = await Resource.findById(req.params.id);
+
+    if (!resource) {
+      return res.status(404).json({
+        success: false,
+        message: 'المصدر غير موجود'
+      });
+    }
+
+    // Check authorization
+    if (resource.uploadedBy.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'غير مصرح لك بحذف هذا المصدر'
+      });
+    }
+
+    // Delete from Cloudinary
+    if (resource.cloudinaryId) {
+      try {
+        await cloudinaryService.deleteFile(resource.cloudinaryId);
+      } catch (err) {
+        console.error('Error deleting from Cloudinary:', err);
+      }
+    }
+
+    await Resource.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: 'تم حذف المصدر بنجاح'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في حذف المصدر',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Rate support resource
+// @route   PUT /api/resources/support/:id/rate
+// @access  Private
+exports.rateSupportResource = async (req, res) => {
+  try {
+    const { rating } = req.body;
+    const Resource = require('../models/Resource.model');
+
+    if (!rating || rating < 0 || rating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'التقييم يجب أن يكون بين 0 و 5'
+      });
+    }
+
+    let resource = await Resource.findById(req.params.id);
+
+    if (!resource) {
+      return res.status(404).json({
+        success: false,
+        message: 'المصدر غير موجود'
+      });
+    }
+
+    // Update rating
+    const newAverage = (resource.rating.average * resource.rating.count + rating) / (resource.rating.count + 1);
+    resource.rating.average = Math.round(newAverage * 10) / 10;
+    resource.rating.count += 1;
+
+    resource = await resource.save();
+    await resource.populate('uploadedBy', 'name avatar email');
+
+    res.json({
+      success: true,
+      message: 'شكراً لتقييمك',
+      data: resource
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في حفظ التقييم',
+      error: error.message
+    });
+  }
+};
+

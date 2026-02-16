@@ -42,6 +42,7 @@ import AllUsersPage from './pages/AllUsersPage';
 import EvaluationPage from './pages/EvaluationPage';
 import GroupEvaluationPage from './pages/GroupEvaluationPage';
 import IndividualEvaluationPage from './pages/IndividualEvaluationPage';
+import ResourcesPage from './pages/ResourcesPage';
 
 // Import actions
 import { loadUser } from './redux/slices/authSlice';
@@ -165,6 +166,11 @@ function App() {
               <Route path="/chat" element={
                 <PrivateRoute>
                   <ChatPage />
+                </PrivateRoute>
+              } />
+              <Route path="/resources" element={
+                <PrivateRoute>
+                  <ResourcesPage />
                 </PrivateRoute>
               } />
               <Route path="/create-project" element={
