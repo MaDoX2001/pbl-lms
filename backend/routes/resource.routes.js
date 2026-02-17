@@ -39,8 +39,8 @@ router.delete('/:projectId/assignments/:assignmentId', protect, deleteAssignment
 // SUPPORT RESOURCES ROUTES (المصادر التعليمية العامة)
 // ============================================================================
 
-// Upload support resource - accessible to authenticated users
-router.post('/support/upload', protect, upload.single('file'), uploadSupportResource);
+// Upload support resource - teachers and admins only
+router.post('/support/upload', protect, authorize('teacher', 'admin'), upload.single('file'), uploadSupportResource);
 
 // Get all support resources - public access
 router.get('/support', getSupportResources);

@@ -167,7 +167,7 @@ const ResourcesPage = () => {
           اطلع على مكتبتنا من المصادر التعليمية. يمكنك البحث، التصفية، والتقييم، وتحميل المصادر
         </Typography>
         
-        {userRole && (
+        {userRole && (userRole === 'teacher' || userRole === 'admin') && (
           <Button
             variant="contained"
             startIcon={<CloudUploadIcon />}
