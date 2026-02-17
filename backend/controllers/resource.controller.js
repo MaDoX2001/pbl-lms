@@ -493,3 +493,36 @@ exports.rateSupportResource = async (req, res) => {
   }
 };
 
+// @desc    Increment download count for support resource
+// @route   PUT /api/resources/support/:id/download
+// @access  Public
+exports.downloadSupportResource = async (req, res) => {
+  try {
+    const Resource = require('../models/Resource.model');
+    const resource = await Resource.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { downloads: 1 } },
+      { new: true }
+    ).populate('uploadedBy', 'name avatar email');
+
+    if (!resource) {
+      return res.status(404).json({
+        success: false,
+        message: 'المصدر غير موجود'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'تم تسجيل التحميل',
+      data: resource
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في تسجيل التحميل',
+      error: error.message
+    });
+  }
+};
+

@@ -20,7 +20,8 @@ import {
   Download as DownloadIcon,
   Delete as DeleteIcon,
   CloudUpload as CloudUploadIcon,
-  Search as SearchIcon
+  Search as SearchIcon,
+  Visibility as VisibilityIcon
 } from '@mui/icons-material';
 import api from '../services/api';
 import SupportResourceUploadDialog from '../components/SupportResourceUploadDialog';
@@ -173,12 +174,16 @@ const ResourcesPage = () => {
             startIcon={<CloudUploadIcon />}
             onClick={() => setUploadDialogOpen(true)}
             sx={{ 
-              backgroundColor: '#1976d2',
+              backgroundColor: '#4caf50',
               color: 'white',
-              '&:hover': { backgroundColor: '#1565c0' }
+              fontWeight: 'bold',
+              '&:hover': { backgroundColor: '#388e3c' },
+              px: 3,
+              py: 1.5
             }}
+            size="large"
           >
-            رفع مصدر جديد
+            📤 رفع مصدر جديد
           </Button>
         )}
       </Box>
@@ -341,38 +346,52 @@ const ResourcesPage = () => {
                 </CardContent>
 
                 {/* Action Buttons */}
-                <Box sx={{ p: 2, borderTop: '1px solid #eee', display: 'flex', gap: 1, justifyContent: 'space-between' }}>
-                  <Tooltip title="تحميل">
-                    <IconButton
-                      size="small"
-                      color="primary"
-                      onClick={() => handleDownload(resource)}
-                    >
-                      <DownloadIcon />
-                    </IconButton>
-                  </Tooltip>
-
-                  <Tooltip title="تقييم">
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Rating
-                        size="small"
-                        onChange={(_, value) => handleRate(resource._id, value)}
-                      />
-                    </Box>
-                  </Tooltip>
-
-                  {userRole && localStorage.getItem('user') && 
-                    JSON.parse(localStorage.getItem('user')).id === resource.uploadedBy._id && (
-                    <Tooltip title="حذف">
+                <Box sx={{ p: 2, borderTop: '1px solid #eee', display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    {/* View Button */}
+                    <Tooltip title="عرض">
                       <IconButton
                         size="small"
-                        color="error"
-                        onClick={() => handleDelete(resource._id)}
+                        color="info"
+                        onClick={() => window.open(resource.fileUrl, '_blank')}
                       >
-                        <DeleteIcon />
+                        <VisibilityIcon />
                       </IconButton>
                     </Tooltip>
-                  )}
+
+                    {/* Download Button */}
+                    <Tooltip title="تحميل">
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => handleDownload(resource)}
+                      >
+                        <DownloadIcon />
+                      </IconButton>
+                    </Tooltip>
+
+                    {/* Delete Button - Only for owner */}
+                    {userRole && localStorage.getItem('user') && 
+                      JSON.parse(localStorage.getItem('user')).id === resource.uploadedBy._id && (
+                      <Tooltip title="حذف">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDelete(resource._id)}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </Box>
+
+                  {/* Rating */}
+                  <Tooltip title="تقييم">
+                    <Rating
+                      size="small"
+                      onChange={(_, value) => handleRate(resource._id, value)}
+                    />
+                  </Tooltip>
                 </Box>
               </Card>
             </Grid>

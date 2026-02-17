@@ -13,7 +13,8 @@ const {
   getSupportResources,
   getSupportResource,
   deleteSupportResource,
-  rateSupportResource
+  rateSupportResource,
+  downloadSupportResource
 } = require('../controllers/resource.controller');
 
 // Configure multer for memory storage
@@ -47,6 +48,9 @@ router.get('/support', getSupportResources);
 
 // Get specific support resource - increment views
 router.get('/support/:id', getSupportResource);
+
+// Download support resource - increment downloads
+router.put('/support/:id/download', downloadSupportResource);
 
 // Delete own support resource
 router.delete('/support/:id', protect, deleteSupportResource);
