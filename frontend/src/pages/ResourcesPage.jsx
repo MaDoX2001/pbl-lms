@@ -22,8 +22,8 @@ import {
   CloudUpload as CloudUploadIcon,
   Search as SearchIcon
 } from '@mui/icons-material';
-import api from '../../services/api';
-import SupportResourceUploadDialog from '../../components/SupportResourceUploadDialog';
+import api from '../services/api';
+import SupportResourceUploadDialog from '../components/SupportResourceUploadDialog';
 
 const ResourcesPage = () => {
   const [resources, setResources] = useState([]);
