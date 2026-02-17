@@ -235,9 +235,15 @@ function getFileTypeFromMime(mimeType) {
 // @access  Private (Student/Teacher/Admin)
 exports.uploadSupportResource = async (req, res) => {
   try {
+    console.log('=== UPLOAD RESOURCE DEBUG ===');
+    console.log('User:', req.user);
+    console.log('Body:', req.body);
+    console.log('File:', req.file ? { originalname: req.file.originalname, size: req.file.size, mimetype: req.file.mimetype } : 'No file');
+    
     const { title, description, resourceType, category, difficulty, tags } = req.body;
 
     if (!title || !resourceType) {
+      console.log('Missing title or resourceType');
       return res.status(400).json({
         success: false,
         message: 'العنوان ونوع المصدر مطلوبة'
@@ -251,16 +257,23 @@ exports.uploadSupportResource = async (req, res) => {
     let fileType = req.body.fileType;
 
     if (req.file) {
+      console.log('Uploading file to Cloudinary:', req.file.originalname);
       const folder = 'pbl-lms/support-resources';
-      const uploadResult = await cloudinaryService.uploadFile(
-        req.file.buffer,
-        req.file.originalname,
-        folder
-      );
-      fileUrl = uploadResult.url;
-      cloudinaryId = uploadResult.fileId;
-      fileSize = uploadResult.size;
-      fileType = req.file.mimetype;
+      try {
+        const uploadResult = await cloudinaryService.uploadFile(
+          req.file.buffer,
+          req.file.originalname,
+          folder
+        );
+        console.log('Cloudinary upload success:', uploadResult);
+        fileUrl = uploadResult.url;
+        cloudinaryId = uploadResult.fileId;
+        fileSize = uploadResult.size;
+        fileType = req.file.mimetype;
+      } catch (cloudError) {
+        console.error('Cloudinary upload error:', cloudError);
+        throw cloudError;
+      }
     }
 
     // For links (YouTube, external resources)
@@ -269,11 +282,16 @@ exports.uploadSupportResource = async (req, res) => {
     }
 
     if (!fileUrl) {
+      console.log('No fileUrl or externalUrl provided');
       return res.status(400).json({
         success: false,
         message: 'رابط الملف أو الملف المرفوع مطلوب'
       });
     }
+
+    console.log('Creating resource with:', {
+      title, resourceType, category, difficulty, uploadedBy: req.user.id, isApproved: req.user.role === 'admin'
+    });
 
     const resource = await Resource.create({
       title,
@@ -290,6 +308,8 @@ exports.uploadSupportResource = async (req, res) => {
       isApproved: req.user.role === 'admin' ? true : false
     });
 
+    console.log('Resource created:', resource._id);
+
     await resource.populate('uploadedBy', 'name avatar email');
 
     res.status(201).json({
@@ -298,11 +318,16 @@ exports.uploadSupportResource = async (req, res) => {
       data: resource
     });
   } catch (error) {
-    console.error('Error uploading support resource:', error);
+    console.error('=== ERROR UPLOADING SUPPORT RESOURCE ===');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('Full error:', JSON.stringify(error, null, 2));
+    
     res.status(500).json({
       success: false,
-      message: 'خطأ في رفع المصدر',
-      error: error.message
+      message: 'خطأ في رفع المصدر: ' + error.message,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
