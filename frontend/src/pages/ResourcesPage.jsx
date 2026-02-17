@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import {
   Container,
   Grid,
@@ -27,10 +28,15 @@ import api from '../services/api';
 import SupportResourceUploadDialog from '../components/SupportResourceUploadDialog';
 
 const ResourcesPage = () => {
+  // Get user from Redux
+  const reduxUser = useSelector(state => state.auth?.user);
+  
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [userRole, setUserRole] = useState(null);
+  const [debugInfo, setDebugInfo] = useState('');
   const [filters, setFilters] = useState({
     search: '',
     category: 'all',
@@ -39,7 +45,6 @@ const ResourcesPage = () => {
     sort: 'newest'
   });
   const [favorites, setFavorites] = useState([]);
-  const [userRole, setUserRole] = useState(null);
 
   const categories = [
     'all',
@@ -65,12 +70,26 @@ const ResourcesPage = () => {
 
   const difficulties = ['all', 'مبتدئ', 'متوسط', 'متقدم'];
 
-  // Load user role once when component mounts
+  // Load user role from Redux or localStorage
   useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem('user') || '{}');
-    console.log('User data from localStorage:', userData);
-    setUserRole(userData.role || null);
-  }, []);
+    // Try Redux first
+    let role = reduxUser?.role;
+    
+    // Fallback to localStorage
+    if (!role) {
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      role = userData?.role;
+    }
+    
+    console.log('=== RESOURCES PAGE DEBUG ===');
+    console.log('Redux User:', reduxUser);
+    console.log('LocalStorage User:', JSON.parse(localStorage.getItem('user') || '{}'));
+    console.log('Final Role:', role);
+    console.log('===========================');
+    
+    setUserRole(role || null);
+    setDebugInfo(`Role: ${role || 'none'}`);
+  }, [reduxUser]);
 
   // Fetch resources when filters change
   useEffect(() => {
@@ -175,31 +194,27 @@ const ResourcesPage = () => {
           اطلع على مكتبتنا من المصادر التعليمية. يمكنك البحث، التصفية، والتقييم، وتحميل المصادر
         </Typography>
         
-        {(() => {
-          const userData = JSON.parse(localStorage.getItem('user') || '{}');
-          const role = userData?.role;
-          if (role === 'teacher' || role === 'admin') {
-            return (
-              <Button
-                variant="contained"
-                startIcon={<CloudUploadIcon />}
-                onClick={() => setUploadDialogOpen(true)}
-                sx={{ 
-                  backgroundColor: '#4caf50',
-                  color: 'white',
-                  fontWeight: 'bold',
-                  '&:hover': { backgroundColor: '#388e3c' },
-                  px: 3,
-                  py: 1.5
-                }}
-                size="large"
-              >
-                📤 رفع مصدر جديد
-              </Button>
-            );
-          }
-          return null;
-        })()}
+        {debugInfo && <Alert severity="info" sx={{ mb: 2 }}>Debug: {debugInfo}</Alert>}
+        
+        {userRole && (userRole === 'teacher' || userRole === 'admin') && (
+          <Button
+            variant="contained"
+            startIcon={<CloudUploadIcon />}
+            onClick={() => setUploadDialogOpen(true)}
+            sx={{ 
+              backgroundColor: '#4caf50',
+              color: 'white',
+              fontWeight: 'bold',
+              '&:hover': { backgroundColor: '#388e3c' },
+              px: 3,
+              py: 1.5
+            }}
+            size="large"
+          >
+            📤 رفع مصدر جديد
+          </Button>
+        )}
+        {!userRole && <Alert severity="warning">لم يتم تحديد دورك - تحقق من تسجيل الدخول</Alert>}
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
@@ -386,13 +401,17 @@ const ResourcesPage = () => {
 
                     {/* Delete Button - Only for owner or admin */}
                     {(() => {
-                      const user = JSON.parse(localStorage.getItem('user') || '{}');
-                      const isOwner = user?.id && resource?.uploadedBy && (
-                        user.id === resource.uploadedBy._id || 
-                        user.id === resource.uploadedBy
+                      const reduxUserId = reduxUser?.id;
+                      const localUser = JSON.parse(localStorage.getItem('user') || '{}');
+                      const localUserId = localUser?.id;
+                      const userId = reduxUserId || localUserId;
+                      const userRole = reduxUser?.role || localUser?.role;
+                      
+                      const isOwner = userId && resource?.uploadedBy && (
+                        userId === resource.uploadedBy._id || 
+                        userId === resource.uploadedBy
                       );
-                      const isAdmin = user?.role === 'admin';
-                      console.log('Delete check - User:', user, 'Resource uploaded by:', resource?.uploadedBy, 'isOwner:', isOwner, 'isAdmin:', isAdmin);
+                      const isAdmin = userRole === 'admin';
                       
                       if (isOwner || isAdmin) {
                         return (
