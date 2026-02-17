@@ -65,9 +65,15 @@ const ResourcesPage = () => {
 
   const difficulties = ['all', 'مبتدئ', 'متوسط', 'متقدم'];
 
+  // Load user role once when component mounts
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem('user') || '{}');
-    setUserRole(userData.role);
+    console.log('User data from localStorage:', userData);
+    setUserRole(userData.role || null);
+  }, []);
+
+  // Fetch resources when filters change
+  useEffect(() => {
     fetchResources();
   }, [filters]);
 
@@ -84,6 +90,7 @@ const ResourcesPage = () => {
 
       const response = await api.get(`/resources/support?${params.toString()}`);
       setResources(response.data.data || []);
+      console.log('Resources fetched:', response.data.data);
       setError(null);
     } catch (err) {
       console.error('Error fetching resources:', err);
@@ -168,24 +175,31 @@ const ResourcesPage = () => {
           اطلع على مكتبتنا من المصادر التعليمية. يمكنك البحث، التصفية، والتقييم، وتحميل المصادر
         </Typography>
         
-        {userRole && (userRole === 'teacher' || userRole === 'admin') && (
-          <Button
-            variant="contained"
-            startIcon={<CloudUploadIcon />}
-            onClick={() => setUploadDialogOpen(true)}
-            sx={{ 
-              backgroundColor: '#4caf50',
-              color: 'white',
-              fontWeight: 'bold',
-              '&:hover': { backgroundColor: '#388e3c' },
-              px: 3,
-              py: 1.5
-            }}
-            size="large"
-          >
-            📤 رفع مصدر جديد
-          </Button>
-        )}
+        {(() => {
+          const userData = JSON.parse(localStorage.getItem('user') || '{}');
+          const role = userData?.role;
+          if (role === 'teacher' || role === 'admin') {
+            return (
+              <Button
+                variant="contained"
+                startIcon={<CloudUploadIcon />}
+                onClick={() => setUploadDialogOpen(true)}
+                sx={{ 
+                  backgroundColor: '#4caf50',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  '&:hover': { backgroundColor: '#388e3c' },
+                  px: 3,
+                  py: 1.5
+                }}
+                size="large"
+              >
+                📤 رفع مصدر جديد
+              </Button>
+            );
+          }
+          return null;
+        })()}
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
@@ -370,19 +384,31 @@ const ResourcesPage = () => {
                       </IconButton>
                     </Tooltip>
 
-                    {/* Delete Button - Only for owner */}
-                    {userRole && localStorage.getItem('user') && 
-                      JSON.parse(localStorage.getItem('user')).id === resource.uploadedBy._id && (
-                      <Tooltip title="حذف">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDelete(resource._id)}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
-                    )}
+                    {/* Delete Button - Only for owner or admin */}
+                    {(() => {
+                      const user = JSON.parse(localStorage.getItem('user') || '{}');
+                      const isOwner = user?.id && resource?.uploadedBy && (
+                        user.id === resource.uploadedBy._id || 
+                        user.id === resource.uploadedBy
+                      );
+                      const isAdmin = user?.role === 'admin';
+                      console.log('Delete check - User:', user, 'Resource uploaded by:', resource?.uploadedBy, 'isOwner:', isOwner, 'isAdmin:', isAdmin);
+                      
+                      if (isOwner || isAdmin) {
+                        return (
+                          <Tooltip title="حذف">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDelete(resource._id)}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </Tooltip>
+                        );
+                      }
+                      return null;
+                    })()}
                   </Box>
 
                   {/* Rating */}
