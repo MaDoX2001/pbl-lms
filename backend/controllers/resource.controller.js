@@ -1,4 +1,5 @@
 const Project = require('../models/Project.model');
+const Resource = require('../models/Resource.model');
 const cloudinaryService = require('../services/cloudinary.service');
 
 // @desc    Upload course material (teachers/admins only)
@@ -274,9 +275,6 @@ exports.uploadSupportResource = async (req, res) => {
       });
     }
 
-    // Find or create Resource model if not exists
-    const Resource = require('../models/Resource.model');
-    
     const resource = await Resource.create({
       title,
       description,
