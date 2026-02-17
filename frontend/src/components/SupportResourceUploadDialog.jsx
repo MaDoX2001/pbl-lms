@@ -45,8 +45,13 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
-      if (selectedFile.size > 100 * 1024 * 1024) {
-        setError('حجم الملف يجب أن لا يتجاوز 100 ميجابايت');
+      // Cloudinary free tier max is 10MB
+      const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+      
+      if (selectedFile.size > MAX_FILE_SIZE) {
+        const sizeMB = (selectedFile.size / (1024 * 1024)).toFixed(2);
+        setError(`حجم الملف كبير جداً (${sizeMB} MB). الحد الأقصى المسموح 10 ميجابايت. يرجى ضغط الملف أو استخدام رابط خارجي بدلاً من الرفع المباشر.`);
+        setFile(null);
         return;
       }
       setFile(selectedFile);
@@ -117,10 +122,12 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
         tags: ''
       });
       setFile(null);
+      setUploadProgress(0);
       onSuccess?.();
     } catch (err) {
       console.error('Error uploading resource:', err);
-      setError(err.response?.data?.message || 'حدث خطأ في رفع المصدر');
+      const errorMessage = err.response?.data?.message || err.message || 'حدث خطأ في رفع المصدر';
+      setError(errorMessage);
     } finally {
       setLoading(false);
       setUploadProgress(0);
@@ -156,7 +163,11 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
       </DialogTitle>
 
       <DialogContent sx={{ direction: 'rtl', mt: 2 }}>
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            <Typography variant="body2">{error}</Typography>
+          </Alert>
+        )}
 
         {uploadProgress > 0 && uploadProgress < 100 && (
           <Box sx={{ mb: 2 }}>
@@ -196,7 +207,7 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
           {/* File Upload */}
           <Box>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              📦 الملف (اختياري للروابط الخارجية)
+              📦 الملف (اختياري للروابط الخارجية) - الحد الأقصى 10 MB
             </Typography>
             <Button
               variant="outlined"
@@ -205,7 +216,7 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
               startIcon={<CloudUploadIcon />}
               disabled={loading}
             >
-              {file ? `✓ ${file.name}` : 'اختر ملفاً للرفع'}
+              {file ? `✓ ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)` : 'اختر ملفاً للرفع (أقل من 10 MB)'}
               <input
                 type="file"
                 hidden
@@ -214,6 +225,11 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
                 disabled={loading}
               />
             </Button>
+            {file && (
+              <Typography variant="caption" sx={{ mt: 1, display: 'block', color: '#666' }}>
+                حجم الملف: {(file.size / (1024 * 1024)).toFixed(2)} MB
+              </Typography>
+            )}
           </Box>
 
           {/* Resource Type */}
