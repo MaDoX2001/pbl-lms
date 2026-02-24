@@ -25,6 +25,7 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
     title: '',
     description: '',
     resourceType: '',
+    externalUrl: '',
     category: 'أخرى',
     difficulty: 'متوسط',
     tags: ''
@@ -75,8 +76,13 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
         return;
       }
 
+      if (!file && !formData.externalUrl.trim()) {
+        setError('يجب رفع ملف (أقل من 10MB) أو إضافة رابط خارجي (Google Drive / YouTube)');
+        return;
+      }
+
       if (!file && !formData.resourceType) {
-        setError('يجب اختيار نوع المصدر أو رفع ملف');
+        setError('عند استخدام رابط خارجي فقط، اختر نوع المصدر (يفضل: رابط خارجي)');
         return;
       }
 
@@ -90,13 +96,15 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
       uploadFormData.append('category', formData.category);
       uploadFormData.append('difficulty', formData.difficulty);
       uploadFormData.append('tags', formData.tags);
+      uploadFormData.append('externalUrl', formData.externalUrl.trim());
 
       if (file) {
         uploadFormData.append('file', file);
         const detectedType = detectResourceType(file);
         uploadFormData.append('resourceType', detectedType);
       } else {
-        uploadFormData.append('resourceType', formData.resourceType);
+        uploadFormData.append('resourceType', formData.resourceType || 'link');
+        uploadFormData.append('fileUrl', formData.externalUrl.trim());
       }
 
       const config = {
@@ -117,6 +125,7 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
         title: '',
         description: '',
         resourceType: '',
+        externalUrl: '',
         category: 'أخرى',
         difficulty: 'متوسط',
         tags: ''
@@ -231,6 +240,18 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
               </Typography>
             )}
           </Box>
+
+          {/* External URL */}
+          <TextField
+            fullWidth
+            label="رابط خارجي (بديل للملف الكبير)"
+            name="externalUrl"
+            value={formData.externalUrl}
+            onChange={handleChange}
+            placeholder="مثال: رابط Google Drive أو YouTube"
+            helperText="إذا كان الملف أكبر من 10MB، ارفعه على Google Drive أو YouTube ثم ضع الرابط هنا"
+            disabled={loading}
+          />
 
           {/* Resource Type */}
           <FormControl fullWidth disabled={loading}>
