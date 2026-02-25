@@ -19,6 +19,7 @@ import {
   Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { stepConnectorClasses } from '@mui/material/StepConnector';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const ColorlibConnector = styled(StepConnector)(({ theme }) => ({
   [`&.${stepConnectorClasses.alternativeLabel}`]: {
@@ -94,6 +95,7 @@ const EvaluationProgressBar = ({
   status = {}, 
   isTeamProject = true 
 }) => {
+  const { t } = useAppSettings();
   const {
     phase1Complete = false,
     phase2Complete = false,
@@ -109,40 +111,40 @@ const EvaluationProgressBar = ({
   else if (phase1Complete) activeStep = 1;
 
   const steps = isTeamProject ? [
-    { label: 'تقييم جماعي', icon: 1 },
-    { label: 'تقييم فردي', icon: 2 },
-    { label: 'النتيجة النهائية', icon: 3 }
+    { label: t('groupEvaluationTitleShort'), icon: 1 },
+    { label: t('individualEvaluationTitleShort'), icon: 2 },
+    { label: t('finalResult'), icon: 3 }
   ] : [
-    { label: 'تقييم فردي', icon: 2 },
-    { label: 'النتيجة النهائية', icon: 3 }
+    { label: t('individualEvaluationTitleShort'), icon: 2 },
+    { label: t('finalResult'), icon: 3 }
   ];
 
   const getStatusChip = () => {
     if (retry) {
-      return <Chip label="إعادة محاولة" color="warning" size="small" icon={<RefreshIcon />} />;
+      return <Chip label={t('retry')} color="warning" size="small" icon={<RefreshIcon />} />;
     }
     if (finalComplete) {
       return <Chip 
-        label={finalStatus === 'passed' ? 'نجح' : 'لم ينجح'} 
+        label={finalStatus === 'passed' ? t('pass') : t('fail')} 
         color={finalStatus === 'passed' ? 'success' : 'error'} 
         size="small" 
         icon={finalStatus === 'passed' ? <CheckCircleIcon /> : undefined}
       />;
     }
     if (phase2Complete) {
-      return <Chip label="جاري الانتظار" color="info" size="small" icon={<PendingIcon />} />;
+      return <Chip label={t('waitingStatus')} color="info" size="small" icon={<PendingIcon />} />;
     }
     if (phase1Complete) {
-      return <Chip label="المرحلة الثانية" color="primary" size="small" />;
+      return <Chip label={t('phaseTwo')} color="primary" size="small" />;
     }
-    return <Chip label="المرحلة الأولى" color="default" size="small" />;
+    return <Chip label={t('phaseOne')} color="default" size="small" />;
   };
 
   return (
     <Box sx={{ width: '100%', py: 2 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="subtitle2" color="text.secondary">
-          حالة التقييم
+          {t('evaluationStatusTitle')}
         </Typography>
         {getStatusChip()}
       </Box>

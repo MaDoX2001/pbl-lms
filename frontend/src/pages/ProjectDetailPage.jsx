@@ -192,16 +192,16 @@ const ProjectDetailPage = () => {
   };
 
   const handleDeleteProject = async () => {
-    if (!window.confirm('هل أنت متأكد من حذف هذا المشروع؟ لا يمكن التراجع عن هذا الإجراء.')) {
+    if (!window.confirm(t('confirmDeleteProject'))) {
       return;
     }
 
     try {
       await api.delete(`/projects/${id}`);
-      toast.success('تم حذف المشروع بنجاح');
+      toast.success(t('projectDeletedSuccess'));
       window.location.href = '/projects';
     } catch (error) {
-      toast.error(error.response?.data?.message || 'فشل حذف المشروع');
+      toast.error(error.response?.data?.message || t('projectDeleteFailed'));
       console.error('Delete project error:', error);
     }
   };
@@ -209,11 +209,11 @@ const ProjectDetailPage = () => {
   const handleSaveTeamsLink = async () => {
     try {
       await api.put(`/projects/${id}`, { teamsLink });
-      toast.success('تم حفظ رابط Teams بنجاح');
+      toast.success(t('teamsLinkSavedSuccess'));
       setTeamsLinkDialogOpen(false);
       dispatch(fetchProjectById(id));
     } catch (error) {
-      toast.error('فشل حفظ رابط Teams');
+      toast.error(t('teamsLinkSaveFailed'));
     }
   };
 
@@ -244,7 +244,7 @@ const ProjectDetailPage = () => {
 
   const handleRegisterTeam = async () => {
     if (selectedTeams.length === 0) {
-      toast.error('يرجى اختيار فريق واحد على الأقل');
+      toast.error(t('selectAtLeastOneTeam'));
       return;
     }
 
@@ -389,11 +389,11 @@ const ProjectDetailPage = () => {
         <Box sx={{ display: 'flex', gap: 3, alignItems: 'center' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <AccessTimeIcon />
-            <span>{project.estimatedDuration} ساعة</span>
+            <span>{project.estimatedDuration} {t('hour')}</span>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <CodeIcon />
-            <span>{project.points} نقطة</span>
+            <span>{project.points} {t('points')}</span>
           </Box>
         </Box>
       </Paper>
@@ -491,16 +491,16 @@ const ProjectDetailPage = () => {
             {isAuthenticated ? (
               isEnrolled ? (
                 <Button variant="contained" fullWidth size="large" disabled>
-                  مسجل بالفعل
+                  {t('alreadyEnrolled')}
                 </Button>
               ) : (
                 <Button variant="contained" fullWidth size="large" onClick={handleEnroll}>
-                  التسجيل في المشروع
+                  {t('enrollInProject')}
                 </Button>
               )
             ) : (
               <Button variant="contained" fullWidth size="large" href="/login">
-                سجل الدخول للتسجيل
+                {t('loginToEnroll')}
               </Button>
             )}
 
@@ -516,7 +516,7 @@ const ProjectDetailPage = () => {
                   onClick={handleJoinTeams}
                   sx={{ mb: 1 }}
                 >
-                  انضم للمحاضرة المباشرة
+                  {t('joinLiveLecture')}
                 </Button>
               </>
             )}
@@ -534,7 +534,7 @@ const ProjectDetailPage = () => {
                   }}
                   sx={{ mb: 1 }}
                 >
-                  {project.teamsLink ? 'تعديل رابط Teams' : 'إضافة رابط Teams'}
+                  {project.teamsLink ? t('editTeamsLink') : t('addTeamsLink')}
                 </Button>
               </>
             )}
@@ -550,7 +550,7 @@ const ProjectDetailPage = () => {
                   startIcon={<GroupsIcon />}
                   onClick={handleOpenTeamRegister}
                 >
-                  تسجيل فريق في المشروع
+                  {t('registerTeamInProject')}
                 </Button>
               </>
             )}
@@ -566,7 +566,7 @@ const ProjectDetailPage = () => {
                   startIcon={<DeleteIcon />}
                   onClick={handleDeleteProject}
                 >
-                  حذف المشروع
+                  {t('deleteProject')}
                 </Button>
               </>
             )}
@@ -577,7 +577,7 @@ const ProjectDetailPage = () => {
             {project.instructor && (
               <Box>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                  المدرس
+                  {t('teacher')}
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                   <Avatar src={project.instructor.avatar} />
@@ -588,13 +588,13 @@ const ProjectDetailPage = () => {
 
             {/* Stats */}
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              الإحصائيات
+              {t('stats')}
             </Typography>
             <Typography variant="body2" paragraph>
-              عدد الطلاب المسجلين: {project.enrolledStudents?.length || 0}
+              {t('enrolledStudentsCount', { count: project.enrolledStudents?.length || 0 })}
             </Typography>
             <Typography variant="body2">
-              أكمل المشروع: {project.completedBy?.length || 0}
+              {t('completedCount', { count: project.completedBy?.length || 0 })}
             </Typography>
           </Paper>
         </Grid>
@@ -603,14 +603,14 @@ const ProjectDetailPage = () => {
       {/* Course Materials Section */}
       <Paper sx={{ p: 3, mt: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">المواد التعليمية</Typography>
+          <Typography variant="h6">{t('courseMaterials')}</Typography>
           {(user?.role === 'teacher' || user?.role === 'admin') && (
             <Button
               variant="contained"
               startIcon={<CloudUploadIcon />}
               onClick={() => setUploadDialogOpen(true)}
             >
-              تحميل مادة
+              {t('uploadMaterial')}
             </Button>
           )}
         </Box>
@@ -622,7 +622,7 @@ const ProjectDetailPage = () => {
           </Box>
         ) : materials.length === 0 ? (
           <Typography color="text.secondary" align="center" py={3}>
-            لا توجد مواد تعليمية حتى الآن
+            {t('noCourseMaterialsYet')}
           </Typography>
         ) : (
           <Grid container spacing={2}>
@@ -653,7 +653,7 @@ const ProjectDetailPage = () => {
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      عرض/تحميل
+                      {t('viewOrDownload')}
                     </Button>
                     {(user?.role === 'teacher' || user?.role === 'admin') && (
                       <IconButton
@@ -675,14 +675,14 @@ const ProjectDetailPage = () => {
       {/* Assignments Section */}
       <Paper sx={{ p: 3, mt: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">الواجبات والمهام</Typography>
+          <Typography variant="h6">{t('assignmentsTasks')}</Typography>
           {(user?.role === 'teacher' || user?.role === 'admin') && (
             <Button
               variant="contained"
               startIcon={<AssignmentIcon />}
               onClick={() => setAssignmentDialogOpen(true)}
             >
-              إنشاء مهمة
+              {t('createAssignment')}
             </Button>
           )}
         </Box>
@@ -694,7 +694,7 @@ const ProjectDetailPage = () => {
           </Box>
         ) : assignments.length === 0 ? (
           <Typography color="text.secondary" align="center" py={3}>
-            لا توجد مهام حتى الآن
+            {t('noAssignmentsYet')}
           </Typography>
         ) : (
           <Grid container spacing={2}>
@@ -719,19 +719,19 @@ const ProjectDetailPage = () => {
                       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
                         {assignment.dueDate && (
                           <Chip
-                            label={`الموعد: ${new Date(assignment.dueDate).toLocaleDateString('ar-SA')}`}
+                            label={t('dueDateWithValue', { date: new Date(assignment.dueDate).toLocaleDateString('ar-SA') })}
                             size="small"
                             color={isOverdue ? 'error' : 'default'}
                           />
                         )}
                         <Chip
-                          label={`الدرجة: ${assignment.maxScore}`}
+                          label={t('scoreWithValue', { score: assignment.maxScore })}
                           size="small"
                           color="primary"
                         />
                         {submission && (
                           <Chip
-                            label={submission.status === 'graded' ? `تم التقييم: ${submission.grade?.score}` : 'تم التسليم'}
+                            label={submission.status === 'graded' ? t('gradedWithValue', { score: submission.grade?.score }) : t('submitted')}
                             size="small"
                             color={submission.status === 'graded' ? 'success' : 'info'}
                           />
@@ -746,7 +746,7 @@ const ProjectDetailPage = () => {
                           onClick={() => handleSubmitHomework(assignment)}
                           disabled={isOverdue && !assignment.allowLateSubmission}
                         >
-                          تسليم الواجب
+                          {t('submitHomework')}
                         </Button>
                       )}
                       {user?.role === 'student' && submission && (
@@ -756,12 +756,12 @@ const ProjectDetailPage = () => {
                           startIcon={<DownloadIcon />}
                           onClick={() => handleDownloadSubmission(submission._id, submission.fileName)}
                         >
-                          تحميل التسليم
+                          {t('downloadSubmission')}
                         </Button>
                       )}
                       {(user?.role === 'teacher' || user?.role === 'admin') && (
                         <>
-                          <Button size="small">عرض التسليمات</Button>
+                          <Button size="small">{t('viewSubmissions')}</Button>
                           <IconButton
                             size="small"
                             color="error"
@@ -814,29 +814,29 @@ const ProjectDetailPage = () => {
 
       {/* Teams Link Dialog */}
       <Dialog open={teamsLinkDialogOpen} onClose={() => setTeamsLinkDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{project.teamsLink ? 'تعديل رابط Microsoft Teams' : 'إضافة رابط Microsoft Teams'}</DialogTitle>
+        <DialogTitle>{project.teamsLink ? t('editMicrosoftTeamsLink') : t('addMicrosoftTeamsLink')}</DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
-            label="رابط Teams"
+            label={t('teamsLinkLabel')}
             value={teamsLink}
             onChange={(e) => setTeamsLink(e.target.value)}
             placeholder="https://teams.microsoft.com/..."
             sx={{ mt: 2 }}
-            helperText="الصق رابط اجتماع Microsoft Teams هنا"
+            helperText={t('teamsLinkHelper')}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setTeamsLinkDialogOpen(false)}>إلغاء</Button>
+          <Button onClick={() => setTeamsLinkDialogOpen(false)}>{t('cancel')}</Button>
           <Button onClick={handleSaveTeamsLink} variant="contained">
-            حفظ
+            {t('save')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Team Registration Dialog */}
       <Dialog open={teamRegisterDialogOpen} onClose={() => setTeamRegisterDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>تسجيل فرق في المشروع</DialogTitle>
+        <DialogTitle>{t('registerTeamsInProject')}</DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <FormControlLabel
@@ -846,7 +846,7 @@ const ProjectDetailPage = () => {
                   onChange={(e) => handleSelectAllTeams(e.target.checked)}
                 />
               }
-              label="تسجيل جميع الفرق"
+              label={t('registerAllTeams')}
             />
             <Autocomplete
               multiple
@@ -856,13 +856,13 @@ const ProjectDetailPage = () => {
                 setSelectedTeams(newValue);
                 setSelectAllTeams(newValue.length === teams.length && teams.length > 0);
               }}
-              getOptionLabel={(option) => `${option.name} (${option.members?.length || 0} أعضاء)`}
+              getOptionLabel={(option) => `${option.name} (${option.members?.length || 0} ${t('members')})`}
               isOptionEqualToValue={(option, value) => option._id === value._id}
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label="اختر الفرق"
-                  placeholder="ابحث عن فريق..."
+                  label={t('selectTeams')}
+                  placeholder={t('searchTeam')}
                 />
               )}
               renderTags={(value, getTagProps) =>
@@ -878,14 +878,14 @@ const ProjectDetailPage = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setTeamRegisterDialogOpen(false)}>إلغاء</Button>
+          <Button onClick={() => setTeamRegisterDialogOpen(false)}>{t('cancel')}</Button>
           <Button 
             onClick={handleRegisterTeam} 
             variant="contained" 
             color="secondary"
             disabled={selectedTeams.length === 0}
           >
-            تسجيل {selectedTeams.length > 0 && `(${selectedTeams.length})`}
+            {t('register')} {selectedTeams.length > 0 && `(${selectedTeams.length})`}
           </Button>
         </DialogActions>
       </Dialog>

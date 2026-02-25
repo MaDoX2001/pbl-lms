@@ -14,8 +14,10 @@ import {
 } from '@mui/material';
 import { toast } from 'react-toastify';
 import api from '../services/api';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const CreateAssignmentDialog = ({ open, onClose, projectId, onSuccess }) => {
+  const { t } = useAppSettings();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -59,11 +61,11 @@ const CreateAssignmentDialog = ({ open, onClose, projectId, onSuccess }) => {
 
     try {
       await api.post(`/resources/${projectId}/assignments`, formData);
-      toast.success('تم إنشاء المهمة بنجاح');
+      toast.success(t('createAssignmentSuccess'));
       onSuccess();
       handleClose();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'حدث خطأ أثناء إنشاء المهمة');
+      toast.error(error.response?.data?.message || t('createAssignmentError'));
     } finally {
       setLoading(false);
     }
@@ -85,12 +87,12 @@ const CreateAssignmentDialog = ({ open, onClose, projectId, onSuccess }) => {
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>إنشاء مهمة جديدة</DialogTitle>
+      <DialogTitle>{t('createNewAssignment')}</DialogTitle>
       <form onSubmit={handleSubmit}>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField
-              label="عنوان المهمة"
+              label={t('assignmentTitle')}
               name="title"
               value={formData.title}
               onChange={handleChange}
@@ -99,7 +101,7 @@ const CreateAssignmentDialog = ({ open, onClose, projectId, onSuccess }) => {
             />
 
             <TextField
-              label="الوصف"
+              label={t('description')}
               name="description"
               value={formData.description}
               onChange={handleChange}
@@ -109,7 +111,7 @@ const CreateAssignmentDialog = ({ open, onClose, projectId, onSuccess }) => {
             />
 
             <TextField
-              label="تاريخ التسليم"
+              label={t('dueDate')}
               name="dueDate"
               type="datetime-local"
               value={formData.dueDate}
@@ -120,7 +122,7 @@ const CreateAssignmentDialog = ({ open, onClose, projectId, onSuccess }) => {
             />
 
             <TextField
-              label="الدرجة القصوى"
+              label={t('maxScore')}
               name="maxScore"
               type="number"
               value={formData.maxScore}
@@ -131,28 +133,28 @@ const CreateAssignmentDialog = ({ open, onClose, projectId, onSuccess }) => {
             />
 
             <TextField
-              label="الحد الأقصى لحجم الملف (بايت)"
+              label={t('maxFileSizeBytes')}
               name="maxFileSize"
               type="number"
               value={formData.maxFileSize}
               onChange={handleChange}
               required
               fullWidth
-              helperText={`${(formData.maxFileSize / 1024 / 1024).toFixed(2)} ميجابايت`}
+              helperText={`${(formData.maxFileSize / 1024 / 1024).toFixed(2)} ${t('megabytes')}`}
               inputProps={{ min: 1024 }}
             />
 
             <Box>
               <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
                 <TextField
-                  label="إضافة نوع ملف"
+                  label={t('addFileType')}
                   value={newFileType}
                   onChange={(e) => setNewFileType(e.target.value.toLowerCase())}
                   size="small"
-                  placeholder="مثال: pdf"
+                  placeholder={t('examplePdf')}
                 />
                 <Button onClick={handleAddFileType} variant="outlined">
-                  إضافة
+                  {t('add')}
                 </Button>
               </Box>
               <Stack direction="row" spacing={1} flexWrap="wrap">
@@ -176,14 +178,14 @@ const CreateAssignmentDialog = ({ open, onClose, projectId, onSuccess }) => {
                   onChange={handleChange}
                 />
               }
-              label="السماح بالتسليم المتأخر"
+              label={t('allowLateSubmission')}
             />
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClose}>إلغاء</Button>
+          <Button onClick={handleClose}>{t('cancel')}</Button>
           <Button type="submit" variant="contained" disabled={loading}>
-            {loading ? 'جاري الإنشاء...' : 'إنشاء'}
+            {loading ? t('creating') : t('create')}
           </Button>
         </DialogActions>
       </form>
