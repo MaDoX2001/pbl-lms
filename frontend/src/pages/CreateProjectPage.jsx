@@ -40,16 +40,9 @@ const CreateProjectPage = () => {
     objectives: [''],
     estimatedDuration: '',
     deadline: '',
-    learningScenario: `1. يبدأ المتعلم بقراءة وصف المشكلة التعليمية لفهم التحدي المطلوب
-2. يراجع مصادر التعلم الرقمية المرتبطة بالمشروع
-3. يخطط لحل المشكلة من خلال تصميم الفكرة المبدئية للنظام
-4. ينفذ الكود البرمجي باستخدام محاكي Arduino
-5. يختبر النظام ويجري التعديلات اللازمة
-6. يشارك في مناقشة مرحلية مع زملائه لمتابعة تقدم المشروع وتبادل الآراء
-7. يسلّم تقرير المشروع النهائي وفق النموذج المرفق`,
-    teachingStrategy: `1. التعلم القائم على المشروعات
-2. التعلم التعاوني`,
-    finalReportNote: 'يقوم المتعلم بإعداد تقرير شامل عن المشروع باستخدام النموذج المرفق ويُعد هذا التقرير هو المنتج النهائي للمشروع',
+    learningScenario: t('createProjectDefaultLearningScenario'),
+    teachingStrategy: t('teachingStrategyPlaceholder'),
+    finalReportNote: t('finalReportNotePlaceholder'),
     points: 100,
     isPublished: false,
     showObjectives: true
@@ -67,13 +60,13 @@ const CreateProjectPage = () => {
   ];
 
   const categories = [
-    { value: 'web', label: 'تطوير ويب' },
-    { value: 'mobile', label: 'تطبيقات جوال' },
-    { value: 'desktop', label: 'تطبيقات سطح المكتب' },
-    { value: 'data-science', label: 'علم البيانات' },
-    { value: 'ai-ml', label: 'ذكاء اصطناعي' },
-    { value: 'game-dev', label: 'تطوير الألعاب' },
-    { value: 'other', label: 'أخرى' }
+    { value: 'web', label: t('categoryWebDev') },
+    { value: 'mobile', label: t('categoryMobileApps') },
+    { value: 'desktop', label: t('categoryDesktopApps') },
+    { value: 'data-science', label: t('categoryDataScience') },
+    { value: 'ai-ml', label: t('categoryAiMl') },
+    { value: 'game-dev', label: t('categoryGameDev') },
+    { value: 'other', label: t('catOther') }
   ];
 
   const handleChange = (e) => {
@@ -142,7 +135,7 @@ const CreateProjectPage = () => {
               sections: individualCard.sections
             });
           }
-          toast.success('تم إنشاء المشروع وبطاقات الملاحظات بنجاح');
+          toast.success(t('projectAndCardsCreatedSuccess'));
         } catch (cardError) {
           console.error('Error saving observation cards:', cardError);
           toast.warning(t('projectCreatedButCardsFailed'));
@@ -338,7 +331,7 @@ const CreateProjectPage = () => {
                   {t('writeBehavioralObjectives')}
                 </Typography>
                 <Typography variant="body2">
-                  <strong>مثال:</strong> أن يكتب الطالب برنامجًا للأردوينو لقراءة قيمة حساس وعرضها عبر المنفذ التسلسلي.
+                  <strong>{t('exampleLabel')}</strong> {t('behavioralObjectiveExample')}
                 </Typography>
               </Alert>
               {formData.objectives.map((objective, index) => (
@@ -346,12 +339,12 @@ const CreateProjectPage = () => {
                   <TextField
                     fullWidth
                     id={`objective-${index}`}
-                    label={`الهدف ${index + 1}`}
+                    label={t('objectiveWithNumber', { number: index + 1 })}
                     name={`objective-${index}`}
                     value={objective}
                     onChange={(e) => handleObjectiveChange(index, e.target.value)}
                     disabled={loading}
-                    placeholder="مثال: أن يتمكن الطلاب من تصميم وتطوير..."
+                    placeholder={t('projectObjectivePlaceholder')}
                     multiline
                     rows={2}
                   />
@@ -384,7 +377,7 @@ const CreateProjectPage = () => {
                 disabled={loading}
                 multiline
                 rows={8}
-                placeholder="1. يبدأ المتعلم بقراءة وصف المشكلة التعليمية لفهم التحدي المطلوب&#10;2. يراجع مصادر التعلم الرقمية المرتبطة بالمشروع&#10;3. يخطط لحل المشكلة من خلال تصميم الفكرة المبدئية للنظام&#10;..."
+                placeholder={t('learningScenarioPlaceholder')}
                 helperText={t('learningScenarioHelper')}
               />
             </Grid>
@@ -400,7 +393,7 @@ const CreateProjectPage = () => {
                 disabled={loading}
                 multiline
                 rows={3}
-                placeholder="1. التعلم القائم على المشروعات&#10;2. التعلم التعاوني"
+                placeholder={t('teachingStrategyPlaceholder')}
                 helperText={t('teachingStrategyHelper')}
               />
             </Grid>
@@ -416,7 +409,7 @@ const CreateProjectPage = () => {
                 disabled={loading}
                 multiline
                 rows={2}
-                placeholder="يقوم المتعلم بإعداد تقرير شامل عن المشروع باستخدام النموذج المرفق ويُعد هذا التقرير هو المنتج النهائي للمشروع"
+                placeholder={t('finalReportNotePlaceholder')}
                 helperText={t('finalReportNoteHelper')}
               />
             </Grid>

@@ -40,6 +40,7 @@ import {
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../services/api';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 /**
  * UserProfilePage Component
@@ -53,6 +54,7 @@ const UserProfilePage = () => {
   const { userId } = useParams();
   const navigate = useNavigate();
   const { user: currentUser } = useSelector((state) => state.auth);
+  const { t, language } = useAppSettings();
 
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState({
@@ -91,14 +93,14 @@ const UserProfilePage = () => {
       setLoading(false);
     } catch (err) {
       setLoading(false);
-      setError(err.response?.data?.message || 'فشل تحميل الملف الشخصي');
+      setError(err.response?.data?.message || t('profileLoadFailed'));
       toast.error(error);
     }
   };
 
   const handleSendMessage = async () => {
     if (!messageText.trim()) {
-      toast.error('يرجى كتابة رسالة');
+      toast.error(t('pleaseWriteMessage'));
       return;
     }
 
@@ -114,14 +116,14 @@ const UserProfilePage = () => {
         type: 'text'
       });
 
-      toast.success('تم إرسال الرسالة بنجاح');
+      toast.success(t('messageSentSuccess'));
       setMessageDialogOpen(false);
       setMessageText('');
       
       // Navigate to chat page
       navigate('/chat');
     } catch (err) {
-      toast.error('فشل إرسال الرسالة');
+      toast.error(t('sendMessageFailed'));
       console.error(err);
     } finally {
       setSendingMessage(false);
@@ -130,9 +132,9 @@ const UserProfilePage = () => {
 
   const getRoleBadge = (role) => {
     const roleConfig = {
-      student: { label: 'طالب', color: 'info' },
-      teacher: { label: 'معلم', color: 'warning' },
-      admin: { label: 'مسؤول', color: 'error' }
+      student: { label: t('student'), color: 'info' },
+      teacher: { label: t('teacher'), color: 'warning' },
+      admin: { label: t('adminRole'), color: 'error' }
     };
     return roleConfig[role] || { label: role, color: 'default' };
   };
@@ -153,7 +155,7 @@ const UserProfilePage = () => {
           onClick={() => navigate(-1)}
           sx={{ mb: 2 }}
         >
-          العودة
+          {t('back')}
         </Button>
         <Alert severity="error">{error}</Alert>
       </Container>
@@ -168,9 +170,9 @@ const UserProfilePage = () => {
           onClick={() => navigate(-1)}
           sx={{ mb: 2 }}
         >
-          العودة
+          {t('back')}
         </Button>
-        <Alert severity="warning">لم يتم العثور على المستخدم</Alert>
+        <Alert severity="warning">{t('userNotFound')}</Alert>
       </Container>
     );
   }
@@ -182,7 +184,7 @@ const UserProfilePage = () => {
         onClick={() => navigate(-1)}
         sx={{ mb: 2 }}
       >
-        العودة
+        {t('back')}
       </Button>
 
       {/* Profile Header */}
@@ -266,7 +268,7 @@ const UserProfilePage = () => {
                   {stats.completedProjects}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" fontWeight={600}>
-                  مشاريع مكتملة
+                  {t('completedProjects')}
                 </Typography>
               </CardContent>
             </Card>
@@ -279,7 +281,7 @@ const UserProfilePage = () => {
                   {stats.inProgressProjects}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" fontWeight={600}>
-                  مشاريع جارية
+                  {t('ongoingProjects')}
                 </Typography>
               </CardContent>
             </Card>
@@ -292,7 +294,7 @@ const UserProfilePage = () => {
                   {stats.totalPoints}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" fontWeight={600}>
-                  إجمالي النقاط
+                  {t('totalPoints')}
                 </Typography>
               </CardContent>
             </Card>
@@ -305,7 +307,7 @@ const UserProfilePage = () => {
                   #{stats.rank}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" fontWeight={600}>
-                  الترتيب
+                  {t('rank')}
                 </Typography>
               </CardContent>
             </Card>
@@ -316,7 +318,7 @@ const UserProfilePage = () => {
       {/* Contact Information */}
       <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #e0e0e0', mb: 3 }}>
         <Typography variant="h5" fontWeight={700} mb={3} color="text.primary">
-          المعلومات الشخصية
+          {t('personalInfo')}
         </Typography>
         <List>
           <ListItem>
@@ -324,7 +326,7 @@ const UserProfilePage = () => {
               <Email color="primary" />
             </ListItemIcon>
             <ListItemText
-              primary="البريد الإلكتروني"
+              primary={t('email')}
               secondary={user?.email}
               primaryTypographyProps={{ fontWeight: 600 }}
             />
@@ -335,8 +337,8 @@ const UserProfilePage = () => {
               <Phone color="primary" />
             </ListItemIcon>
             <ListItemText
-              primary="رقم الهاتف"
-              secondary={user?.phone || 'غير مسجل'}
+              primary={t('phoneNumber')}
+              secondary={user?.phone || t('notRegistered')}
               primaryTypographyProps={{ fontWeight: 600 }}
             />
           </ListItem>
@@ -346,8 +348,8 @@ const UserProfilePage = () => {
               <CalendarToday color="primary" />
             </ListItemIcon>
             <ListItemText
-              primary="تاريخ التسجيل"
-              secondary={new Date(user?.createdAt).toLocaleDateString('ar-EG')}
+              primary={t('registrationDate')}
+              secondary={new Date(user?.createdAt).toLocaleDateString(language === 'en' ? 'en-US' : 'ar-EG')}
               primaryTypographyProps={{ fontWeight: 600 }}
             />
           </ListItem>
@@ -358,7 +360,7 @@ const UserProfilePage = () => {
       {user?.completedProjects && user?.completedProjects.length > 0 && (
         <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #e0e0e0' }}>
           <Typography variant="h5" fontWeight={700} mb={3} color="text.primary">
-            المشاريع المكتملة ({user?.completedProjects.length})
+            {t('completedProjects')} ({user?.completedProjects.length})
           </Typography>
           <Grid container spacing={2}>
             {user?.completedProjects.map((project) => (
@@ -372,7 +374,7 @@ const UserProfilePage = () => {
                       {project.description}
                     </Typography>
                     <Chip
-                      label={`${project.points} نقطة`}
+                      label={t('points', { points: project.points })}
                       color="success"
                       size="small"
                     />
@@ -392,7 +394,7 @@ const UserProfilePage = () => {
         fullWidth
       >
         <DialogTitle>
-          إرسال رسالة إلى {user?.name}
+          {t('sendMessageTo', { name: user?.name })}
         </DialogTitle>
         <DialogContent>
           <TextField
@@ -400,7 +402,7 @@ const UserProfilePage = () => {
             multiline
             rows={4}
             fullWidth
-            placeholder="اكتب رسالتك هنا..."
+            placeholder={t('writeYourMessageHere')}
             value={messageText}
             onChange={(e) => setMessageText(e.target.value)}
             disabled={sendingMessage}
@@ -412,7 +414,7 @@ const UserProfilePage = () => {
             onClick={() => setMessageDialogOpen(false)}
             disabled={sendingMessage}
           >
-            إلغاء
+            {t('cancel')}
           </Button>
           <Button 
             onClick={handleSendMessage}
@@ -420,7 +422,7 @@ const UserProfilePage = () => {
             disabled={sendingMessage || !messageText.trim()}
             startIcon={sendingMessage ? <CircularProgress size={20} /> : <ChatBubbleIcon />}
           >
-            إرسال
+            {t('send')}
           </Button>
         </DialogActions>
       </Dialog>
