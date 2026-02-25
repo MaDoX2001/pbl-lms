@@ -15,8 +15,10 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import { assessmentAPI } from '../services/api';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const EvaluationResults = ({ submissionId }) => {
+  const { t } = useAppSettings();
   const [loading, setLoading] = useState(true);
   const [evaluation, setEvaluation] = useState(null);
   const [error, setError] = useState(null);
@@ -34,9 +36,9 @@ const EvaluationResults = ({ submissionId }) => {
       setEvaluation(response.data.data);
     } catch (error) {
       if (error.response?.status === 404) {
-        setError('لم يتم التقييم بعد');
+        setError(t('notEvaluatedYet'));
       } else {
-        setError('فشل تحميل التقييم');
+        setError(t('evaluationLoadFailed'));
       }
     } finally {
       setLoading(false);
@@ -68,7 +70,7 @@ const EvaluationResults = ({ submissionId }) => {
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Typography variant="h5" gutterBottom fontWeight={600}>
-        نتيجة التقييم
+        {t('evaluationResult')}
       </Typography>
 
       {/* Overall Status */}
@@ -92,7 +94,7 @@ const EvaluationResults = ({ submissionId }) => {
             {evaluation.finalScore.toFixed(2)}%
           </Typography>
           <Chip 
-            label={isPassed ? 'ناجح' : 'راسب'} 
+            label={isPassed ? t('pass') : t('fail')} 
             color={isPassed ? 'success' : 'error'}
             size="large"
           />
@@ -101,7 +103,7 @@ const EvaluationResults = ({ submissionId }) => {
 
       {/* Evaluation Details */}
       <Typography variant="h6" gutterBottom fontWeight={600}>
-        تفاصيل التقييم
+        {t('evaluationDetails')}
       </Typography>
 
       {evaluation.assessmentPartEvaluations.map((partEval, index) => (
@@ -109,9 +111,9 @@ const EvaluationResults = ({ submissionId }) => {
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
               <Typography variant="subtitle1" fontWeight={600}>
-                {partEval.partName === 'project_evaluation' && 'تقييم المشروع'}
-                {partEval.partName === 'individual_evaluation' && 'التقييم الفردي'}
-                {partEval.partName === 'oral_evaluation' && 'التقييم الشفوي'}
+                {partEval.partName === 'project_evaluation' && t('projectEvaluation')}
+                {partEval.partName === 'individual_evaluation' && t('individualEvaluationTitleShort')}
+                {partEval.partName === 'oral_evaluation' && t('oralEvaluation')}
               </Typography>
               <Chip 
                 label={`${partEval.calculatedPartScore.toFixed(2)}%`} 
@@ -119,7 +121,7 @@ const EvaluationResults = ({ submissionId }) => {
                 color="primary"
               />
               <Typography variant="caption" color="text.secondary">
-                (الوزن: {partEval.partWeight}%)
+                ({t('weight')}: {partEval.partWeight}%)
               </Typography>
             </Box>
           </AccordionSummary>
@@ -157,7 +159,7 @@ const EvaluationResults = ({ submissionId }) => {
       {evaluation.feedbackSummary && (
         <Box sx={{ mt: 3 }}>
           <Typography variant="h6" gutterBottom fontWeight={600}>
-            التغذية الراجعة
+            {t('feedback')}
           </Typography>
           <Alert severity="info">
             {evaluation.feedbackSummary}
@@ -169,10 +171,10 @@ const EvaluationResults = ({ submissionId }) => {
       {!isPassed && evaluation.retryAllowed && (
         <Alert severity="warning" sx={{ mt: 2 }}>
           <Typography variant="body2" fontWeight={600}>
-            يمكنك إعادة المحاولة
+            {t('youCanRetry')}
           </Typography>
           <Typography variant="caption">
-            يمكنك تسليم المشروع مرة أخرى بعد تحسينه
+            {t('resubmitAfterImprovement')}
           </Typography>
         </Alert>
       )}
@@ -180,12 +182,12 @@ const EvaluationResults = ({ submissionId }) => {
       {/* Evaluator Info */}
       {evaluation.evaluator && (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
-          تم التقييم بواسطة: {evaluation.evaluator.name}
+          {t('evaluatedBy')}: {evaluation.evaluator.name}
         </Typography>
       )}
 
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-        محاولة رقم: {evaluation.attemptNumber}
+        {t('attemptNumberWithValue', { number: evaluation.attemptNumber })}
       </Typography>
     </Paper>
   );

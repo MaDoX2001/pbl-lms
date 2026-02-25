@@ -14,35 +14,37 @@ import {
   TrendingUp as TrendingUpIcon
 } from '@mui/icons-material';
 import axios from 'axios';
+import { useAppSettings } from '../context/AppSettingsContext';
 
-const LEVEL_INFO = {
+const getLevelInfo = (t) => ({
   beginner: {
-    label: 'مبتدئ',
+    label: t('beginner'),
     color: '#4caf50',
     icon: '🌱',
-    projects: 'المشاريع 1-2'
+    projects: t('levelProjectsBeginner')
   },
   intermediate: {
-    label: 'متوسط',
+    label: t('intermediate'),
     color: '#2196f3',
     icon: '📘',
-    projects: 'المشاريع 3-4'
+    projects: t('levelProjectsIntermediate')
   },
   advanced: {
-    label: 'متقدم',
+    label: t('advanced'),
     color: '#ff9800',
     icon: '🎓',
-    projects: 'المشروع 5'
+    projects: t('levelProjectsAdvanced')
   },
   expert: {
-    label: 'خبير',
+    label: t('expertLevel'),
     color: '#9c27b0',
     icon: '🏆',
-    projects: 'المشروع 6'
+    projects: t('levelProjectsExpert')
   }
-};
+});
 
 const StudentLevelBadge = ({ studentId, compact = false }) => {
+  const { t } = useAppSettings();
   const [loading, setLoading] = useState(true);
   const [studentLevel, setStudentLevel] = useState(null);
 
@@ -75,6 +77,7 @@ const StudentLevelBadge = ({ studentId, compact = false }) => {
     return null;
   }
 
+  const LEVEL_INFO = getLevelInfo(t);
   const levelInfo = LEVEL_INFO[studentLevel.currentLevel] || LEVEL_INFO.beginner;
 
   if (compact) {
@@ -113,7 +116,7 @@ const StudentLevelBadge = ({ studentId, compact = false }) => {
       <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(255,255,255,0.2)', borderRadius: 1 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
           <Typography variant="body2">
-            المشاريع المكتملة
+            {t('completedProjects')}
           </Typography>
           <Typography variant="body2" fontWeight={600}>
             {studentLevel.completedProjects?.length || 0}
@@ -123,7 +126,7 @@ const StudentLevelBadge = ({ studentId, compact = false }) => {
         {studentLevel.completedProjects && studentLevel.completedProjects.length > 0 && (
           <Box sx={{ mt: 2 }}>
             <Typography variant="caption" sx={{ opacity: 0.9 }}>
-              أعلى درجة: {Math.max(...studentLevel.completedProjects.map(p => p.finalScore)).toFixed(1)}%
+              {t('highestScore')}: {Math.max(...studentLevel.completedProjects.map(p => p.finalScore)).toFixed(1)}%
             </Typography>
           </Box>
         )}
@@ -134,7 +137,7 @@ const StudentLevelBadge = ({ studentId, compact = false }) => {
         <Box sx={{ mt: 2, textAlign: 'center' }}>
           <Typography variant="caption" sx={{ opacity: 0.8 }}>
             <TrendingUpIcon fontSize="small" sx={{ verticalAlign: 'middle', mr: 0.5 }} />
-            أكمل مشروعًا أعلى للترقية
+            {t('completeHigherProjectForUpgrade')}
           </Typography>
         </Box>
       )}

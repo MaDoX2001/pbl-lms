@@ -23,8 +23,10 @@ import {
   EmojiEvents as TrophyIcon
 } from '@mui/icons-material';
 import axios from 'axios';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const StudentEvaluationStatus = ({ projectId, studentId, teamId, isTeamProject = true }) => {
+  const { t } = useAppSettings();
   const [loading, setLoading] = useState(true);
   const [phase1Status, setPhase1Status] = useState(null);
   const [phase2Status, setPhase2Status] = useState(null);
@@ -77,7 +79,7 @@ const StudentEvaluationStatus = ({ projectId, studentId, teamId, isTeamProject =
       setLoading(false);
     } catch (err) {
       console.error(err);
-      setError('فشل في تحميل حالة التقييم');
+      setError(t('failedToLoadEvaluationStatus'));
       setLoading(false);
     }
   };
@@ -103,21 +105,21 @@ const StudentEvaluationStatus = ({ projectId, studentId, teamId, isTeamProject =
   return (
     <Paper sx={{ p: 3 }}>
       <Typography variant="h5" gutterBottom fontWeight={600}>
-        حالة التقييم
+        {t('evaluationStatusTitle')}
       </Typography>
 
       {/* Progress Stepper */}
       <Stepper activeStep={activeStep} sx={{ mb: 3, mt: 3 }}>
         {!phase1Status?.skipped && (
           <Step>
-            <StepLabel>التقييم الجماعي</StepLabel>
+            <StepLabel>{t('groupEvaluationTitleShort')}</StepLabel>
           </Step>
         )}
         <Step>
-          <StepLabel>التقييم الفردي والشفوي</StepLabel>
+          <StepLabel>{t('individualOralEvaluationPhaseTwoTitle')}</StepLabel>
         </Step>
         <Step>
-          <StepLabel>النتيجة النهائية</StepLabel>
+          <StepLabel>{t('finalResult')}</StepLabel>
         </Step>
       </Stepper>
 
@@ -130,23 +132,23 @@ const StudentEvaluationStatus = ({ projectId, studentId, teamId, isTeamProject =
                 <GroupsIcon sx={{ color: 'primary.contrastText', fontSize: 32 }} />
                 <Box>
                   <Typography variant="h6" sx={{ color: 'primary.contrastText' }}>
-                    المرحلة الأولى - التقييم الجماعي
+                    {t('groupEvaluationPhaseOneTitle')}
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'primary.contrastText' }}>
-                    تقييم الفريق ككل
+                    {t('evaluateTeamAsWhole')}
                   </Typography>
                 </Box>
               </Box>
               {phase1Status?.phase1Complete ? (
                 <Chip
                   icon={<CheckCircleIcon />}
-                  label="مكتمل"
+                  label={t('completed')}
                   color="success"
                 />
               ) : (
                 <Chip
                   icon={<HourglassEmptyIcon />}
-                  label="قيد الانتظار"
+                  label={t('waitingStatus')}
                   color="warning"
                 />
               )}
@@ -154,7 +156,7 @@ const StudentEvaluationStatus = ({ projectId, studentId, teamId, isTeamProject =
             {phase1Status?.phase1Complete && phase1Status?.latestScore !== null && (
               <Box sx={{ mt: 2, p: 2, bgcolor: 'white', borderRadius: 1 }}>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  الدرجة الجماعية:
+                  {t('groupScoreLabel')}
                 </Typography>
                 <Typography variant="h4" color="primary">
                   {phase1Status.latestScore} / 100
@@ -173,29 +175,29 @@ const StudentEvaluationStatus = ({ projectId, studentId, teamId, isTeamProject =
               <PersonIcon sx={{ color: 'secondary.contrastText', fontSize: 32 }} />
               <Box>
                 <Typography variant="h6" sx={{ color: 'secondary.contrastText' }}>
-                  المرحلة الثانية - التقييم الفردي والشفوي
+                  {t('individualOralEvaluationPhaseTwoTitle')}
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'secondary.contrastText' }}>
-                  تقييم أدائك الشخصي
+                  {t('evaluateYourPersonalPerformance')}
                 </Typography>
               </Box>
             </Box>
             {!phase1Status?.phase1Complete && !phase1Status?.skipped ? (
               <Chip
                 icon={<LockIcon />}
-                label="محظور"
+                label={t('blocked')}
                 color="error"
               />
             ) : phase2Status?.phase2Complete ? (
               <Chip
                 icon={<CheckCircleIcon />}
-                label="مكتمل"
+                label={t('completed')}
                 color="success"
               />
             ) : (
               <Chip
                 icon={<HourglassEmptyIcon />}
-                label="قيد الانتظار"
+                label={t('waitingStatus')}
                 color="warning"
               />
             )}
@@ -203,15 +205,15 @@ const StudentEvaluationStatus = ({ projectId, studentId, teamId, isTeamProject =
           {phase2Status?.phase2Complete && (
             <Box sx={{ mt: 2, p: 2, bgcolor: 'white', borderRadius: 1 }}>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                الدرجة الفردية:
+                {t('individualScoreLabel')}
               </Typography>
               <Typography variant="h4" color="secondary">
                 {phase2Status.latestScore} / 100
               </Typography>
               {phase2Status.role && (
                 <Chip
-                  label={`الدور: ${phase2Status.role === 'system_designer' ? 'مصمم النظام' : 
-                    phase2Status.role === 'hardware_engineer' ? 'مهندس الأجهزة' : 'المبرمج'}`}
+                  label={`${t('studentRole')}: ${phase2Status.role === 'system_designer' ? t('roleSystemDesigner') : 
+                    phase2Status.role === 'hardware_engineer' ? t('roleHardwareEngineer') : t('roleProgrammer')}`}
                   size="small"
                   sx={{ mt: 1 }}
                 />
@@ -230,7 +232,7 @@ const StudentEvaluationStatus = ({ projectId, studentId, teamId, isTeamProject =
                 <TrophyIcon sx={{ fontSize: 40, color: finalEval.status === 'passed' ? 'success.dark' : 'error.dark' }} />
                 <Box>
                   <Typography variant="h6" fontWeight={600}>
-                    النتيجة النهائية
+                    {t('finalResult')}
                   </Typography>
                   <Chip
                     label={finalEval.verbalGrade}
@@ -240,7 +242,7 @@ const StudentEvaluationStatus = ({ projectId, studentId, teamId, isTeamProject =
                 </Box>
               </Box>
               <Chip
-                label={finalEval.status === 'passed' ? 'نجح' : 'لم ينجح'}
+                label={finalEval.status === 'passed' ? t('pass') : t('fail')}
                 color={finalEval.status === 'passed' ? 'success' : 'error'}
                 size="large"
               />
@@ -250,7 +252,7 @@ const StudentEvaluationStatus = ({ projectId, studentId, teamId, isTeamProject =
 
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                الدرجة الإجمالية:
+                {t('overallScoreLabel')}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Box sx={{ flex: 1 }}>
@@ -277,7 +279,7 @@ const StudentEvaluationStatus = ({ projectId, studentId, teamId, isTeamProject =
               {!phase1Status?.skipped && (
                 <Box sx={{ textAlign: 'center' }}>
                   <Typography variant="caption" color="text.secondary">
-                    درجة المرحلة الجماعية
+                    {t('groupPhaseScoreLabel')}
                   </Typography>
                   <Typography variant="h6" fontWeight={600}>
                     {finalEval.groupScore}
@@ -286,7 +288,7 @@ const StudentEvaluationStatus = ({ projectId, studentId, teamId, isTeamProject =
               )}
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="caption" color="text.secondary">
-                  درجة المرحلة الفردية
+                  {t('individualPhaseScoreLabel')}
                 </Typography>
                 <Typography variant="h6" fontWeight={600}>
                   {finalEval.individualScore}
@@ -294,7 +296,7 @@ const StudentEvaluationStatus = ({ projectId, studentId, teamId, isTeamProject =
               </Box>
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="caption" color="text.secondary">
-                  المجموع النهائي
+                  {t('finalTotalLabel')}
                 </Typography>
                 <Typography variant="h6" fontWeight={600}>
                   {finalEval.finalScore} / {isTeamProject ? '200' : '100'}
@@ -304,20 +306,20 @@ const StudentEvaluationStatus = ({ projectId, studentId, teamId, isTeamProject =
 
             {finalEval.status === 'failed' && (
               <Alert severity="info" sx={{ mt: 2 }}>
-                تحتاج إلى تحقيق 60% على الأقل للنجاح. استشر معلمك للحصول على فرصة إعادة المحاولة.
+                {t('need60ToPassHint')}
               </Alert>
             )}
 
             {finalEval.status === 'passed' && (
               <Alert severity="success" sx={{ mt: 2 }}>
-                تهانينا! لقد نجحت في هذا المشروع وحصلت على شارة المشروع.
+                {t('projectPassedAndBadgeAwarded')}
               </Alert>
             )}
           </CardContent>
         </Card>
       ) : (
         <Alert severity="info">
-          التقييم قيد المعالجة. سيتم عرض النتيجة النهائية بعد إكمال جميع المراحل.
+          {t('evaluationInProgressFinalAfterCompletion')}
         </Alert>
       )}
     </Paper>

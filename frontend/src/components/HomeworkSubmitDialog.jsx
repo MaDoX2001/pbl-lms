@@ -20,8 +20,10 @@ import {
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../services/api';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const HomeworkSubmitDialog = ({ open, onClose, projectId, assignment, onSuccess }) => {
+  const { t, language } = useAppSettings();
   const [file, setFile] = useState(null);
   const [fileTitle, setFileTitle] = useState('');
   const [comments, setComments] = useState('');
@@ -35,7 +37,7 @@ const HomeworkSubmitDialog = ({ open, onClose, projectId, assignment, onSuccess 
       // Check file size
       if (selectedFile.size > assignment.maxFileSize) {
         setError(
-          `حجم الملف يتجاوز الحد المسموح (${(
+          `${t('fileSizeExceedsLimit')} (${(
             assignment.maxFileSize /
             1024 /
             1024
@@ -48,7 +50,7 @@ const HomeworkSubmitDialog = ({ open, onClose, projectId, assignment, onSuccess 
       const ext = selectedFile.name.split('.').pop().toLowerCase();
       if (!assignment.allowedFileTypes.includes(ext)) {
         setError(
-          `نوع الملف غير مسموح. الأنواع المسموحة: ${assignment.allowedFileTypes.join(
+          `${t('fileTypeNotAllowed')}. ${t('allowedTypes')}: ${assignment.allowedFileTypes.join(
             ', '
           )}`
         );
@@ -63,12 +65,12 @@ const HomeworkSubmitDialog = ({ open, onClose, projectId, assignment, onSuccess 
 
   const handleSubmit = async () => {
     if (!file) {
-      setError('يرجى اختيار ملف');
+      setError(t('pleaseChooseFile'));
       return;
     }
 
     if (!fileTitle.trim()) {
-      setError('يرجى إدخال عنوان للملف');
+      setError(t('pleaseEnterFileTitle'));
       return;
     }
 
@@ -97,13 +99,13 @@ const HomeworkSubmitDialog = ({ open, onClose, projectId, assignment, onSuccess 
         }
       );
 
-      toast.success('تم تسليم الواجب بنجاح');
+      toast.success(t('homeworkSubmittedSuccess'));
       onSuccess(response.data.submission);
       handleClose();
     } catch (error) {
       console.error('Error submitting homework:', error);
-      setError(error.response?.data?.message || 'فشل تسليم الواجب');
-      toast.error(error.response?.data?.message || 'فشل تسليم الواجب');
+      setError(error.response?.data?.message || t('homeworkSubmitFailed'));
+      toast.error(error.response?.data?.message || t('homeworkSubmitFailed'));
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -128,7 +130,7 @@ const HomeworkSubmitDialog = ({ open, onClose, projectId, assignment, onSuccess 
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
-          تسليم الواجب: {assignment?.title}
+          {t('submitHomework')}: {assignment?.title}
           <IconButton onClick={handleClose} disabled={uploading}>
             <CloseIcon />
           </IconButton>
@@ -143,34 +145,34 @@ const HomeworkSubmitDialog = ({ open, onClose, projectId, assignment, onSuccess 
 
         {isOverdue && !assignment.allowLateSubmission && (
           <Alert severity="warning" sx={{ mb: 2 }}>
-            انتهى موعد تسليم الواجب. لا يمكن التسليم بعد الآن.
+            {t('assignmentDeadlinePassedNoSubmit')}
           </Alert>
         )}
 
         {isOverdue && assignment.allowLateSubmission && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            التسليم متأخر. سيتم وضع علامة على هذا التسليم كمتأخر.
+            {t('lateSubmissionWillBeMarked')}
           </Alert>
         )}
 
         <Box sx={{ mb: 2 }}>
           <Typography variant="body2" color="text.secondary">
-            <strong>آخر موعد للتسليم:</strong>{' '}
+            <strong>{t('latestSubmissionDateLabel')}</strong>{' '}
             {assignment?.dueDate
-              ? new Date(assignment.dueDate).toLocaleDateString('ar-SA')
-              : 'غير محدد'}
+              ? new Date(assignment.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'ar-SA')
+              : t('notSpecified')}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            <strong>الدرجة القصوى:</strong> {assignment?.maxScore || 100}
+            <strong>{t('maximumScoreLabel')}</strong> {assignment?.maxScore || 100}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            <strong>الأنواع المسموحة:</strong>{' '}
+            <strong>{t('allowedTypesLabel')}</strong>{' '}
             {assignment?.allowedFileTypes?.map((type) => (
               <Chip key={type} label={type} size="small" sx={{ mr: 0.5 }} />
             ))}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            <strong>الحد الأقصى للحجم:</strong>{' '}
+            <strong>{t('maximumSizeLabel')}</strong>{' '}
             {((assignment?.maxFileSize || 10485760) / 1024 / 1024).toFixed(2)} MB
           </Typography>
         </Box>
@@ -196,7 +198,7 @@ const HomeworkSubmitDialog = ({ open, onClose, projectId, assignment, onSuccess 
                 disabled={uploading}
                 sx={{ mb: 2, py: 2 }}
               >
-                {file ? 'تغيير الملف' : 'اختر ملف'}
+                {file ? t('changeFile') : t('chooseFile')}
               </Button>
             </label>
 
@@ -227,7 +229,7 @@ const HomeworkSubmitDialog = ({ open, onClose, projectId, assignment, onSuccess 
 
             <TextField
               fullWidth
-              label="عنوان التسليم"
+              label={t('submissionTitle')}
               value={fileTitle}
               onChange={(e) => setFileTitle(e.target.value)}
               disabled={uploading}
@@ -237,20 +239,20 @@ const HomeworkSubmitDialog = ({ open, onClose, projectId, assignment, onSuccess 
 
             <TextField
               fullWidth
-              label="ملاحظات (اختياري)"
+              label={t('notesOptional')}
               value={comments}
               onChange={(e) => setComments(e.target.value)}
               disabled={uploading}
               multiline
               rows={3}
               sx={{ mb: 2 }}
-              placeholder="أضف أي ملاحظات أو تعليقات حول واجبك..."
+              placeholder={t('homeworkNotesPlaceholder')}
             />
 
             {uploading && (
               <Box sx={{ mt: 2 }}>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  جاري التحميل... {uploadProgress}%
+                  {t('uploading')} {uploadProgress}%
                 </Typography>
                 <LinearProgress variant="determinate" value={uploadProgress} />
               </Box>
@@ -260,7 +262,7 @@ const HomeworkSubmitDialog = ({ open, onClose, projectId, assignment, onSuccess 
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose} disabled={uploading}>
-          إلغاء
+          {t('cancel')}
         </Button>
         {(!isOverdue || assignment.allowLateSubmission) && (
           <Button
@@ -268,7 +270,7 @@ const HomeworkSubmitDialog = ({ open, onClose, projectId, assignment, onSuccess 
             variant="contained"
             disabled={uploading || !file}
           >
-            {uploading ? 'جاري التسليم...' : 'تسليم'}
+            {uploading ? t('submitting') : t('submit')}
           </Button>
         )}
       </DialogActions>
