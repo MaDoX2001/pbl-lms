@@ -207,11 +207,11 @@ function AdminDashboardPage() {
             <Card>
               <CardContent>
                 <Typography color="text.secondary" gutterBottom>
-                  إجمالي المستخدمين
+                  {t('totalUsers')}
                 </Typography>
                 <Typography variant="h3">{stats.users.total}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  طلاب: {stats.users.students} | معلمين: {stats.users.teachers}
+                  {t('studentsCountStats', { count: stats.users.students })} | {t('teachersCountStats', { count: stats.users.teachers })}
                 </Typography>
               </CardContent>
             </Card>
@@ -220,11 +220,11 @@ function AdminDashboardPage() {
             <Card>
               <CardContent>
                 <Typography color="text.secondary" gutterBottom>
-                  المشروعات
+                  {t('projects')}
                 </Typography>
                 <Typography variant="h3">{stats.projects.total}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  منشور: {stats.projects.published}
+                  {t('publishedCountStats', { count: stats.projects.published })}
                 </Typography>
               </CardContent>
             </Card>
@@ -233,11 +233,11 @@ function AdminDashboardPage() {
             <Card>
               <CardContent>
                 <Typography color="text.secondary" gutterBottom>
-                  الدعوات
+                  {t('invitations')}
                 </Typography>
                 <Typography variant="h3">{stats.invitations.pending}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  مستخدمة: {stats.invitations.used}
+                  {t('usedCountStats', { count: stats.invitations.used })}
                 </Typography>
               </CardContent>
             </Card>
@@ -246,11 +246,11 @@ function AdminDashboardPage() {
             <Card sx={{ backgroundColor: '#fff3e0' }}>
               <CardContent>
                 <Typography color="text.secondary" gutterBottom>
-                  طلبات الدعوة
+                  {t('invitationRequests')}
                 </Typography>
                 <Typography variant="h3" sx={{ color: '#f57c00' }}>{stats.requests?.pending || 0}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  معلقة للمراجعة
+                  {t('pendingForReview')}
                 </Typography>
               </CardContent>
             </Card>
@@ -347,7 +347,7 @@ function AdminDashboardPage() {
           </Typography>
           {invitationRequests.filter(r => r.status === 'pending').length > 0 && (
             <Chip
-              label={`${invitationRequests.filter(r => r.status === 'pending').length} معلق`}
+              label={t('pendingCount', { count: invitationRequests.filter(r => r.status === 'pending').length })}
               color="warning"
               size="small"
             />
@@ -360,15 +360,15 @@ function AdminDashboardPage() {
           sx={{ mb: 2 }}
         >
           <Tab
-            label={`المعلقة (${invitationRequests.filter(r => r.status === 'pending').length})`}
+            label={t('pendingWithCount', { count: invitationRequests.filter(r => r.status === 'pending').length })}
             value="pending"
           />
           <Tab
-            label={`الموافق عليها (${invitationRequests.filter(r => r.status === 'approved').length})`}
+            label={t('approvedWithCount', { count: invitationRequests.filter(r => r.status === 'approved').length })}
             value="approved"
           />
           <Tab
-            label={`المرفوضة (${invitationRequests.filter(r => r.status === 'rejected').length})`}
+            label={t('rejectedWithCount', { count: invitationRequests.filter(r => r.status === 'rejected').length })}
             value="rejected"
           />
         </Tabs>
@@ -377,12 +377,12 @@ function AdminDashboardPage() {
           <Table>
             <TableHead>
               <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-                <TableCell><strong>الاسم</strong></TableCell>
-                <TableCell><strong>البريد الإلكتروني</strong></TableCell>
-                <TableCell><strong>الدور المطلوب</strong></TableCell>
-                <TableCell><strong>الحالة</strong></TableCell>
-                <TableCell><strong>التاريخ</strong></TableCell>
-                <TableCell><strong>إجراءات</strong></TableCell>
+                <TableCell><strong>{t('name')}</strong></TableCell>
+                <TableCell><strong>{t('email')}</strong></TableCell>
+                <TableCell><strong>{t('requestedRole')}</strong></TableCell>
+                <TableCell><strong>{t('status')}</strong></TableCell>
+                <TableCell><strong>{t('date')}</strong></TableCell>
+                <TableCell><strong>{t('actions')}</strong></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -394,7 +394,7 @@ function AdminDashboardPage() {
                     <TableCell sx={{ direction: 'ltr', textAlign: 'left' }}>{request.email}</TableCell>
                     <TableCell>
                       <Chip
-                        label={request.requestedRole === 'teacher' ? 'معلم' : 'طالب'}
+                        label={request.requestedRole === 'teacher' ? t('teacher') : t('student')}
                         color={request.requestedRole === 'teacher' ? 'primary' : 'default'}
                         size="small"
                       />
@@ -402,24 +402,24 @@ function AdminDashboardPage() {
                     <TableCell>
                       <Box>
                         <Chip
-                          label={request.status === 'pending' ? 'قيد الانتظار' : request.status === 'approved' ? 'موافق عليه' : 'مرفوض'}
+                          label={request.status === 'pending' ? t('waitingStatus') : request.status === 'approved' ? t('approved') : t('rejected')}
                           color={request.status === 'pending' ? 'warning' : request.status === 'approved' ? 'success' : 'error'}
                           size="small"
                           sx={{ mb: 0.5 }}
                         />
                         {request.status === 'pending' && (
                           <Typography variant="caption" display="block" sx={{ color: 'text.secondary', mt: 0.5 }}>
-                            بانتظار مراجعة الادمن
+                            {t('pendingAdminReview')}
                           </Typography>
                         )}
                         {request.status === 'approved' && request.respondedAt && (
                           <Typography variant="caption" display="block" sx={{ color: 'success.main', mt: 0.5 }}>
-                            تم الإرسال: {new Date(request.respondedAt).toLocaleDateString('ar-EG')}
+                            {t('sentOn')}: {new Date(request.respondedAt).toLocaleDateString('ar-EG')}
                           </Typography>
                         )}
                         {request.status === 'rejected' && request.rejectionReason && (
                           <Typography variant="caption" display="block" sx={{ color: 'error.main', mt: 0.5 }}>
-                            السبب: {request.rejectionReason}
+                            {t('reason')}: {request.rejectionReason}
                           </Typography>
                         )}
                       </Box>
@@ -431,7 +431,7 @@ function AdminDashboardPage() {
                           <IconButton
                             color="success"
                             size="small"
-                            title="الموافقة"
+                            title={t('approve')}
                             onClick={() => handleApproveRequest(request._id)}
                           >
                             <CheckIcon />
@@ -439,7 +439,7 @@ function AdminDashboardPage() {
                           <IconButton
                             color="error"
                             size="small"
-                            title="الرفض"
+                            title={t('reject')}
                             onClick={() => setRejectDialog({ open: true, requestId: request._id, reason: '' })}
                           >
                             <CloseIcon />
@@ -454,7 +454,7 @@ function AdminDashboardPage() {
           {invitationRequests.filter(r => r.status === requestsTab).length === 0 && (
             <Box sx={{ p: 3, textAlign: 'center' }}>
               <Typography color="text.secondary">
-                لا توجد طلبات {requestsTab === 'pending' ? 'معلقة' : requestsTab === 'approved' ? 'موافق عليها' : 'مرفوضة'}
+                {t('noRequestsForStatus', { status: requestsTab === 'pending' ? t('pending') : requestsTab === 'approved' ? t('approved') : t('rejected') })}
               </Typography>
             </Box>
           )}
@@ -470,11 +470,11 @@ function AdminDashboardPage() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>البريد الإلكتروني</TableCell>
-                <TableCell>الدور</TableCell>
-                <TableCell>الحالة</TableCell>
-                <TableCell>تاريخ الإنشاء</TableCell>
-                <TableCell>إجراءات</TableCell>
+                <TableCell>{t('email')}</TableCell>
+                <TableCell>{t('role')}</TableCell>
+                <TableCell>{t('status')}</TableCell>
+                <TableCell>{t('creationDate')}</TableCell>
+                <TableCell>{t('actions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -483,14 +483,14 @@ function AdminDashboardPage() {
                   <TableCell>{invitation.email}</TableCell>
                   <TableCell>
                     <Chip
-                      label={invitation.role === 'teacher' ? 'معلم' : 'طالب'}
+                      label={invitation.role === 'teacher' ? t('teacher') : t('student')}
                       color={invitation.role === 'teacher' ? 'primary' : 'default'}
                       size="small"
                     />
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={invitation.used ? 'مستخدمة' : 'قيد الانتظار'}
+                      label={invitation.used ? t('used') : t('waitingStatus')}
                       color={invitation.used ? 'success' : 'warning'}
                       size="small"
                     />
@@ -568,7 +568,7 @@ function AdminDashboardPage() {
             label={t('rejectionReason')}
             value={rejectDialog.reason}
             onChange={(e) => setRejectDialog({ ...rejectDialog, reason: e.target.value })}
-            placeholder="مثلاً: البيانات غير دقيقة، أو الكوتا ممتلئة..."
+            placeholder={t('rejectReasonExample')}
           />
         </DialogContent>
         <DialogActions>
