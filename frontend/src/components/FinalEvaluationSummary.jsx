@@ -30,16 +30,32 @@ const VERBAL_GRADE_CONFIG = {
 };
 
 const VERBAL_GRADE_ALIASES = {
-  'ممتاز': 'excellent',
-  Excellent: 'excellent',
-  'جيد جدًا': 'veryGood',
-  'Very Good': 'veryGood',
-  'جيد': 'good',
-  Good: 'good',
-  'مقبول': 'acceptable',
-  Acceptable: 'acceptable',
-  'غير مجتاز': 'notPassed',
-  'Not Passed': 'notPassed'
+  excellent: 'excellent',
+  'very good': 'veryGood',
+  verygood: 'veryGood',
+  good: 'good',
+  acceptable: 'acceptable',
+  'not passed': 'notPassed',
+  notpassed: 'notPassed'
+};
+
+const getVerbalGradeByPercentage = (percentage) => {
+  if (percentage >= VERBAL_GRADE_CONFIG.excellent.threshold) return 'excellent';
+  if (percentage >= VERBAL_GRADE_CONFIG.veryGood.threshold) return 'veryGood';
+  if (percentage >= VERBAL_GRADE_CONFIG.good.threshold) return 'good';
+  if (percentage >= VERBAL_GRADE_CONFIG.acceptable.threshold) return 'acceptable';
+  return 'notPassed';
+};
+
+const normalizeVerbalGrade = (verbalGrade, finalPercentage) => {
+  const rawGrade = String(verbalGrade || '').trim().toLowerCase();
+  const compactGrade = rawGrade.replace(/[^a-z]/g, '');
+
+  return (
+    VERBAL_GRADE_ALIASES[rawGrade] ||
+    VERBAL_GRADE_ALIASES[compactGrade] ||
+    getVerbalGradeByPercentage(finalPercentage)
+  );
 };
 
 const FinalEvaluationSummary = ({ projectId, studentId, showActions = false, onRetryAllowed }) => {
@@ -96,7 +112,7 @@ const FinalEvaluationSummary = ({ projectId, studentId, showActions = false, onR
     return <Alert severity="warning">{t('evaluationNotCompletedYet')}</Alert>;
   }
 
-  const verbalGradeKey = VERBAL_GRADE_ALIASES[finalEval.verbalGrade] || 'notPassed';
+  const verbalGradeKey = normalizeVerbalGrade(finalEval.verbalGrade, finalEval.finalPercentage);
   const verbalGradeColor = VERBAL_GRADE_CONFIG[verbalGradeKey]?.color || '#757575';
   const verbalGradeLabel = t(`grade${verbalGradeKey.charAt(0).toUpperCase()}${verbalGradeKey.slice(1)}`);
   const isPassed = finalEval.status === 'passed';
