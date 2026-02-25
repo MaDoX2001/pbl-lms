@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { translations } from '../i18n/translations';
 
 const AppSettingsContext = createContext(null);
 
@@ -30,11 +31,24 @@ export const AppSettingsProvider = ({ children }) => {
     setMode((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
 
+  const t = (key, params = {}) => {
+    const dictionary = translations[language] || translations.ar;
+    const fallback = translations.ar;
+    let template = dictionary[key] ?? fallback[key] ?? key;
+
+    Object.entries(params).forEach(([paramKey, paramValue]) => {
+      template = template.replace(new RegExp(`{{${paramKey}}}`, 'g'), String(paramValue));
+    });
+
+    return template;
+  };
+
   const value = useMemo(
     () => ({
       language,
       mode,
       direction,
+      t,
       setLanguage,
       setMode,
       toggleLanguage,

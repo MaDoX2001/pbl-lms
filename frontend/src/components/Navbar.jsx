@@ -14,16 +14,8 @@ const Navbar = ({ onMenuToggle }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { isAuthenticated, user } = useSelector((state) => state.auth);
-  const { language, mode, direction, toggleLanguage, toggleMode } = useAppSettings();
+  const { language, mode, direction, toggleLanguage, toggleMode, t } = useAppSettings();
   const [anchorEl, setAnchorEl] = React.useState(null);
-
-  const text = {
-    title: language === 'ar' ? 'منصة التعلم بالمشروعات' : 'PBL Learning Platform',
-    profile: language === 'ar' ? 'الملف الشخصي' : 'Profile',
-    logout: language === 'ar' ? 'تسجيل الخروج' : 'Logout',
-    login: language === 'ar' ? 'تسجيل الدخول' : 'Login',
-    language: language === 'ar' ? 'EN' : 'AR',
-  };
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -72,7 +64,7 @@ const Navbar = ({ onMenuToggle }) => {
             textAlign: direction === 'rtl' ? 'right' : 'left'
           }}
         >
-          {text.title}
+          {t('appName')}
         </Typography>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -84,7 +76,7 @@ const Navbar = ({ onMenuToggle }) => {
           >
             <TranslateIcon />
             <Typography variant="caption" sx={{ ml: 0.5, fontWeight: 700, color: 'white' }}>
-              {text.language}
+              {language === 'ar' ? 'EN' : 'AR'}
             </Typography>
           </IconButton>
 
@@ -129,14 +121,14 @@ const Navbar = ({ onMenuToggle }) => {
                 onClose={handleClose}
               >
                 <MenuItem onClick={() => { navigate(`/profile/${user?._id}`); handleClose(); }}>
-                  {text.profile}
+                  {t('profile')}
                 </MenuItem>
-                <MenuItem onClick={handleLogout}>{text.logout}</MenuItem>
+                <MenuItem onClick={handleLogout}>{t('logout')}</MenuItem>
               </Menu>
             </>
           ) : (
             <Button color="inherit" component={Link} to="/login">
-              {text.login}
+              {t('login')}
             </Button>
           )}
         </Box>

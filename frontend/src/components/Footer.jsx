@@ -4,8 +4,11 @@ import { Link as RouterLink } from 'react-router-dom';
 import EmailIcon from '@mui/icons-material/Email';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import ChatIcon from '@mui/icons-material/Chat';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const Footer = () => {
+  const { t } = useAppSettings();
+
   return (
     <Box
       component="footer"
@@ -20,16 +23,16 @@ const Footer = () => {
         <Grid container spacing={4}>
           <Grid item xs={12} md={4}>
             <Typography variant="h6" gutterBottom fontWeight={700}>
-              منصة التعلم بالمشروعات
+              {t('appName')}
             </Typography>
             <Typography variant="body2">
-              منصة تعليمية مبتكرة تساعد الطلاب على تعلم البرمجة من خلال مشاريع عملية وتفاعلية.
+              {t('footerDesc')}
             </Typography>
           </Grid>
 
           <Grid item xs={12} md={4}>
             <Typography variant="h6" gutterBottom fontWeight={700}>
-              تواصل معنا
+              {t('contactUs')}
             </Typography>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <Link 
@@ -51,7 +54,7 @@ const Footer = () => {
 
         <Box sx={{ mt: 4, pt: 2, borderTop: '1px solid rgba(255,255,255,0.2)' }}>
           <Typography variant="body2" align="center">
-            © {new Date().getFullYear()} منصة التعلم بالمشروعات. جميع الحقوق محفوظة.
+            {t('rights', { year: new Date().getFullYear() })}
           </Typography>
         </Box>
       </Container>

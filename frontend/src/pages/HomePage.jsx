@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Container, Typography, Button, Grid, Paper } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { useAppSettings } from '../context/AppSettingsContext';
 import CodeIcon from '@mui/icons-material/Code';
 import SchoolIcon from '@mui/icons-material/School';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
@@ -10,27 +11,28 @@ import GroupsIcon from '@mui/icons-material/Groups';
 const HomePage = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useSelector((state) => state.auth);
+  const { t } = useAppSettings();
 
   const features = [
     {
       icon: <CodeIcon sx={{ fontSize: 50, color: 'primary.main' }} />,
-      title: 'تعلم بالممارسة',
-      description: 'اكتسب مهارات البرمجة من خلال مشاريع عملية وواقعية'
+      title: t('learnByDoing'),
+      description: t('learnByDoingDesc')
     },
     {
       icon: <SchoolIcon sx={{ fontSize: 50, color: 'primary.main' }} />,
-      title: 'مسار تعليمي منظم',
-      description: 'مشاريع متدرجة من المبتدئ إلى المحترف'
+      title: t('structuredPath'),
+      description: t('structuredPathDesc')
     },
     {
       icon: <EmojiEventsIcon sx={{ fontSize: 50, color: 'primary.main' }} />,
-      title: 'نظام إنجازات',
-      description: 'اكسب نقاط وإنجازات مع كل مشروع تكمله'
+      title: t('achievementsSystem'),
+      description: t('achievementsSystemDesc')
     },
     {
       icon: <GroupsIcon sx={{ fontSize: 50, color: 'primary.main' }} />,
-      title: 'تعلم تعاوني',
-      description: 'تفاعل مع زملائك والمعلمين في المنتديات'
+      title: t('collaborativeLearning'),
+      description: t('collaborativeLearningDesc')
     }
   ];
 
@@ -62,10 +64,10 @@ const HomePage = () => {
       >
         <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1 }}>
           <Typography variant="h2" component="h1" gutterBottom fontWeight={700} align="center" sx={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
-            تعلم البرمجة بأسلوب المشاريع
+            {t('heroTitle')}
           </Typography>
           <Typography variant="h5" gutterBottom align="center" sx={{ mb: 4, textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}>
-            منصة تعليمية متكاملة تساعدك على إتقان البرمجة من خلال مشاريع عملية
+            {t('heroSubtitle')}
           </Typography>
         </Container>
       </Box>
@@ -73,7 +75,7 @@ const HomePage = () => {
       {/* Features Section */}
       <Container maxWidth="lg" sx={{ mb: 8 }}>
         <Typography variant="h3" component="h2" gutterBottom align="center" fontWeight={700} sx={{ mb: 6 }}>
-          لماذا التعلم بالمشروعات؟
+          {t('whyPbl')}
         </Typography>
         <Grid container spacing={4}>
           {features.map((feature, index) => (
@@ -118,10 +120,10 @@ const HomePage = () => {
       {/* CTA Section */}
       <Container maxWidth="md" sx={{ mb: 8, textAlign: 'center' }}>
         <Typography variant="h4" gutterBottom fontWeight={700}>
-          هل أنت مستعد لبدء رحلتك في البرمجة؟
+          {t('ctaReady')}
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-          انضم إلى آلاف الطلاب الذين يتعلمون البرمجة بطريقة عملية وممتعة
+          {t('ctaSub')}
         </Typography>
         {!isAuthenticated && (
           <Button 
@@ -130,7 +132,7 @@ const HomePage = () => {
             onClick={() => navigate('/register')}
             sx={{ px: 5, py: 1.5 }}
           >
-            انضم الآن
+            {t('joinNow')}
           </Button>
         )}
       </Container>

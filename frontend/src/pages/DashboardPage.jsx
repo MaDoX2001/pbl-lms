@@ -3,6 +3,7 @@ import { Box, Typography, Paper, Grid, Avatar, LinearProgress, Accordion, Accord
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { fetchStudentProgress } from '../redux/slices/progressSlice';
+import { useAppSettings } from '../context/AppSettingsContext';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import AssignmentIcon from '@mui/icons-material/Assignment';
@@ -12,6 +13,7 @@ import StudentEvaluationStatus from '../components/StudentEvaluationStatus';
 const DashboardPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { t, language } = useAppSettings();
   const { user } = useSelector((state) => state.auth);
   const { studentProgress } = useSelector((state) => state.progress);
 
@@ -27,10 +29,10 @@ const DashboardPage = () => {
   return (
     <Box>
       <Typography variant="h3" component="h1" gutterBottom fontWeight={700}>
-        مرحباً، {user?.name}!
+        {t('welcomeUser', { name: user?.name || '' })}
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-        تابع تقدمك وإنجازاتك في المشاريع التعليمية
+        {t('progressSubtitle')}
       </Typography>
 
       {/* Stats Cards */}
@@ -45,7 +47,7 @@ const DashboardPage = () => {
                 {user?.points || 0}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                النقاط المكتسبة
+                {t('pointsEarned')}
               </Typography>
             </Box>
           </Paper>
@@ -58,10 +60,10 @@ const DashboardPage = () => {
             </Avatar>
             <Box>
               <Typography variant="h4" fontWeight={700}>
-                المستوى {user?.level || 1}
+                {t('levelLabel', { level: user?.level || 1 })}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                مستواك الحالي
+                {t('currentLevel')}
               </Typography>
             </Box>
           </Paper>
@@ -77,7 +79,7 @@ const DashboardPage = () => {
                 {completedProjects.length}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                مشاريع مكتملة
+                {t('completedProjects')}
               </Typography>
             </Box>
           </Paper>
@@ -87,12 +89,12 @@ const DashboardPage = () => {
       {/* In Progress Projects */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h5" gutterBottom fontWeight={600}>
-          المشاريع الجارية
+          {t('ongoingProjects')}
         </Typography>
         {inProgressProjects.length === 0 ? (
           <Paper sx={{ p: 3, textAlign: 'center' }}>
             <Typography color="text.secondary">
-              لا توجد مشاريع جارية. ابدأ بتصفح <a href="/projects">المشاريع المتاحة</a>
+              {t('noOngoingProjects')} <a href="/projects">{t('availableProjects')}</a>
             </Typography>
           </Paper>
         ) : (
@@ -124,12 +126,16 @@ const DashboardPage = () => {
                         sx={{ mb: 1, height: 8, borderRadius: 4 }}
                       />
                       <Typography variant="body2" color="text.secondary">
-                        آخر نشاط: {progress.lastActivityAt ? new Date(progress.lastActivityAt).toLocaleDateString('ar-EG') : 'غير متوفر'}
+                        {t('lastActivity', {
+                          date: progress.lastActivityAt
+                            ? new Date(progress.lastActivityAt).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')
+                            : t('notAvailable')
+                        })}
                       </Typography>
                     </Box>
                     <Divider sx={{ my: 2 }} />
                     <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                      حالة التقييم
+                      {t('evalStatus')}
                     </Typography>
                     <StudentEvaluationStatus 
                       projectId={progress.project._id}
@@ -149,7 +155,7 @@ const DashboardPage = () => {
       {completedProjects.length > 0 && (
         <Box>
           <Typography variant="h5" gutterBottom fontWeight={600}>
-            المشاريع المكتملة
+            {t('doneProjects')}
           </Typography>
           <Grid container spacing={2}>
             {completedProjects.map((progress) => (
@@ -167,11 +173,11 @@ const DashboardPage = () => {
                   </Typography>
                   <Typography variant="body2" color="success.main" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <EmojiEventsIcon fontSize="small" />
-                    {progress.pointsEarned} نقطة
+                    {t('points', { points: progress.pointsEarned })}
                   </Typography>
                   {progress.feedback?.score && (
                     <Typography variant="body2" color="text.secondary">
-                      الدرجة: {progress.feedback.score}/100
+                      {t('score', { score: progress.feedback.score })}
                     </Typography>
                   )}
                 </Paper>
@@ -185,7 +191,7 @@ const DashboardPage = () => {
       {user?.achievements?.length > 0 && (
         <Box sx={{ mt: 4 }}>
           <Typography variant="h5" gutterBottom fontWeight={600}>
-            الإنجازات
+            {t('achievements')}
           </Typography>
           <Grid container spacing={2}>
             {user.achievements.map((achievement, index) => (

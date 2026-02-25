@@ -3,11 +3,13 @@ import { Box, Paper, TextField, Button, Typography, Link, Alert } from '@mui/mat
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { login, setSetupRequired } from '../redux/slices/authSlice';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const LoginPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { loading, error } = useSelector((state) => state.auth);
+  const { t } = useAppSettings();
 
   const [formData, setFormData] = useState({
     email: '',
@@ -75,10 +77,10 @@ const LoginPage = () => {
     >
       <Paper elevation={3} sx={{ p: 4, maxWidth: 400, width: '100%' }}>
         <Typography variant="h4" component="h1" gutterBottom align="center" fontWeight={700}>
-          تسجيل الدخول
+          {t('loginTitle')}
         </Typography>
         <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
-          أدخل بياناتك للوصول إلى حسابك
+          {t('loginSubtitle')}
         </Typography>
 
         {error && (
@@ -91,7 +93,7 @@ const LoginPage = () => {
           <TextField
             fullWidth
             id="email"
-            label="البريد الإلكتروني"
+            label={t('email')}
             name="email"
             type="email"
             value={formData.email}
@@ -102,7 +104,7 @@ const LoginPage = () => {
           <TextField
             fullWidth
             id="password"
-            label="كلمة المرور"
+            label={t('password')}
             name="password"
             type="password"
             value={formData.password}
@@ -113,7 +115,7 @@ const LoginPage = () => {
           
           <Box sx={{ mb: 2, textAlign: 'right' }}>
             <Link component={RouterLink} to="/forgot-password" underline="hover" variant="body2">
-              نسيت كلمة المرور؟
+              {t('forgotPassword')}
             </Link>
           </Box>
           
@@ -124,15 +126,15 @@ const LoginPage = () => {
             size="large"
             disabled={loading}
           >
-            {loading ? 'جاري تسجيل الدخول...' : 'تسجيل الدخول'}
+            {loading ? t('loggingIn') : t('login')}
           </Button>
         </form>
 
         <Box sx={{ mt: 2, textAlign: 'center' }}>
           <Typography variant="body2" color="text.secondary">
-            ليس لديك حساب؟{' '}
+            {t('noAccount')}{' '}
             <Link component={RouterLink} to="/signup" underline="hover">
-              إنشاء حساب جديد
+              {t('createAccount')}
             </Link>
           </Typography>
         </Box>

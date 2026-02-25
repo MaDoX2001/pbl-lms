@@ -32,33 +32,12 @@ const DRAWER_WIDTH = 280;
 
 const Sidebar = ({ open, onClose }) => {
   const { isAuthenticated, user } = useSelector((state) => state.auth);
-  const { language, direction } = useAppSettings();
-
-  const text = {
-    appName: language === 'ar' ? 'منصة التعلم بالمشروعات' : 'PBL Learning Platform',
-    home: language === 'ar' ? 'الرئيسية' : 'Home',
-    projects: language === 'ar' ? 'المشاريع' : 'Projects',
-    simulator: language === 'ar' ? 'محاكي Arduino' : 'Arduino Simulator',
-    dashboard: language === 'ar' ? 'لوحة التحكم' : 'Dashboard',
-    chats: language === 'ar' ? 'المحادثات' : 'Chats',
-    resources: language === 'ar' ? 'المصادر الداعمة' : 'Support Resources',
-    liveLectures: language === 'ar' ? 'المحاضرات المباشرة' : 'Live Lectures',
-    team: language === 'ar' ? 'فريقي' : 'My Team',
-    teachers: language === 'ar' ? 'المعلمين' : 'Teachers',
-    leaderboard: language === 'ar' ? 'لوحة المتصدرين' : 'Leaderboard',
-    createProject: language === 'ar' ? 'إنشاء مشروع' : 'Create Project',
-    studentProjects: language === 'ar' ? 'مشروعات الطلاب' : 'Student Projects',
-    teams: language === 'ar' ? 'إدارة الفرق' : 'Teams Management',
-    users: language === 'ar' ? 'كل المستخدمين' : 'All Users',
-    systemAdmin: language === 'ar' ? 'إدارة النظام' : 'System Admin',
-    contentManagement: language === 'ar' ? 'إدارة المحتوى' : 'Content Management',
-    admin: language === 'ar' ? 'الإدارة' : 'Administration',
-  };
+  const { direction, t } = useAppSettings();
 
   // Navigation items based on user role
   const getNavItems = () => {
     const baseItems = [
-      { to: '/', icon: <HomeIcon />, label: text.home, public: true }
+      { to: '/', icon: <HomeIcon />, label: t('home'), public: true }
     ];
 
     if (!isAuthenticated) {
@@ -66,29 +45,29 @@ const Sidebar = ({ open, onClose }) => {
     }
 
     const authenticatedItems = [
-      { to: '/projects', icon: <FolderIcon />, label: text.projects },
-      { to: '/arduino-simulator', icon: <CodeIcon />, label: text.simulator },
-      { to: '/dashboard', icon: <DashboardIcon />, label: text.dashboard },
-      { to: '/chat', icon: <ChatIcon />, label: text.chats },
-      { to: '/resources', icon: <BookmarkIcon />, label: text.resources },
-      { to: '/live-lectures', icon: <VideocamIcon />, label: text.liveLectures }
+      { to: '/projects', icon: <FolderIcon />, label: t('projects') },
+      { to: '/arduino-simulator', icon: <CodeIcon />, label: 'Arduino Simulator' },
+      { to: '/dashboard', icon: <DashboardIcon />, label: t('dashboard') },
+      { to: '/chat', icon: <ChatIcon />, label: t('chats') },
+      { to: '/resources', icon: <BookmarkIcon />, label: t('resources') },
+      { to: '/live-lectures', icon: <VideocamIcon />, label: t('liveLectures') }
     ];
 
     if (user?.role === 'student') {
-      authenticatedItems.push({ to: '/team/dashboard', icon: <GroupsIcon />, label: text.team, student: true });
-      authenticatedItems.push({ to: '/teachers', icon: <SchoolIcon />, label: text.teachers, student: true });
+      authenticatedItems.push({ to: '/team/dashboard', icon: <GroupsIcon />, label: t('team'), student: true });
+      authenticatedItems.push({ to: '/teachers', icon: <SchoolIcon />, label: t('teachers'), student: true });
     }
 
     if (user?.role === 'teacher' || user?.role === 'admin') {
-      authenticatedItems.push({ to: '/leaderboard', icon: <LeaderboardIcon />, label: text.leaderboard, teacher: true });
-      authenticatedItems.push({ to: '/create-project', icon: <AddBoxIcon />, label: text.createProject, teacher: true });
-      authenticatedItems.push({ to: '/admin/student-projects', icon: <AssignmentIcon />, label: text.studentProjects, teacher: true });
-      authenticatedItems.push({ to: '/admin/teams', icon: <GroupsIcon />, label: text.teams, teacher: true });
-      authenticatedItems.push({ to: '/users', icon: <PeopleIcon />, label: text.users, teacher: true });
+      authenticatedItems.push({ to: '/leaderboard', icon: <LeaderboardIcon />, label: t('leaderboard'), teacher: true });
+      authenticatedItems.push({ to: '/create-project', icon: <AddBoxIcon />, label: t('createProject'), teacher: true });
+      authenticatedItems.push({ to: '/admin/student-projects', icon: <AssignmentIcon />, label: 'Student Projects', teacher: true });
+      authenticatedItems.push({ to: '/admin/teams', icon: <GroupsIcon />, label: 'Teams Management', teacher: true });
+      authenticatedItems.push({ to: '/users', icon: <PeopleIcon />, label: t('users'), teacher: true });
     }
 
     if (user?.role === 'admin') {
-      authenticatedItems.push({ to: '/admin', icon: <AdminPanelSettingsIcon />, label: text.systemAdmin, admin: true });
+      authenticatedItems.push({ to: '/admin', icon: <AdminPanelSettingsIcon />, label: t('systemAdmin'), admin: true });
     }
 
     return [...baseItems, ...authenticatedItems];
@@ -158,7 +137,7 @@ const Sidebar = ({ open, onClose }) => {
           }}
         >
           <Box sx={{ fontSize: '1.05rem', fontWeight: 600 }}>
-            {text.appName}
+            {t('appName')}
           </Box>
           <IconButton 
             onClick={onClose}
@@ -259,7 +238,7 @@ const Sidebar = ({ open, onClose }) => {
                 <>
                   <Divider sx={{ my: 2 }} />
                   <Box sx={{ px: 2, py: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                    {text.contentManagement}
+                    {t('contentManagement')}
                   </Box>
                   {navItems.filter(item => item.teacher).map((item) => (
                     <ListItem
@@ -303,7 +282,7 @@ const Sidebar = ({ open, onClose }) => {
                 <>
                   <Divider sx={{ my: 2 }} />
                   <Box sx={{ px: 2, py: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                    {text.admin}
+                    {t('administration')}
                   </Box>
                   <ListItem
                     key={item.to}
