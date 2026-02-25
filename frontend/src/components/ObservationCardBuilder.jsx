@@ -23,22 +23,24 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const PERCENTAGE_OPTIONS = [0, 20, 40, 60, 80, 100];
 
 const PHASE_NAMES = {
-  group: 'المرحلة الجماعية',
-  individual_oral: 'المرحلة الفردية والشفوية'
+  group: 'groupPhase',
+  individual_oral: 'individualOralPhase'
 };
 
 const ROLES = [
-  { value: 'all', label: 'الكل' },
-  { value: 'system_designer', label: 'مصمم النظام' },
-  { value: 'hardware_engineer', label: 'مهندس الأجهزة' },
-  { value: 'programmer', label: 'المبرمج' }
+  { value: 'all' },
+  { value: 'system_designer' },
+  { value: 'hardware_engineer' },
+  { value: 'programmer' }
 ];
 
 const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, onSave }) => {
+  const { t } = useAppSettings();
   const [sections, setSections] = useState([{
     name: '',
     weight: 100,
@@ -137,19 +139,19 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
     // Validation
     const totalWeight = getSectionWeightTotal();
     if (Math.abs(totalWeight - 100) > 0.01) {
-      setError('يجب أن يكون مجموع أوزان الأقسام 100%');
+      setError(t('sectionWeightsMustTotal100'));
       return;
     }
 
     // Check for empty names
     for (const section of sections) {
       if (!section.name.trim()) {
-        setError('يجب إدخال أسماء جميع الأقسام');
+        setError(t('allSectionNamesRequired'));
         return;
       }
       for (const criterion of section.criteria) {
         if (!criterion.name.trim()) {
-          setError('يجب إدخال أسماء جميع المعايير');
+          setError(t('allCriteriaNamesRequired'));
           return;
         }
       }
@@ -163,16 +165,16 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Box>
           <Typography variant="h5" gutterBottom fontWeight={600}>
-            بطاقة الملاحظة - {PHASE_NAMES[phase]}
+            {t('observationCardBuilderTitle')} - {t(PHASE_NAMES[phase])}
           </Typography>
           <Typography variant="body2" color="text.secondary">
             {phase === 'group' 
-              ? 'تقييم جماعي - يُطبق على الفريق بالكامل' 
-              : 'تقييم فردي وشفوي - يُطبق حسب دور الطالب'}
+              ? t('groupObservationCardDesc')
+              : t('individualOralObservationCardDesc')}
           </Typography>
         </Box>
         <Chip 
-          label={phase === 'group' ? 'المرحلة الأولى' : 'المرحلة الثانية'}
+          label={phase === 'group' ? t('phaseOne') : t('phaseTwo')}
           color={phase === 'group' ? 'primary' : 'secondary'}
         />
       </Box>
@@ -180,10 +182,10 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       <Alert severity="info" sx={{ mb: 3 }}>
-        <strong>ملاحظة:</strong> يجب أن يكون مجموع أوزان الأقسام = 100%
+        <strong>{t('importantNote')}:</strong> {t('sectionWeightsMustEqual100')}
         {phase === 'individual_oral' && (
           <Box sx={{ mt: 1 }}>
-            يمكنك تحديد الأدوار المناسبة لكل معيار. المعايير المُطبقة على "الكل" ستكون إلزامية لجميع الطلاب.
+            {t('individualRoleAssignmentHint')}
           </Box>
         )}
       </Alert>
@@ -191,7 +193,7 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
       {/* Section Weight Summary */}
       <Box sx={{ mb: 3, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
         <Typography variant="subtitle2" gutterBottom>
-          مجموع أوزان الأقسام:
+          {t('sectionWeightsTotal')}
         </Typography>
         <Typography 
           variant="h6" 
@@ -207,7 +209,7 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
               <Typography variant="h6" fontWeight={600} sx={{ flex: 1 }}>
-                {section.name || `القسم ${sectionIndex + 1}`}
+                {section.name || t('sectionWithNumber', { number: sectionIndex + 1 })}
               </Typography>
               <Chip label={`${section.weight}%`} size="small" color="primary" />
             </Box>
@@ -217,16 +219,16 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
               <Grid item xs={12} md={8}>
                 <TextField
                   fullWidth
-                  label="اسم القسم"
+                  label={t('sectionName')}
                   value={section.name}
                   onChange={(e) => handleSectionChange(sectionIndex, 'name', e.target.value)}
-                  placeholder="مثال: التصميم والتخطيط"
+                  placeholder={t('sectionNamePlaceholder')}
                 />
               </Grid>
               <Grid item xs={12} md={3}>
                 <TextField
                   fullWidth
-                  label="الوزن"
+                  label={t('weight')}
                   type="number"
                   value={section.weight}
                   onChange={(e) => handleSectionChange(sectionIndex, 'weight', e.target.value)}
@@ -246,7 +248,7 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
 
             <Divider sx={{ my: 2 }} />
             <Typography variant="subtitle1" gutterBottom fontWeight={600}>
-              المعايير
+              {t('criteria')}
             </Typography>
 
             {/* Criteria */}
@@ -257,10 +259,10 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                       <TextField
                         fullWidth
-                        label={`المعيار ${criterionIndex + 1}`}
+                        label={`${t('criterion')} ${criterionIndex + 1}`}
                         value={criterion.name}
                         onChange={(e) => handleCriterionNameChange(sectionIndex, criterionIndex, e.target.value)}
-                        placeholder="مثال: وضوح الأهداف"
+                        placeholder={t('criterionNamePlaceholder')}
                       />
                       <IconButton
                         color="error"
@@ -276,13 +278,21 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
                   {phase === 'individual_oral' && (
                     <Grid item xs={12}>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        الأدوار المعنية بهذا المعيار:
+                        {t('rolesApplicableToCriterion')}
                       </Typography>
                       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                         {ROLES.map(role => (
                           <Chip
                             key={role.value}
-                            label={role.label}
+                            label={
+                              role.value === 'all'
+                                ? t('allRoles')
+                                : role.value === 'system_designer'
+                                  ? t('roleSystemDesigner')
+                                  : role.value === 'hardware_engineer'
+                                    ? t('roleHardwareEngineer')
+                                    : t('roleProgrammer')
+                            }
                             onClick={() => handleRoleToggle(sectionIndex, criterionIndex, role.value)}
                             color={criterion.applicableRoles.includes(role.value) ? 'primary' : 'default'}
                             variant={criterion.applicableRoles.includes(role.value) ? 'filled' : 'outlined'}
@@ -295,7 +305,7 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
                   {/* Options */}
                   <Grid item xs={12}>
                     <Typography variant="body2" fontWeight={600} gutterBottom>
-                      خيارات التقييم:
+                      {t('evaluationOptions')}
                     </Typography>
                     {criterion.options.map((option, optionIndex) => (
                       <Box key={optionIndex} sx={{ mb: 1 }}>
@@ -305,7 +315,7 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
                           label={`${option.percentage}%`}
                           value={option.description}
                           onChange={(e) => handleOptionDescriptionChange(sectionIndex, criterionIndex, optionIndex, e.target.value)}
-                          placeholder={`وصف الحصول على ${option.percentage}%`}
+                          placeholder={t('descriptionForPercentage', { percentage: option.percentage })}
                         />
                       </Box>
                     ))}
@@ -320,7 +330,7 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
               variant="outlined"
               size="small"
             >
-              إضافة معيار
+              {t('addCriterion')}
             </Button>
           </AccordionDetails>
         </Accordion>
@@ -334,7 +344,7 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
           variant="outlined"
           color="primary"
         >
-          إضافة قسم جديد
+          {t('addNewSection')}
         </Button>
         <Box sx={{ flex: 1 }} />
         <Button
@@ -343,7 +353,7 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
           onClick={handleSave}
           size="large"
         >
-          حفظ بطاقة الملاحظة
+          {t('saveObservationCard')}
         </Button>
       </Box>
     </Paper>

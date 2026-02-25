@@ -262,7 +262,7 @@ const ProjectDetailPage = () => {
           successCount++;
         } catch (error) {
           // Skip if already enrolled
-          if (error.response?.data?.message?.includes('مسجل بالفعل')) {
+          if (error.response?.data?.message?.includes('\u0645\u0633\u062c\u0644 \u0628\u0627\u0644\u0641\u0639\u0644')) {
             errorCount++;
           } else {
             throw error;
