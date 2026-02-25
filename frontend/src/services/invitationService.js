@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { translate as t } from '../i18n/translate';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -14,7 +15,7 @@ const invitationService = {
       });
       return response.data;
     } catch (error) {
-      const errorMsg = error.response?.data?.message || error.message || 'حدث خطأ في إرسال الطلب';
+      const errorMsg = error.response?.data?.message || error.message || t('invitationRequestSendError');
       throw { message: errorMsg };
     }
   },

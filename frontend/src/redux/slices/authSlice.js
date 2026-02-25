@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../services/api';
 import { toast } from 'react-toastify';
+import { translate as t } from '../../i18n/translate';
 
 // Async thunks
 export const register = createAsyncThunk(
@@ -12,11 +13,11 @@ export const register = createAsyncThunk(
       if (response.data.data?.token) {
         localStorage.setItem('token', response.data.data.token);
       }
-      toast.success('تم التسجيل بنجاح!');
+      toast.success(t('authRegisterSuccess'));
       // Return entire response.data to include requiresEmailVerification flag
       return response.data;
     } catch (error) {
-      toast.error(error.response?.data?.message || 'فشل التسجيل');
+      toast.error(error.response?.data?.message || t('authRegisterFailed'));
       return rejectWithValue(error.response?.data);
     }
   }
@@ -30,12 +31,12 @@ export const login = createAsyncThunk(
       // Only set token if it exists (normal login, not 2FA required)
       if (response.data.data?.token) {
         localStorage.setItem('token', response.data.data.token);
-        toast.success('تم تسجيل الدخول بنجاح!');
+        toast.success(t('authLoginSuccess'));
       }
       // Return entire response.data to include requiresOTP, requireSetup flags
       return response.data;
     } catch (error) {
-      toast.error(error.response?.data?.message || 'فشل تسجيل الدخول');
+      toast.error(error.response?.data?.message || t('authLoginFailed'));
       return rejectWithValue(error.response?.data);
     }
   }
@@ -58,10 +59,10 @@ export const updateProfile = createAsyncThunk(
   async ({ userId, data }, { rejectWithValue }) => {
     try {
       const response = await api.put(`/users/${userId}`, data);
-      toast.success('تم تحديث الملف الشخصي بنجاح!');
+      toast.success(t('profileUpdateSuccess'));
       return response.data.data;
     } catch (error) {
-      toast.error(error.response?.data?.message || 'فشل التحديث');
+      toast.error(error.response?.data?.message || t('profileUpdateFailed'));
       return rejectWithValue(error.response?.data);
     }
   }
@@ -88,7 +89,7 @@ const authSlice = createSlice({
       state.require2FA = false;
       state.requireSetup = false;
       state.tempUserId = null;
-      toast.info('تم تسجيل الخروج');
+      toast.info(t('logoutSuccess'));
     },
     clearError: (state) => {
       state.error = null;
@@ -141,7 +142,7 @@ const authSlice = createSlice({
       })
       .addCase(register.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.message || 'فشل التسجيل';
+        state.error = action.payload?.message || t('authRegisterFailed');
       })
       // Login
       .addCase(login.pending, (state) => {
@@ -171,7 +172,7 @@ const authSlice = createSlice({
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.message || 'فشل تسجيل الدخول';
+        state.error = action.payload?.message || t('authLoginFailed');
       })
       // Load User
       .addCase(loadUser.pending, (state) => {

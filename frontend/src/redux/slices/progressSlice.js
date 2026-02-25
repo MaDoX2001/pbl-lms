@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../services/api';
 import { toast } from 'react-toastify';
+import { translate as t } from '../../i18n/translate';
 
 // Async thunks
 export const fetchStudentProgress = createAsyncThunk(
@@ -36,10 +37,10 @@ export const updateMilestone = createAsyncThunk(
         `/progress/${projectId}/milestone/${milestoneId}`,
         { completed }
       );
-      toast.success(completed ? 'تم إكمال المرحلة!' : 'تم إلغاء إكمال المرحلة');
+      toast.success(completed ? t('milestoneCompleted') : t('milestoneUncompleted'));
       return response.data.data;
     } catch (error) {
-      toast.error('فشل في تحديث المرحلة');
+      toast.error(t('milestoneUpdateFailed'));
       return rejectWithValue(error.response?.data);
     }
   }
@@ -50,10 +51,10 @@ export const submitProject = createAsyncThunk(
   async ({ projectId, submissionData }, { rejectWithValue }) => {
     try {
       const response = await api.post(`/progress/${projectId}/submit`, submissionData);
-      toast.success('تم تسليم المشروع بنجاح!');
+      toast.success(t('projectSubmitSuccess'));
       return response.data.data;
     } catch (error) {
-      toast.error(error.response?.data?.message || 'فشل في تسليم المشروع');
+      toast.error(error.response?.data?.message || t('projectSubmitFailed'));
       return rejectWithValue(error.response?.data);
     }
   }
@@ -85,7 +86,7 @@ const progressSlice = createSlice({
       })
       .addCase(fetchStudentProgress.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.message || 'فشل في تحميل التقدم';
+        state.error = action.payload?.message || t('progressLoadFailed');
       })
       // Fetch Project Progress
       .addCase(fetchProjectProgress.pending, (state) => {
@@ -98,7 +99,7 @@ const progressSlice = createSlice({
       })
       .addCase(fetchProjectProgress.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.message || 'فشل في تحميل التقدم';
+        state.error = action.payload?.message || t('progressLoadFailed');
       })
       // Update Milestone
       .addCase(updateMilestone.fulfilled, (state, action) => {

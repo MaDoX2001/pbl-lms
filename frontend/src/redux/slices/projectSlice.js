@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../services/api';
 import { toast } from 'react-toastify';
+import { translate as t } from '../../i18n/translate';
 
 // Async thunks
 export const fetchProjects = createAsyncThunk(
@@ -23,7 +24,7 @@ export const fetchProjectById = createAsyncThunk(
       const response = await api.get(`/projects/${projectId}`);
       return response.data.data;
     } catch (error) {
-      toast.error('فشل في تحميل المشروع');
+      toast.error(t('projectLoadFailed'));
       return rejectWithValue(error.response?.data);
     }
   }
@@ -34,10 +35,10 @@ export const createProject = createAsyncThunk(
   async (projectData, { rejectWithValue }) => {
     try {
       const response = await api.post('/projects', projectData);
-      toast.success('تم إنشاء المشروع بنجاح!');
+      toast.success(t('projectCreateSuccess'));
       return response.data.data;
     } catch (error) {
-      toast.error(error.response?.data?.message || 'فشل في إنشاء المشروع');
+      toast.error(error.response?.data?.message || t('projectCreateFailed'));
       return rejectWithValue(error.response?.data);
     }
   }
@@ -48,10 +49,10 @@ export const updateProject = createAsyncThunk(
   async ({ projectId, data }, { rejectWithValue }) => {
     try {
       const response = await api.put(`/projects/${projectId}`, data);
-      toast.success('تم تحديث المشروع بنجاح!');
+      toast.success(t('projectUpdateSuccess'));
       return response.data.data;
     } catch (error) {
-      toast.error(error.response?.data?.message || 'فشل في تحديث المشروع');
+      toast.error(error.response?.data?.message || t('projectUpdateFailed'));
       return rejectWithValue(error.response?.data);
     }
   }
@@ -62,10 +63,10 @@ export const enrollInProject = createAsyncThunk(
   async (projectId, { rejectWithValue }) => {
     try {
       const response = await api.post(`/projects/${projectId}/enroll`);
-      toast.success('تم التسجيل في المشروع بنجاح!');
+      toast.success(t('projectEnrollSuccess'));
       return { projectId, data: response.data };
     } catch (error) {
-      toast.error(error.response?.data?.message || 'فشل التسجيل في المشروع');
+      toast.error(error.response?.data?.message || t('projectEnrollFailed'));
       return rejectWithValue(error.response?.data);
     }
   }
@@ -97,7 +98,7 @@ const projectSlice = createSlice({
       })
       .addCase(fetchProjects.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.message || 'فشل في تحميل المشاريع';
+        state.error = action.payload?.message || t('projectsLoadFailed');
       })
       // Fetch Project By ID
       .addCase(fetchProjectById.pending, (state) => {
@@ -110,7 +111,7 @@ const projectSlice = createSlice({
       })
       .addCase(fetchProjectById.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.message || 'فشل في تحميل المشروع';
+        state.error = action.payload?.message || t('projectLoadFailed');
       })
       // Create Project
       .addCase(createProject.fulfilled, (state, action) => {
