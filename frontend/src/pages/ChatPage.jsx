@@ -53,9 +53,6 @@ const ChatPage = () => {
   const { user, token } = useSelector((state) => state.auth);
   const { t, language } = useAppSettings();
   
-  console.log('ChatPage - User:', user);
-  console.log('ChatPage - User role:', user?.role);
-  
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -94,11 +91,6 @@ const ChatPage = () => {
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
-  // Debug: Watch chatType changes
-  useEffect(() => {
-    console.log('chatType changed to:', chatType);
-  }, [chatType]);
-
   useEffect(() => {
     if (token) {
       socketService.connect(token);
@@ -117,7 +109,6 @@ const ChatPage = () => {
 
   useEffect(() => {
     const handleNewMessage = (data) => {
-      console.log('🔔 New message received:', data);
       if (selectedConversation && data.conversationId === selectedConversation._id) {
         setMessages((prev) => [...prev, data]);
         scrollToBottom();
@@ -129,7 +120,6 @@ const ChatPage = () => {
         
         // If conversation doesn't exist in list, fetch all conversations
         if (!convExists) {
-          console.log('⚠️ Conversation not in list, re-fetching all conversations');
           fetchConversations();
           return prevConvs;
         }
@@ -261,8 +251,6 @@ const ChatPage = () => {
   const fetchConversations = async () => {
     try {
       const response = await api.get(`/chat/conversations?type=${chatType}`);
-      console.log('Fetched conversations:', response.data.data.length, 'conversations');
-      console.log('Conversations IDs:', response.data.data.map(c => ({ id: c._id, name: getConversationName(c) })));
       setConversations(response.data.data);
     } catch (error) {
       console.error('Error fetching conversations:', error);
@@ -425,11 +413,8 @@ const ChatPage = () => {
   };
 
   const handleOpenTeamChat = async () => {
-    console.log('handleOpenTeamChat called');
     try {
-      console.log('Sending POST request to /chat/conversations/team');
       const response = await api.post('/chat/conversations/team');
-      console.log('Team chat response:', response.data);
       const conversation = response.data.data;
       setSelectedConversation(conversation);
       fetchConversations();
@@ -442,11 +427,8 @@ const ChatPage = () => {
   };
 
   const handleOpenTeamTeachersChat = async () => {
-    console.log('handleOpenTeamTeachersChat called');
     try {
-      console.log('Sending POST request to /chat/conversations/team-teachers');
       const response = await api.post('/chat/conversations/team-teachers');
-      console.log('Team+Teachers chat response:', response.data);
       const conversation = response.data.data;
       setSelectedConversation(conversation);
       fetchConversations();
@@ -555,14 +537,10 @@ const ChatPage = () => {
     const filtered = conversations.filter((conv) =>
       getConversationName(conv).toLowerCase().includes(debouncedSearchQuery.toLowerCase())
     );
-    console.log('Filtered conversations:', filtered.length, 'from', conversations.length, 'total');
     return filtered;
   }, [conversations, debouncedSearchQuery, user.id]);
 
   const handleTabChange = async (event, newValue) => {
-    console.log('handleTabChange called with:', newValue);
-    console.log('Current user role:', user?.role);
-    
     setChatType(newValue);
     setSelectedConversation(null);
     setMessages([]);
@@ -570,13 +548,10 @@ const ChatPage = () => {
     try {
       // Auto-open team/team_teachers/general chats when switching to their tabs
       if (newValue === 'team' && user?.role === 'student') {
-        console.log('Opening team chat...');
         await handleOpenTeamChat();
       } else if (newValue === 'team_teachers' && user?.role === 'student') {
-        console.log('Opening team+teachers chat...');
         await handleOpenTeamTeachersChat();
       } else if (newValue === 'general') {
-        console.log('Opening general chat...');
         await handleOpenGeneralChat();
       }
     } catch (error) {
