@@ -22,14 +22,14 @@ import api from '../services/api';
 import { useAppSettings } from '../context/AppSettingsContext';
 
 const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
-  const { t, language } = useAppSettings();
+  const { t } = useAppSettings();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     resourceType: '',
     externalUrl: '',
-    category: 'أخرى',
-    difficulty: 'متوسط',
+    category: t('catOtherValue'),
+    difficulty: t('difficultyIntermediateValue'),
     tags: ''
   });
   const [file, setFile] = useState(null);
@@ -128,8 +128,8 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
         description: '',
         resourceType: '',
         externalUrl: '',
-        category: 'أخرى',
-        difficulty: 'متوسط',
+        category: t('catOtherValue'),
+        difficulty: t('difficultyIntermediateValue'),
         tags: ''
       });
       setFile(null);
@@ -146,14 +146,14 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
   };
 
   const categories = [
-    'الإلكترونيات',
-    'البرمجة',
-    'الدوائر الكهربائية',
-    'المحاكاة',
-    'الأنظمة الذكية',
-    'التعليمات والشروحات',
-    'مراجع عامة',
-    'أخرى'
+    { value: t('catElectronicsValue'), label: t('catElectronics') },
+    { value: t('catProgrammingValue'), label: t('catProgramming') },
+    { value: t('catCircuitsValue'), label: t('catCircuits') },
+    { value: t('catSimulationValue'), label: t('catSimulation') },
+    { value: t('catSmartSystemsValue'), label: t('catSmartSystems') },
+    { value: t('catInstructionsValue'), label: t('catInstructions') },
+    { value: t('catReferencesValue'), label: t('catReferences') },
+    { value: t('catOtherValue'), label: t('catOther') }
   ];
 
   const resourceTypes = [
@@ -165,7 +165,11 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
     { value: 'other', label: `📎 ${t('typeOther')}` }
   ];
 
-  const difficulties = ['مبتدئ', 'متوسط', 'متقدم'];
+  const difficulties = [
+    { value: t('difficultyBeginnerValue'), label: t('beginner') },
+    { value: t('difficultyIntermediateValue'), label: t('intermediate') },
+    { value: t('difficultyAdvancedValue'), label: t('advanced') }
+  ];
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -282,8 +286,8 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
               label={t('category')}
             >
               {categories.map(cat => (
-                <MenuItem key={cat} value={cat}>
-                  {cat}
+                <MenuItem key={cat.value} value={cat.value}>
+                  {cat.label}
                 </MenuItem>
               ))}
             </Select>
@@ -299,8 +303,8 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
               label={t('difficultyLevel')}
             >
               {difficulties.map(diff => (
-                <MenuItem key={diff} value={diff}>
-                  {diff}
+                <MenuItem key={diff.value} value={diff.value}>
+                  {diff.label}
                 </MenuItem>
               ))}
             </Select>

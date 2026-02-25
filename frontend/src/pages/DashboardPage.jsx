@@ -111,7 +111,7 @@ const DashboardPage = () => {
                   <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', mr: 2 }}>
                       <Typography variant="h6" fontWeight={600}>
-                        {progress.project?.title || 'مشروع بدون عنوان'}
+                        {progress.project?.title || t('untitledProject')}
                       </Typography>
                       <Typography variant="body2" color="primary">
                         {progress.completionPercentage || 0}%
