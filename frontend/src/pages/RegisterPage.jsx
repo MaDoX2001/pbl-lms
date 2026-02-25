@@ -26,6 +26,7 @@ import { register } from '../redux/slices/authSlice';
 import api from '../services/api';
 import invitationService from '../services/invitationService';
 import { toast } from 'react-toastify';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 // Password strength validation helper
 const validatePasswordStrength = (password) => {
@@ -48,6 +49,7 @@ const validatePasswordStrength = (password) => {
 const RegisterPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { t } = useAppSettings();
   const [searchParams] = useSearchParams();
   const { loading, error } = useSelector((state) => state.auth);
 
@@ -110,7 +112,7 @@ const RegisterPage = () => {
       }));
       setCheckingInvitation(false);
     } catch (err) {
-      setInvitationError(err.response?.data?.message || 'رمز الدعوة غير صالح');
+      setInvitationError(err.response?.data?.message || t('invalidInvitationToken'));
       setCheckingInvitation(false);
     }
   };
@@ -136,20 +138,20 @@ const RegisterPage = () => {
 
     // Validate name
     if (formData.name.trim().length < 3) {
-      setValidationError('الاسم يجب أن يكون 3 أحرف على الأقل');
+      setValidationError(t('nameMin3'));
       return;
     }
 
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
-      setValidationError('كلمات المرور غير متطابقة');
+      setValidationError(t('passwordsMismatch'));
       return;
     }
 
     // Validate password strength
     const passwordStrength = validatePasswordStrength(formData.password);
     if (!passwordStrength.isValid) {
-      setValidationError('كلمة المرور يجب أن تحتوي على: 8 أحرف على الأقل، حروف صغيرة، حروف كبيرة، أرقام، رموز');
+      setValidationError(t('passwordStrengthRequirement'));
       return;
     }
 
@@ -162,7 +164,7 @@ const RegisterPage = () => {
     }));
 
     if (result.type === 'auth/register/fulfilled') {
-      toast.success('تم إنشاء الحساب بنجاح');
+      toast.success(t('accountCreatedSuccess'));
       // Redirect to 2FA setup (mandatory for all new users)
       navigate('/2fa-setup');
     }
@@ -177,14 +179,14 @@ const RegisterPage = () => {
     try {
       // Validate inputs
       if (requestData.name.trim().length < 3) {
-        setValidationError('الاسم يجب أن يكون 3 أحرف على الأقل');
+        setValidationError(t('nameMin3'));
         setRequestLoading(false);
         return;
       }
 
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(requestData.email)) {
-        setValidationError('البريد الإلكتروني غير صحيح');
+        setValidationError(t('invalidEmail'));
         setRequestLoading(false);
         return;
       }
@@ -192,14 +194,14 @@ const RegisterPage = () => {
       // Validate password strength
       const passwordStrength = validatePasswordStrength(requestData.password);
       if (!passwordStrength.isValid) {
-        setValidationError('كلمة المرور يجب أن تحتوي على: 8 أحرف على الأقل، حروف صغيرة، حروف كبيرة، أرقام، رموز');
+        setValidationError(t('passwordStrengthRequirement'));
         setRequestLoading(false);
         return;
       }
 
       // Validate passwords match
       if (requestData.password !== requestData.confirmPassword) {
-        setValidationError('كلمات المرور غير متطابقة');
+        setValidationError(t('passwordsMismatch'));
         setRequestLoading(false);
         return;
       }
@@ -212,10 +214,10 @@ const RegisterPage = () => {
 
       setRequestSent(true);
       setStep(1);
-      toast.success('تم إرسال طلبك بنجاح، سيتم مراجعته من قبل المدير');
+      toast.success(t('invitationRequestSentAndReviewed'));
     } catch (err) {
       setValidationError(
-        err.response?.data?.message || 'حدث خطأ أثناء إرسال الطلب'
+        err.response?.data?.message || t('requestSubmitError')
       );
     } finally {
       setRequestLoading(false);
@@ -275,23 +277,23 @@ const RegisterPage = () => {
     >
       <Paper elevation={3} sx={{ p: 4, maxWidth: 500, width: '100%' }}>
         <Typography variant="h4" component="h1" gutterBottom align="center" fontWeight={700}>
-          انضم إلى منصتنا
+          {t('joinPlatformTitle')}
         </Typography>
 
         {/* FLOW 1: NO TOKEN - CHOOSE ACTION */}
         {flowType === null && !checkingInvitation && (
           <>
             <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
-              اختر الطريقة التي تفضلها للانضمام
+              {t('chooseJoinMethod')}
             </Typography>
 
             <Card sx={{ mb: 3, backgroundColor: '#f5f5f5' }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
-                  ليس لديك دعوة؟
+                  {t('noInvitationYet')}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  أرسل طلب انضمام إلى المدير وسيتم إرسال دعوة لك عبر بريدك الإلكتروني
+                  {t('sendJoinRequestDescription')}
                 </Typography>
                 <Button
                   fullWidth
@@ -300,20 +302,20 @@ const RegisterPage = () => {
                   onClick={handleChoiceRequest}
                   size="large"
                 >
-                  طلب دعوة
+                  {t('requestInvitation')}
                 </Button>
               </CardContent>
             </Card>
 
-            <Divider sx={{ my: 2 }}>أو</Divider>
+            <Divider sx={{ my: 2 }}>{t('or')}</Divider>
 
             <Card sx={{ mb: 3, backgroundColor: '#f5f5f5' }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
-                  لديك حساب بالفعل؟
+                  {t('alreadyHaveAccount')}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  قم بتسجيل الدخول باستخدام بيانات حسابك
+                  {t('loginWithAccountData')}
                 </Typography>
                 <Button
                   fullWidth
@@ -322,7 +324,7 @@ const RegisterPage = () => {
                   onClick={handleChoiceAlready}
                   size="large"
                 >
-                  تسجيل الدخول
+                  {t('login')}
                 </Button>
               </CardContent>
             </Card>
@@ -334,17 +336,17 @@ const RegisterPage = () => {
           <>
             <Stepper activeStep={step} sx={{ mb: 3 }}>
               <Step>
-                <StepLabel>بيانات الطلب</StepLabel>
+                <StepLabel>{t('requestDataStep')}</StepLabel>
               </Step>
               <Step>
-                <StepLabel>تم الإرسال</StepLabel>
+                <StepLabel>{t('sentStep')}</StepLabel>
               </Step>
             </Stepper>
 
             {step === 0 && !requestSent && (
               <>
                 <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
-                  أدخل بيانات حسابك وسنقوم بمراجعة طلبك
+                  {t('enterDataForReview')}
                 </Typography>
 
                 {validationError && (
@@ -356,35 +358,35 @@ const RegisterPage = () => {
                 <form onSubmit={handleRequestSubmit}>
                   <TextField
                     fullWidth
-                    label="الاسم الكامل"
+                    label={t('fullName')}
                     name="name"
                     value={requestData.name}
                     onChange={handleRequestChange}
                     required
-                    placeholder="أدخل اسمك الكامل"
+                    placeholder={t('enterFullNamePlaceholder')}
                     sx={{ mb: 2 }}
                   />
 
                   <TextField
                     fullWidth
-                    label="البريد الإلكتروني"
+                    label={t('email')}
                     name="email"
                     type="email"
                     value={requestData.email}
                     onChange={handleRequestChange}
                     required
-                    placeholder="بريدك الإلكتروني"
+                    placeholder={t('yourEmailPlaceholder')}
                     sx={{ mb: 2 }}
                   />
 
                   <TextField
                     fullWidth
-                    label="كلمة المرور"
+                    label={t('password')}
                     name="password"
                     type="password"
                     value={requestData.password}
                     onChange={handleRequestChange}
-                    placeholder="أدخل كلمة مرور قوية"
+                    placeholder={t('enterStrongPassword')}
                     sx={{ mb: 1 }}
                     required
                   />
@@ -416,28 +418,28 @@ const RegisterPage = () => {
 
                   <TextField
                     fullWidth
-                    label="تأكيد كلمة المرور"
+                    label={t('confirmPassword')}
                     name="confirmPassword"
                     type="password"
                     value={requestData.confirmPassword}
                     onChange={handleRequestChange}
-                    placeholder="أعد إدخال كلمة المرور"
+                    placeholder={t('reenterPassword')}
                     sx={{ mb: 3 }}
                     required
                     error={requestData.confirmPassword && requestData.password !== requestData.confirmPassword}
-                    helperText={requestData.confirmPassword && requestData.password !== requestData.confirmPassword ? 'كلمات المرور غير متطابقة' : ''}
+                    helperText={requestData.confirmPassword && requestData.password !== requestData.confirmPassword ? t('passwordsMismatch') : ''}
                   />
 
                   <FormControl fullWidth sx={{ mb: 3 }}>
-                    <InputLabel>الدور</InputLabel>
+                    <InputLabel>{t('role')}</InputLabel>
                     <Select
                       name="role"
                       value={requestData.role}
                       onChange={handleRequestChange}
-                      label="الدور"
+                      label={t('role')}
                     >
-                      <MenuItem value="student">طالب</MenuItem>
-                      <MenuItem value="teacher">معلم</MenuItem>
+                      <MenuItem value="student">{t('student')}</MenuItem>
+                      <MenuItem value="teacher">{t('teacher')}</MenuItem>
                     </Select>
                   </FormControl>
 
@@ -448,7 +450,7 @@ const RegisterPage = () => {
                     size="large"
                     disabled={requestLoading}
                   >
-                    {requestLoading ? 'جاري الإرسال...' : 'إرسال الطلب'}
+                    {requestLoading ? t('sending') : t('sendRequest')}
                   </Button>
                 </form>
 
@@ -464,7 +466,7 @@ const RegisterPage = () => {
                     onClick={() => navigate('/login')}
                     sx={{ cursor: 'pointer' }}
                   >
-                    تسجيل الدخول
+                    {t('login')}
                   </Link>
                 </Typography>
               </>
@@ -474,7 +476,7 @@ const RegisterPage = () => {
               <Card sx={{ backgroundColor: '#e8f5e9' }}>
                 <CardContent sx={{ textAlign: 'center', py: 4 }}>
                   <Typography variant="h6" gutterBottom sx={{ color: '#2e7d32' }}>
-                    ✓ تم استقبال طلبك
+                    {t('requestReceived')}
                   </Typography>
                   <Typography variant="body2" sx={{ mb: 2 }}>
                     سيتم مراجعة طلبك من قبل المدير وسنرسل لك دعوة على البريد: <br />
@@ -490,7 +492,7 @@ const RegisterPage = () => {
                       variant="outlined"
                       onClick={() => navigate('/login')}
                     >
-                      تسجيل الدخول
+                      {t('login')}
                     </Button>
                     <Button
                       fullWidth
@@ -502,7 +504,7 @@ const RegisterPage = () => {
                         setRequestData({ name: '', email: '', password: '', confirmPassword: '', role: 'student' });
                       }}
                     >
-                      طلب جديد
+                      {t('newRequest')}
                     </Button>
                   </Box>
                 </CardContent>
@@ -516,13 +518,13 @@ const RegisterPage = () => {
           <>
             <Stepper activeStep={step} sx={{ mb: 3 }}>
               <Step>
-                <StepLabel>البيانات الشخصية</StepLabel>
+                <StepLabel>{t('personalDataStep')}</StepLabel>
               </Step>
               <Step>
-                <StepLabel>كلمة المرور</StepLabel>
+                <StepLabel>{t('passwordStep')}</StepLabel>
               </Step>
               <Step>
-                <StepLabel>تم الإنشاء</StepLabel>
+                <StepLabel>{t('createdStep')}</StepLabel>
               </Step>
             </Stepper>
 
@@ -545,7 +547,7 @@ const RegisterPage = () => {
                   onSubmit={(e) => {
                     e.preventDefault();
                     if (formData.name.trim().length < 3) {
-                      setValidationError('الاسم يجب أن يكون 3 أحرف على الأقل');
+                      setValidationError(t('nameMin3'));
                       return;
                     }
                     setValidationError('');
@@ -554,12 +556,12 @@ const RegisterPage = () => {
                 >
                   <TextField
                     fullWidth
-                    label="الاسم الكامل"
+                    label={t('fullName')}
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
                     required
-                    placeholder="أدخل اسمك الكامل"
+                    placeholder={t('enterFullNamePlaceholder')}
                     sx={{ mb: 3 }}
                   />
 
@@ -569,7 +571,7 @@ const RegisterPage = () => {
                     variant="contained"
                     size="large"
                   >
-                    التالي
+                    {t('next')}
                   </Button>
                 </form>
               </>
@@ -588,14 +590,14 @@ const RegisterPage = () => {
                     e.preventDefault();
 
                     if (formData.password !== formData.confirmPassword) {
-                      setValidationError('كلمات المرور غير متطابقة');
+                      setValidationError(t('passwordsMismatch'));
                       return;
                     }
 
                     // Validate password strength
                     const passwordStrength = validatePasswordStrength(formData.password);
                     if (!passwordStrength.isValid) {
-                      setValidationError('كلمة المرور يجب أن تحتوي على: 8 أحرف على الأقل، حروف صغيرة، حروف كبيرة، أرقام، رموز');
+                      setValidationError(t('passwordStrengthRequirement'));
                       return;
                     }
 
@@ -604,12 +606,12 @@ const RegisterPage = () => {
                   }}
                 >
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    اختر كلمة مرور قوية
+                    {t('chooseStrongPassword')}
                   </Typography>
 
                   <TextField
                     fullWidth
-                    label="كلمة المرور"
+                    label={t('password')}
                     name="password"
                     type="password"
                     value={formData.password}
@@ -645,7 +647,7 @@ const RegisterPage = () => {
 
                   <TextField
                     fullWidth
-                    label="تأكيد كلمة المرور"
+                    label={t('confirmPassword')}
                     name="confirmPassword"
                     type="password"
                     value={formData.confirmPassword}
@@ -653,7 +655,7 @@ const RegisterPage = () => {
                     required
                     sx={{ mb: 3 }}
                     error={formData.confirmPassword && formData.password !== formData.confirmPassword}
-                    helperText={formData.confirmPassword && formData.password !== formData.confirmPassword ? 'كلمات المرور غير متطابقة' : ''}
+                    helperText={formData.confirmPassword && formData.password !== formData.confirmPassword ? t('passwordsMismatch') : ''}
                   />
 
                   <Box sx={{ display: 'flex', gap: 1 }}>
@@ -662,14 +664,14 @@ const RegisterPage = () => {
                       variant="outlined"
                       onClick={() => setStep(0)}
                     >
-                      السابق
+                      {t('previous')}
                     </Button>
                     <Button
                       type="submit"
                       fullWidth
                       variant="contained"
                     >
-                      التالي
+                      {t('next')}
                     </Button>
                   </Box>
                 </form>
@@ -706,7 +708,7 @@ const RegisterPage = () => {
                     size="large"
                     disabled={loading}
                   >
-                    {loading ? 'جاري إنشاء الحساب...' : 'إنشاء الحساب'}
+                    {loading ? t('creatingAccount') : t('createAccount')}
                   </Button>
 
                   <Button
@@ -715,7 +717,7 @@ const RegisterPage = () => {
                     onClick={() => setStep(1)}
                     sx={{ mt: 1 }}
                   >
-                    السابق
+                    {t('previous')}
                   </Button>
                 </form>
               </>

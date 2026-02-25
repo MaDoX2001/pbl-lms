@@ -33,6 +33,7 @@ import {
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../services/api';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 /**
  * ProjectSubmissionsManagement Component
@@ -44,6 +45,7 @@ import api from '../services/api';
 const ProjectSubmissionsManagement = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
+  const { t } = useAppSettings();
 
   const [project, setProject] = useState(null);
   const [submissions, setSubmissions] = useState([]);
@@ -77,7 +79,7 @@ const ProjectSubmissionsManagement = () => {
 
       setLoading(false);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'حدث خطأ في جلب البيانات');
+      toast.error(err.response?.data?.message || t('genericLoadError'));
       setLoading(false);
     }
   };
@@ -95,11 +97,11 @@ const ProjectSubmissionsManagement = () => {
       await api.put(`/team-submissions/${feedbackDialog.submission._id}/feedback`, {
         feedback: feedbackDialog.feedback
       });
-      toast.success('تم إضافة الملاحظات بنجاح');
+      toast.success(t('feedbackAddedSuccess'));
       setFeedbackDialog({ open: false, submission: null, feedback: '' });
       fetchData();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'حدث خطأ');
+      toast.error(err.response?.data?.message || t('genericError'));
     }
   };
 
@@ -115,18 +117,18 @@ const ProjectSubmissionsManagement = () => {
     try {
       const score = parseFloat(gradeDialog.score);
       if (isNaN(score) || score < 0 || score > 100) {
-        toast.error('الدرجة يجب أن تكون بين 0 و 100');
+        toast.error(t('scoreRange0To100'));
         return;
       }
 
       await api.put(`/team-submissions/${gradeDialog.submission._id}/grade`, {
         score
       });
-      toast.success('تم إضافة الدرجة بنجاح');
+      toast.success(t('scoreAddedSuccess'));
       setGradeDialog({ open: false, submission: null, score: '' });
       fetchData();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'حدث خطأ');
+      toast.error(err.response?.data?.message || t('genericError'));
     }
   };
 
@@ -144,11 +146,11 @@ const ProjectSubmissionsManagement = () => {
   const getStatusLabel = (status) => {
     switch (status) {
       case 'graded':
-        return 'مُقيّم';
+        return t('graded');
       case 'reviewed':
-        return 'تمت المراجعة';
+        return t('reviewed');
       default:
-        return 'قيد الانتظار';
+        return t('pending');
     }
   };
 
@@ -176,7 +178,7 @@ const ProjectSubmissionsManagement = () => {
   if (!project) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4 }}>
-        <Alert severity="error">فشل في تحميل بيانات المشروع</Alert>
+        <Alert severity="error">{t('projectDataLoadFailed')}</Alert>
       </Container>
     );
   }
@@ -188,7 +190,7 @@ const ProjectSubmissionsManagement = () => {
         onClick={() => navigate('/projects')}
         sx={{ mb: 2 }}
       >
-        العودة للمشاريع
+        {t('backToProjects')}
       </Button>
 
       {/* Project Header */}
@@ -197,23 +199,23 @@ const ProjectSubmissionsManagement = () => {
           {project.title}
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          إجمالي التسليمات: {submissions.length}
+          {t('totalSubmissionsWithCount', { count: submissions.length })}
         </Typography>
       </Paper>
 
       {/* Submissions by Team */}
       {Object.keys(submissionsByTeam).length === 0 ? (
-        <Alert severity="info">لم يتم رفع أي تسليم بعد</Alert>
+        <Alert severity="info">{t('noSubmissionsUploadedYet')}</Alert>
       ) : (
         Object.values(submissionsByTeam).map(({ team, submissions: teamSubmissions }) => (
           <Accordion key={team._id} sx={{ mb: 2 }}>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
                 <Typography variant="h6">{team.name}</Typography>
-                <Chip label={`${teamSubmissions.length} تسليم`} size="small" />
+                <Chip label={t('teamSubmissionsCount', { count: teamSubmissions.length })} size="small" />
                 <Box sx={{ flex: 1 }} />
                 <Typography variant="body2" color="text.secondary">
-                  الأعضاء: {team.members.map(m => m.name).join(', ')}
+                  {t('membersWithValue', { members: team.members.map(m => m.name).join(', ') })}
                 </Typography>
               </Box>
             </AccordionSummary>
@@ -238,11 +240,11 @@ const ProjectSubmissionsManagement = () => {
                           <Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                               <Typography variant="h6">
-                                التسليم #{teamSubmissions.length - index}
+                                {t('submissionNumber', { number: teamSubmissions.length - index })}
                               </Typography>
                               {isLastSubmission && (
                                 <Chip 
-                                  label="آخر تسليمة (المعتمدة)" 
+                                  label={t('latestSubmissionApproved')} 
                                   color="primary" 
                                   size="small"
                                   sx={{ fontWeight: 'bold' }}
@@ -250,7 +252,7 @@ const ProjectSubmissionsManagement = () => {
                               )}
                             </Box>
                             <Typography variant="body2" color="text.secondary">
-                              رفع بواسطة:{' '}
+                              {t('uploadedByLabel')}{' '}
                               <Typography
                                 component="span"
                                 variant="body2"
@@ -266,7 +268,7 @@ const ProjectSubmissionsManagement = () => {
                               </Typography>
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                              التاريخ: {new Date(submission.submittedAt).toLocaleString('ar-EG')}
+                              {t('dateWithValue', { date: new Date(submission.submittedAt).toLocaleString('ar-EG') })}
                             </Typography>
                           </Box>
                           <Chip
@@ -293,7 +295,7 @@ const ProjectSubmissionsManagement = () => {
                       {submission.description && (
                         <Box sx={{ mb: 2 }}>
                           <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                            الوصف:
+                            {t('descriptionLabel')}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
                             {submission.description}
@@ -308,7 +310,7 @@ const ProjectSubmissionsManagement = () => {
                         {submission.feedback ? (
                           <Alert severity="info" icon={<FeedbackIcon />}>
                             <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                              الملاحظات:
+                              {t('teacherFeedbackLabel')}
                             </Typography>
                             <Typography variant="body2">
                               {submission.feedback}
@@ -320,7 +322,7 @@ const ProjectSubmissionsManagement = () => {
                             )}
                           </Alert>
                         ) : (
-                          <Alert severity="warning">لم يتم إضافة ملاحظات بعد</Alert>
+                          <Alert severity="warning">{t('noFeedbackAddedYet')}</Alert>
                         )}
                         <Button
                           variant="outlined"
@@ -329,7 +331,7 @@ const ProjectSubmissionsManagement = () => {
                           sx={{ mt: 1 }}
                           size="small"
                         >
-                          {submission.feedback ? 'تعديل الملاحظات' : 'إضافة ملاحظات'}
+                          {submission.feedback ? t('editFeedback') : t('addFeedback')}
                         </Button>
                       </Box>
 
@@ -338,7 +340,7 @@ const ProjectSubmissionsManagement = () => {
                         {submission.score !== null ? (
                           <Alert severity="success" icon={<GradeIcon />}>
                             <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                              الدرجة: {submission.score} / 100
+                              {t('scoreOutOf100', { score: submission.score })}
                             </Typography>
                             {submission.gradedBy && (
                               <Typography variant="caption" color="text.secondary">
@@ -347,7 +349,7 @@ const ProjectSubmissionsManagement = () => {
                             )}
                           </Alert>
                         ) : (
-                          <Alert severity="warning">لم يتم التقييم بعد</Alert>
+                          <Alert severity="warning">{t('notEvaluatedYet')}</Alert>
                         )}
                         <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
                           <Button
@@ -357,7 +359,7 @@ const ProjectSubmissionsManagement = () => {
                             onClick={() => navigate(`/evaluate/${submission._id}`)}
                             size="small"
                           >
-                            تقييم رقمي
+                            {t('digitalEvaluation')}
                           </Button>
                           <Button
                             variant="outlined"
@@ -365,7 +367,7 @@ const ProjectSubmissionsManagement = () => {
                             onClick={() => handleOpenGradeDialog(submission)}
                             size="small"
                           >
-                            {submission.score !== null ? 'تعديل الدرجة' : 'إضافة درجة'}
+                            {submission.score !== null ? t('editScore') : t('addScore')}
                           </Button>
                         </Box>
                       </Box>
@@ -380,10 +382,10 @@ const ProjectSubmissionsManagement = () => {
 
       {/* Feedback Dialog */}
       <Dialog open={feedbackDialog.open} onClose={() => setFeedbackDialog({ open: false, submission: null, feedback: '' })} maxWidth="sm" fullWidth>
-        <DialogTitle>إضافة/تعديل الملاحظات</DialogTitle>
+        <DialogTitle>{t('addOrEditFeedback')}</DialogTitle>
         <DialogContent>
           <TextField
-            label="الملاحظات"
+            label={t('feedback')}
             value={feedbackDialog.feedback}
             onChange={(e) => setFeedbackDialog({ ...feedbackDialog, feedback: e.target.value })}
             multiline
@@ -394,20 +396,20 @@ const ProjectSubmissionsManagement = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setFeedbackDialog({ open: false, submission: null, feedback: '' })}>
-            إلغاء
+            {t('cancel')}
           </Button>
           <Button onClick={handleSubmitFeedback} variant="contained">
-            حفظ
+            {t('save')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Grade Dialog */}
       <Dialog open={gradeDialog.open} onClose={() => setGradeDialog({ open: false, submission: null, score: '' })} maxWidth="xs" fullWidth>
-        <DialogTitle>إضافة/تعديل الدرجة</DialogTitle>
+        <DialogTitle>{t('addOrEditScore')}</DialogTitle>
         <DialogContent>
           <TextField
-            label="الدرجة (0-100)"
+            label={t('score0To100')}
             type="number"
             value={gradeDialog.score}
             onChange={(e) => setGradeDialog({ ...gradeDialog, score: e.target.value })}
@@ -418,10 +420,10 @@ const ProjectSubmissionsManagement = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setGradeDialog({ open: false, submission: null, score: '' })}>
-            إلغاء
+            {t('cancel')}
           </Button>
           <Button onClick={handleSubmitGrade} variant="contained">
-            حفظ
+            {t('save')}
           </Button>
         </DialogActions>
       </Dialog>

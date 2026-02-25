@@ -37,8 +37,10 @@ import {
   Close as CloseIcon
 } from '@mui/icons-material';
 import api from '../services/api';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 function AdminDashboardPage() {
+  const { t } = useAppSettings();
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [invitations, setInvitations] = useState([]);
@@ -97,51 +99,51 @@ function AdminDashboardPage() {
   const handleSendInvitation = async () => {
     try {
       const response = await api.post('/admin/invitations', inviteForm);
-      setSuccessMessage('تم إرسال الدعوة بنجاح!');
+      setSuccessMessage(t('invitationSentSuccess'));
       setInvitationLink(response.data.invitationLink);
       setOpenInviteDialog(false);
       setInviteForm({ email: '', role: 'student' });
       fetchInvitations();
     } catch (error) {
-      setErrorMessage(error.response?.data?.message || 'فشل إرسال الدعوة');
+      setErrorMessage(error.response?.data?.message || t('invitationSendFailed'));
     }
   };
 
   const handleDeleteUser = async (userId) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذا المستخدم؟')) return;
+    if (!window.confirm(t('confirmDeleteUser'))) return;
     
     try {
       await api.delete(`/admin/users/${userId}`);
-      setSuccessMessage('تم حذف المستخدم بنجاح');
+      setSuccessMessage(t('userDeletedSuccess'));
       fetchUsers();
     } catch (error) {
-      setErrorMessage(error.response?.data?.message || 'فشل حذف المستخدم');
+      setErrorMessage(error.response?.data?.message || t('userDeleteFailed'));
     }
   };
 
   const handleDeleteInvitation = async (invitationId) => {
     try {
       await api.delete(`/admin/invitations/${invitationId}`);
-      setSuccessMessage('تم حذف الدعوة بنجاح');
+      setSuccessMessage(t('invitationDeletedSuccess'));
       fetchInvitations();
     } catch (error) {
-      setErrorMessage(error.response?.data?.message || 'فشل حذف الدعوة');
+      setErrorMessage(error.response?.data?.message || t('invitationDeleteFailed'));
     }
   };
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
-    setSuccessMessage('تم نسخ الرابط!');
+    setSuccessMessage(t('linkCopied'));
   };
 
   const handleApproveRequest = async (requestId) => {
     try {
       const response = await api.post(`/invitations/admin/${requestId}/approve`);
-      setSuccessMessage('تم الموافقة وإرسال الدعوة');
+      setSuccessMessage(t('requestApprovedAndInvitationSent'));
       fetchInvitationRequests();
       fetchStats();
     } catch (error) {
-      setErrorMessage(error.response?.data?.message || 'فشل الموافقة على الطلب');
+      setErrorMessage(error.response?.data?.message || t('approveRequestFailed'));
     }
   };
 
@@ -150,30 +152,30 @@ function AdminDashboardPage() {
       await api.post(`/invitations/admin/${rejectDialog.requestId}/reject`, {
         reason: rejectDialog.reason
       });
-      setSuccessMessage('تم رفض الطلب');
+      setSuccessMessage(t('requestRejected'));
       setRejectDialog({ open: false, requestId: null, reason: '' });
       fetchInvitationRequests();
       fetchStats();
     } catch (error) {
-      setErrorMessage(error.response?.data?.message || 'فشل رفض الطلب');
+      setErrorMessage(error.response?.data?.message || t('rejectRequestFailed'));
     }
   };
 
   const handleApproveUser = async (userId) => {
     try {
       await api.put(`/admin/approve-user/${userId}`);
-      setSuccessMessage('تم الموافقة على المستخدم');
+      setSuccessMessage(t('userApprovedSuccess'));
       fetchUsers();
       fetchStats();
     } catch (error) {
-      setErrorMessage(error.response?.data?.message || 'فشل الموافقة على المستخدم');
+      setErrorMessage(error.response?.data?.message || t('userApproveFailed'));
     }
   };
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Typography variant="h4" component="h1" gutterBottom fontWeight={700}>
-        لوحة تحكم المدير
+        {t('adminDashboardTitle')}
       </Typography>
 
       {successMessage && (
@@ -259,13 +261,13 @@ function AdminDashboardPage() {
       {/* Send Invitation */}
       <Paper sx={{ p: 3, mb: 4 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">إرسال دعوة</Typography>
+          <Typography variant="h6">{t('sendInvitation')}</Typography>
           <Button
             variant="contained"
             startIcon={<SendIcon />}
             onClick={() => setOpenInviteDialog(true)}
           >
-            إرسال دعوة جديدة
+            {t('sendNewInvitation')}
           </Button>
         </Box>
       </Paper>
@@ -273,18 +275,18 @@ function AdminDashboardPage() {
       {/* Users Table */}
       <Paper sx={{ p: 3, mb: 4 }}>
         <Typography variant="h6" gutterBottom>
-          المستخدمون ({users.length})
+          {t('usersCount', { count: users.length })}
         </Typography>
         <TableContainer>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>الاسم</TableCell>
-                <TableCell>البريد الإلكتروني</TableCell>
-                <TableCell>الدور</TableCell>
-                <TableCell>الحالة</TableCell>
-                <TableCell>تاريخ الانضمام</TableCell>
-                <TableCell>إجراءات</TableCell>
+                <TableCell>{t('name')}</TableCell>
+                <TableCell>{t('email')}</TableCell>
+                <TableCell>{t('role')}</TableCell>
+                <TableCell>{t('status')}</TableCell>
+                <TableCell>{t('joinDate')}</TableCell>
+                <TableCell>{t('actions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -294,14 +296,14 @@ function AdminDashboardPage() {
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
                     <Chip
-                      label={user.role === 'admin' ? 'مدير' : user.role === 'teacher' ? 'معلم' : 'طالب'}
+                      label={user.role === 'admin' ? t('adminRole') : user.role === 'teacher' ? t('teacher') : t('student')}
                       color={user.role === 'admin' ? 'error' : user.role === 'teacher' ? 'primary' : 'default'}
                       size="small"
                     />
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={user.isApproved ? 'موافق عليه' : 'بانتظار الموافقة'}
+                      label={user.isApproved ? t('approved') : t('pendingApproval')}
                       color={user.isApproved ? 'success' : 'warning'}
                       size="small"
                     />
@@ -315,7 +317,7 @@ function AdminDashboardPage() {
                             color="success"
                             size="small"
                             onClick={() => handleApproveUser(user._id)}
-                            title="الموافقة"
+                            title={t('approve')}
                           >
                             <CheckIcon />
                           </IconButton>
@@ -341,7 +343,7 @@ function AdminDashboardPage() {
       <Paper sx={{ p: 3, mb: 4 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6">
-            طلبات الدعوة ({invitationRequests.length})
+            {t('invitationRequestsCount', { count: invitationRequests.length })}
           </Typography>
           {invitationRequests.filter(r => r.status === 'pending').length > 0 && (
             <Chip
@@ -462,7 +464,7 @@ function AdminDashboardPage() {
       {/* Sent Invitations Table */}
       <Paper sx={{ p: 3 }}>
         <Typography variant="h6" gutterBottom>
-          الدعوات المُرسلة ({invitations.length})
+          {t('sentInvitationsCount', { count: invitations.length })}
         </Typography>
         <TableContainer>
           <Table>
@@ -522,62 +524,62 @@ function AdminDashboardPage() {
 
       {/* Invite Dialog */}
       <Dialog open={openInviteDialog} onClose={() => setOpenInviteDialog(false)}>
-        <DialogTitle>إرسال دعوة جديدة</DialogTitle>
+        <DialogTitle>{t('sendNewInvitation')}</DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
-            label="البريد الإلكتروني"
+            label={t('email')}
             type="email"
             value={inviteForm.email}
             onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
             sx={{ mt: 2, mb: 2 }}
           />
           <FormControl fullWidth>
-            <InputLabel>الدور</InputLabel>
+            <InputLabel>{t('role')}</InputLabel>
             <Select
               value={inviteForm.role}
-              label="الدور"
+              label={t('role')}
               onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })}
             >
-              <MenuItem value="student">طالب</MenuItem>
-              <MenuItem value="teacher">معلم</MenuItem>
+              <MenuItem value="student">{t('student')}</MenuItem>
+              <MenuItem value="teacher">{t('teacher')}</MenuItem>
             </Select>
           </FormControl>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenInviteDialog(false)}>إلغاء</Button>
+          <Button onClick={() => setOpenInviteDialog(false)}>{t('cancel')}</Button>
           <Button variant="contained" onClick={handleSendInvitation}>
-            إرسال
+            {t('send')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Reject Dialog */}
       <Dialog open={rejectDialog.open} onClose={() => setRejectDialog({ open: false, requestId: null, reason: '' })}>
-        <DialogTitle>رفض طلب الدعوة</DialogTitle>
+        <DialogTitle>{t('rejectInvitationRequest')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ mb: 2 }}>
-            يرجى إدخال سبب الرفض:
+            {t('enterRejectionReason')}
           </Typography>
           <TextField
             fullWidth
             multiline
             rows={3}
-            label="سبب الرفض"
+            label={t('rejectionReason')}
             value={rejectDialog.reason}
             onChange={(e) => setRejectDialog({ ...rejectDialog, reason: e.target.value })}
             placeholder="مثلاً: البيانات غير دقيقة، أو الكوتا ممتلئة..."
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setRejectDialog({ open: false, requestId: null, reason: '' })}>إلغاء</Button>
+          <Button onClick={() => setRejectDialog({ open: false, requestId: null, reason: '' })}>{t('cancel')}</Button>
           <Button
             variant="contained"
             color="error"
             onClick={handleRejectRequest}
             disabled={!rejectDialog.reason.trim()}
           >
-            رفض
+            {t('reject')}
           </Button>
         </DialogActions>
       </Dialog>

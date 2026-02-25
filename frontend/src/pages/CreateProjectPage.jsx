@@ -22,9 +22,11 @@ import { toast } from 'react-toastify';
 import api from '../services/api';
 import ObservationCardBuilder from '../components/ObservationCardBuilder';
 import ObservationCardStatus from '../components/ObservationCardStatus';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const CreateProjectPage = () => {
   const navigate = useNavigate();
+  const { t } = useAppSettings();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
@@ -59,9 +61,9 @@ const CreateProjectPage = () => {
   const [savingCards, setSavingCards] = useState(false);
 
   const difficulties = [
-    { value: 'beginner', label: 'مبتدئ' },
-    { value: 'intermediate', label: 'متوسط' },
-    { value: 'advanced', label: 'متقدم' }
+    { value: 'beginner', label: t('beginner') },
+    { value: 'intermediate', label: t('intermediate') },
+    { value: 'advanced', label: t('advanced') }
   ];
 
   const categories = [
@@ -143,18 +145,18 @@ const CreateProjectPage = () => {
           toast.success('تم إنشاء المشروع وبطاقات الملاحظات بنجاح');
         } catch (cardError) {
           console.error('Error saving observation cards:', cardError);
-          toast.warning('تم إنشاء المشروع لكن فشل حفظ بطاقات الملاحظات');
+          toast.warning(t('projectCreatedButCardsFailed'));
         }
         setSavingCards(false);
       } else {
-        toast.success('تم إنشاء المشروع بنجاح');
+        toast.success(t('projectCreatedSuccess'));
       }
       
       navigate(`/projects/${projectId}`);
     } catch (error) {
       console.error('Error creating project:', error);
-      setError(error.response?.data?.message || 'فشل إنشاء المشروع');
-      toast.error('فشل إنشاء المشروع');
+      setError(error.response?.data?.message || t('projectCreateFailed'));
+      toast.error(t('projectCreateFailed'));
     } finally {
       setLoading(false);
     }
@@ -163,10 +165,10 @@ const CreateProjectPage = () => {
   return (
     <Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
       <Typography variant="h4" component="h1" gutterBottom fontWeight={700}>
-        إنشاء مشروع جديد
+        {t('createProject')}
       </Typography>
       <Typography variant="body1" color="text.secondary" paragraph>
-        قم بإنشاء مشروع تعليمي جديد للطلاب
+        {t('createProjectSubtitle')}
       </Typography>
 
       {error && (
@@ -181,7 +183,7 @@ const CreateProjectPage = () => {
             {/* Basic Info */}
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom>
-                المعلومات الأساسية
+                {t('basicInfo')}
               </Typography>
             </Grid>
 
@@ -189,7 +191,7 @@ const CreateProjectPage = () => {
               <TextField
                 fullWidth
                 id="project-title"
-                label="عنوان المشروع"
+                label={t('projectTitle')}
                 name="title"
                 value={formData.title}
                 onChange={handleChange}
@@ -201,14 +203,14 @@ const CreateProjectPage = () => {
               <TextField
                 fullWidth
                 id="project-short-description"
-                label="وصف مختصر"
+                label={t('shortDescription')}
                 name="shortDescription"
                 value={formData.shortDescription}
                 onChange={handleChange}
                 disabled={loading}
                 multiline
                 rows={2}
-                helperText="وصف قصير يظهر في قائمة المشاريع (حتى 200 حرف)"
+                helperText={t('shortDescriptionHelper')}
               />
             </Grid>
 
@@ -216,20 +218,20 @@ const CreateProjectPage = () => {
               <TextField
                 fullWidth
                 id="project-description"
-                label="الوصف التفصيلي"
+                label={t('detailedDescription')}
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
                 disabled={loading}
                 multiline
                 rows={6}
-                helperText="اشرح المشروع بالتفصيل: الأهداف، المتطلبات، ما سيتعلمه الطالب"
+                helperText={t('projectDescriptionHelper')}
               />
             </Grid>
 
             <Grid item xs={12} sm={4}>
               <FormControl fullWidth>
-                <InputLabel id="difficulty-label">المستوى</InputLabel>
+                <InputLabel id="difficulty-label">{t('level')}</InputLabel>
                 <Select
                   id="difficulty"
                   name="difficulty"
@@ -237,7 +239,7 @@ const CreateProjectPage = () => {
                   value={formData.difficulty}
                   onChange={handleChange}
                   disabled={loading}
-                  label="المستوى"
+                  label={t('level')}
                 >
                   {difficulties.map((diff) => (
                     <MenuItem key={diff.value} value={diff.value}>
@@ -252,7 +254,7 @@ const CreateProjectPage = () => {
               <TextField
                 fullWidth
                 id="estimated-duration"
-                label="المدة التقديرية (ساعات)"
+                label={t('estimatedDurationHours')}
                 name="estimatedDuration"
                 type="number"
                 value={formData.estimatedDuration}
@@ -265,14 +267,14 @@ const CreateProjectPage = () => {
               <TextField
                 fullWidth
                 id="project-deadline"
-                label="الموعد النهائي"
+                label={t('deadline')}
                 name="deadline"
                 type="datetime-local"
                 value={formData.deadline}
                 onChange={handleChange}
                 disabled={loading}
                 InputLabelProps={{ shrink: true }}
-                helperText="الموعد النهائي لإنهاء المشروع (التاريخ والوقت)"
+                helperText={t('deadlineHelper')}
               />
             </Grid>
 
@@ -280,19 +282,19 @@ const CreateProjectPage = () => {
               <TextField
                 fullWidth
                 id="project-points"
-                label="النقاط"
+                label={t('pointsLabel')}
                 name="points"
                 type="number"
                 value={formData.points}
                 onChange={handleChange}
                 disabled={loading}
-                helperText="النقاط التي يحصل عليها الطالب عند إكمال المشروع"
+                helperText={t('projectPointsHelper')}
               />
             </Grid>
 
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
-                <InputLabel id="isPublished-label">الحالة</InputLabel>
+                <InputLabel id="isPublished-label">{t('status')}</InputLabel>
                 <Select
                   id="isPublished"
                   name="isPublished"
@@ -300,10 +302,10 @@ const CreateProjectPage = () => {
                   value={formData.isPublished}
                   onChange={handleChange}
                   disabled={loading}
-                  label="الحالة"
+                  label={t('status')}
                 >
-                  <MenuItem value={false}>مسودة (غير منشور)</MenuItem>
-                  <MenuItem value={true}>منشور</MenuItem>
+                  <MenuItem value={false}>{t('draftUnpublished')}</MenuItem>
+                  <MenuItem value={true}>{t('published')}</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -312,7 +314,7 @@ const CreateProjectPage = () => {
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="h6">
-                  أهداف المشروع
+                  {t('projectObjectives')}
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <Button
@@ -320,20 +322,20 @@ const CreateProjectPage = () => {
                     onClick={() => setFormData({ ...formData, showObjectives: !formData.showObjectives })}
                     disabled={loading}
                   >
-                    {formData.showObjectives ? 'إخفاء الأهداف في المشروع' : 'إظهار الأهداف في المشروع'}
+                    {formData.showObjectives ? t('hideObjectivesInProject') : t('showObjectivesInProject')}
                   </Button>
                   <Button
                     startIcon={<AddIcon />}
                     onClick={handleAddObjective}
                     disabled={loading}
                   >
-                    إضافة هدف
+                    {t('addObjective')}
                   </Button>
                 </Box>
               </Box>
               <Alert severity="info" sx={{ mb: 2 }}>
                 <Typography variant="body2" fontWeight={600} gutterBottom>
-                  اكتب الأهداف مع مراعاة أن تكون مصاغة سلوكياً:
+                  {t('writeBehavioralObjectives')}
                 </Typography>
                 <Typography variant="body2">
                   <strong>مثال:</strong> أن يكتب الطالب برنامجًا للأردوينو لقراءة قيمة حساس وعرضها عبر المنفذ التسلسلي.
@@ -367,7 +369,7 @@ const CreateProjectPage = () => {
             {/* Learning Scenario & Strategy */}
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                السيناريو والاستراتيجية التعليمية
+                {t('learningScenarioAndStrategy')}
               </Typography>
             </Grid>
 
@@ -375,7 +377,7 @@ const CreateProjectPage = () => {
               <TextField
                 fullWidth
                 id="learning-scenario"
-                label="السيناريو التعليمي للمشروع"
+                label={t('projectLearningScenario')}
                 name="learningScenario"
                 value={formData.learningScenario}
                 onChange={handleChange}
@@ -383,7 +385,7 @@ const CreateProjectPage = () => {
                 multiline
                 rows={8}
                 placeholder="1. يبدأ المتعلم بقراءة وصف المشكلة التعليمية لفهم التحدي المطلوب&#10;2. يراجع مصادر التعلم الرقمية المرتبطة بالمشروع&#10;3. يخطط لحل المشكلة من خلال تصميم الفكرة المبدئية للنظام&#10;..."
-                helperText="اكتب خطوات تنفيذ المشروع بشكل مفصل"
+                helperText={t('learningScenarioHelper')}
               />
             </Grid>
 
@@ -391,7 +393,7 @@ const CreateProjectPage = () => {
               <TextField
                 fullWidth
                 id="teaching-strategy"
-                label="الاستراتيجية التعليمية المستخدمة"
+                label={t('teachingStrategy')}
                 name="teachingStrategy"
                 value={formData.teachingStrategy}
                 onChange={handleChange}
@@ -399,7 +401,7 @@ const CreateProjectPage = () => {
                 multiline
                 rows={3}
                 placeholder="1. التعلم القائم على المشروعات&#10;2. التعلم التعاوني"
-                helperText="حدد الاستراتيجيات التعليمية المطبقة في المشروع"
+                helperText={t('teachingStrategyHelper')}
               />
             </Grid>
 
@@ -407,7 +409,7 @@ const CreateProjectPage = () => {
               <TextField
                 fullWidth
                 id="final-report-note"
-                label="ملاحظة التقرير النهائي"
+                label={t('finalReportNote')}
                 name="finalReportNote"
                 value={formData.finalReportNote}
                 onChange={handleChange}
@@ -415,7 +417,7 @@ const CreateProjectPage = () => {
                 multiline
                 rows={2}
                 placeholder="يقوم المتعلم بإعداد تقرير شامل عن المشروع باستخدام النموذج المرفق ويُعد هذا التقرير هو المنتج النهائي للمشروع"
-                helperText="ملاحظة حول التقرير النهائي المطلوب من الطلاب"
+                helperText={t('finalReportNoteHelper')}
               />
             </Grid>
 
@@ -423,11 +425,11 @@ const CreateProjectPage = () => {
             <Grid item xs={12}>
               <Divider sx={{ my: 3 }} />
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                بطاقات التقييم الرقمي
+                {t('digitalAssessmentCards')}
               </Typography>
               <ObservationCardStatus projectId={null} />
               <Alert severity="info" sx={{ mb: 3 }}>
-                قم بإنشاء بطاقتي الملاحظات للتقييم الثنائي المرحلي (التقييم الجماعي + التقييم الفردي والشفهي)
+                {t('createBothObservationCardsHint')}
               </Alert>
             </Grid>
 
@@ -435,10 +437,10 @@ const CreateProjectPage = () => {
             <Grid item xs={12}>
               <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
                 <Typography variant="h6" gutterBottom color="primary">
-                  بطاقة الملاحظات – التقييم الجماعي (المرحلة الأولى)
+                  {t('groupObservationCardTitle')}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  تُستخدم لتقييم أداء الفريق ككل في المشروع
+                  {t('groupObservationCardDesc')}
                 </Typography>
                 <ObservationCardBuilder
                   projectId={null}
@@ -453,10 +455,10 @@ const CreateProjectPage = () => {
             <Grid item xs={12}>
               <Paper variant="outlined" sx={{ p: 3, mb: 2 }}>
                 <Typography variant="h6" gutterBottom color="secondary">
-                  بطاقة الملاحظات – التقييم الفردي والشفهي (المرحلة الثانية)
+                  {t('individualOralObservationCardTitle')}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  تُستخدم لتقييم أداء كل طالب حسب دوره + التقييم الشفهي
+                  {t('individualOralObservationCardDesc')}
                 </Typography>
                 <ObservationCardBuilder
                   projectId={null}
@@ -475,7 +477,7 @@ const CreateProjectPage = () => {
                   onClick={() => navigate('/projects')}
                   disabled={loading}
                 >
-                  إلغاء
+                  {t('cancel')}
                 </Button>
                 <Button
                   type="submit"
@@ -483,7 +485,7 @@ const CreateProjectPage = () => {
                   disabled={loading || savingCards}
                   size="large"
                 >
-                  {loading || savingCards ? 'جاري الإنشاء...' : 'إنشاء المشروع'}
+                  {loading || savingCards ? t('creating') : t('createProject')}
                 </Button>
               </Box>
             </Grid>

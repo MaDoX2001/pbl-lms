@@ -23,8 +23,10 @@ import {
 import { PersonAddOutlined, CheckCircleOutline, EmailOutlined, Visibility, VisibilityOff } from '@mui/icons-material';
 import invitationService from '../services/invitationService';
 import { toast } from 'react-toastify';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const RequestInvitationPage = () => {
+  const { t } = useAppSettings();
   const [step, setStep] = useState(0); // 0: Request, 1: Check Status, 2: Success
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -70,24 +72,24 @@ const RequestInvitationPage = () => {
 
     // Validation
     if (!formData.name || formData.name.length < 3) {
-      toast.error('الاسم يجب أن يكون 3 أحرف على الأقل');
+      toast.error(t('nameMin3'));
       return;
     }
     if (!formData.email || !formData.email.match(/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/)) {
-      toast.error('البريد الإلكتروني غير صحيح');
+      toast.error(t('invalidEmail'));
       return;
     }
 
     // Validate password strength
     const passwordStrength = validatePasswordStrength(formData.password);
     if (!passwordStrength.isValid) {
-      toast.error('كلمة المرور يجب أن تحتوي على: 8 أحرف على الأقل، حروف صغيرة، حروف كبيرة، أرقام، رموز');
+      toast.error(t('passwordStrengthRequirement'));
       return;
     }
 
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
-      toast.error('كلمات المرور غير متطابقة');
+      toast.error(t('passwordsMismatch'));
       return;
     }
 
@@ -111,7 +113,7 @@ const RequestInvitationPage = () => {
       setStep(2); // Go to success step
     } catch (error) {
       console.error('Request error:', error);
-      toast.error(error.message || 'خطأ في إرسال الطلب');
+      toast.error(error.message || t('requestSubmitError'));
     } finally {
       setLoading(false);
     }
@@ -119,7 +121,7 @@ const RequestInvitationPage = () => {
 
   const handleCheckStatus = async () => {
     if (!checkEmail || !checkEmail.match(/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/)) {
-      toast.error('البريد الإلكتروني غير صحيح');
+      toast.error(t('invalidEmail'));
       return;
     }
 
@@ -130,10 +132,10 @@ const RequestInvitationPage = () => {
         setStatusData(response.data);
       } else {
         setStatusData(null);
-        toast.info('لم يتم العثور على طلب لهذا البريد الإلكتروني');
+        toast.info(t('requestNotFoundForEmail'));
       }
     } catch (error) {
-      toast.error(error.message || 'خطأ في التحقق');
+      toast.error(error.message || t('statusCheckError'));
     } finally {
       setLoading(false);
     }
@@ -155,11 +157,11 @@ const RequestInvitationPage = () => {
   const getStatusText = (status) => {
     switch (status) {
       case 'pending':
-        return 'قيد المراجعة';
+        return t('pendingReview');
       case 'approved':
-        return 'موافق عليه';
+        return t('approved');
       case 'rejected':
-        return 'مرفوض';
+        return t('rejected');
       default:
         return status;
     }
@@ -169,13 +171,13 @@ const RequestInvitationPage = () => {
     <Container maxWidth="sm" sx={{ py: 4 }}>
       <Stepper activeStep={step} sx={{ mb: 4 }}>
         <Step>
-          <StepLabel>طلب الدعوة</StepLabel>
+          <StepLabel>{t('requestInvitationStep')}</StepLabel>
         </Step>
         <Step>
-          <StepLabel>التحقق من الحالة</StepLabel>
+          <StepLabel>{t('checkStatusStep')}</StepLabel>
         </Step>
         <Step>
-          <StepLabel>اكتمل</StepLabel>
+          <StepLabel>{t('completedStep')}</StepLabel>
         </Step>
       </Stepper>
 
@@ -185,29 +187,29 @@ const RequestInvitationPage = () => {
             <Box display="flex" alignItems="center" mb={3}>
               <PersonAddOutlined sx={{ fontSize: 40, mr: 2, color: 'primary.main' }} />
               <Typography variant="h5" fontWeight="bold">
-                طلب دعوة
+                {t('requestInvitation')}
               </Typography>
             </Box>
 
             <Alert severity="info" sx={{ mb: 3 }}>
-              هل تريد الانضمام إلى منصة التعلم بالمشروعات؟ أرسل طلب دعوة وسيقوم الإدمن بمراجعته وإرسال لك دعوة على بريدك الإلكتروني.
+              {t('requestInvitationInfo')}
             </Alert>
 
             <form onSubmit={handleSubmit}>
               <TextField
                 fullWidth
-                label="الاسم الكامل"
+                label={t('fullName')}
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
-                placeholder="أدخل اسمك الكامل"
+                placeholder={t('enterFullNamePlaceholder')}
                 sx={{ mb: 2 }}
                 required
               />
 
               <TextField
                 fullWidth
-                label="البريد الإلكتروني"
+                label={t('email')}
                 name="email"
                 type="email"
                 value={formData.email}
@@ -219,12 +221,12 @@ const RequestInvitationPage = () => {
 
               <TextField
                 fullWidth
-                label="كلمة المرور"
+                label={t('password')}
                 name="password"
                 type={showPassword ? 'text' : 'password'}
                 value={formData.password}
                 onChange={handleInputChange}
-                placeholder="أدخل كلمة مرور قوية"
+                placeholder={t('enterStrongPassword')}
                 sx={{ mb: 1 }}
                 required
                 InputProps={{
@@ -244,23 +246,23 @@ const RequestInvitationPage = () => {
               {formData.password && (
                 <Box sx={{ mb: 2, p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
                   <Typography variant="caption" display="block" sx={{ fontWeight: 'bold', mb: 1 }}>
-                    متطلبات كلمة المرور:
+                    {t('passwordRequirements')}
                   </Typography>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                     <Typography variant="caption" sx={{ color: validatePasswordStrength(formData.password).hasMinLength ? '#2e7d32' : '#d32f2f' }}>
-                      ✓ 8 أحرف على الأقل {validatePasswordStrength(formData.password).hasMinLength ? '✓' : '✗'}
+                      ✓ {t('passwordReqMin8')} {validatePasswordStrength(formData.password).hasMinLength ? '✓' : '✗'}
                     </Typography>
                     <Typography variant="caption" sx={{ color: validatePasswordStrength(formData.password).hasUpperCase ? '#2e7d32' : '#d32f2f' }}>
-                      ✓ حروف كبيرة (A-Z) {validatePasswordStrength(formData.password).hasUpperCase ? '✓' : '✗'}
+                      ✓ {t('passwordReqUpper')} {validatePasswordStrength(formData.password).hasUpperCase ? '✓' : '✗'}
                     </Typography>
                     <Typography variant="caption" sx={{ color: validatePasswordStrength(formData.password).hasLowerCase ? '#2e7d32' : '#d32f2f' }}>
-                      ✓ حروف صغيرة (a-z) {validatePasswordStrength(formData.password).hasLowerCase ? '✓' : '✗'}
+                      ✓ {t('passwordReqLower')} {validatePasswordStrength(formData.password).hasLowerCase ? '✓' : '✗'}
                     </Typography>
                     <Typography variant="caption" sx={{ color: validatePasswordStrength(formData.password).hasNumbers ? '#2e7d32' : '#d32f2f' }}>
-                      ✓ أرقام (0-9) {validatePasswordStrength(formData.password).hasNumbers ? '✓' : '✗'}
+                      ✓ {t('passwordReqNumbers')} {validatePasswordStrength(formData.password).hasNumbers ? '✓' : '✗'}
                     </Typography>
                     <Typography variant="caption" sx={{ color: validatePasswordStrength(formData.password).hasSpecialChar ? '#2e7d32' : '#d32f2f' }}>
-                      ✓ رموز خاصة (!@#$%^&* إلخ) {validatePasswordStrength(formData.password).hasSpecialChar ? '✓' : '✗'}
+                      ✓ {t('passwordReqSpecial')} {validatePasswordStrength(formData.password).hasSpecialChar ? '✓' : '✗'}
                     </Typography>
                   </Box>
                 </Box>
@@ -268,16 +270,16 @@ const RequestInvitationPage = () => {
 
               <TextField
                 fullWidth
-                label="تأكيد كلمة المرور"
+                label={t('confirmPassword')}
                 name="confirmPassword"
                 type={showConfirmPassword ? 'text' : 'password'}
                 value={formData.confirmPassword}
                 onChange={handleInputChange}
-                placeholder="أعد إدخال كلمة المرور"
+                placeholder={t('reenterPassword')}
                 sx={{ mb: 3 }}
                 required
                 error={formData.confirmPassword && formData.password !== formData.confirmPassword}
-                helperText={formData.confirmPassword && formData.password !== formData.confirmPassword ? 'كلمات المرور غير متطابقة' : ''}
+                helperText={formData.confirmPassword && formData.password !== formData.confirmPassword ? t('passwordsMismatch') : ''}
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
@@ -293,15 +295,17 @@ const RequestInvitationPage = () => {
               />
 
               <FormControl fullWidth sx={{ mb: 3 }}>
-                <InputLabel>الدور</InputLabel>
+                <InputLabel id="request-invitation-role-label">{t('role')}</InputLabel>
                 <Select
+                  id="request-invitation-role"
+                  labelId="request-invitation-role-label"
                   name="role"
                   value={formData.role}
                   onChange={handleInputChange}
-                  label="الدور"
+                  label={t('role')}
                 >
-                  <MenuItem value="student">طالب</MenuItem>
-                  <MenuItem value="teacher">معلم</MenuItem>
+                  <MenuItem value="student">{t('student')}</MenuItem>
+                  <MenuItem value="teacher">{t('teacher')}</MenuItem>
                 </Select>
               </FormControl>
 
@@ -312,7 +316,7 @@ const RequestInvitationPage = () => {
                 disabled={loading}
                 size="large"
               >
-                {loading ? <CircularProgress size={24} /> : 'إرسال الطلب'}
+                {loading ? <CircularProgress size={24} /> : t('sendRequest')}
               </Button>
 
               <Button
@@ -321,7 +325,7 @@ const RequestInvitationPage = () => {
                 onClick={() => setStep(1)}
                 sx={{ mt: 2 }}
               >
-                تحقق من حالة طلب موجود
+                {t('checkExistingRequestStatus')}
               </Button>
             </form>
           </CardContent>
@@ -334,13 +338,13 @@ const RequestInvitationPage = () => {
             <Box display="flex" alignItems="center" mb={3}>
               <EmailOutlined sx={{ fontSize: 40, mr: 2, color: 'info.main' }} />
               <Typography variant="h5" fontWeight="bold">
-                التحقق من حالة الطلب
+                {t('checkRequestStatusTitle')}
               </Typography>
             </Box>
 
             <TextField
               fullWidth
-              label="البريد الإلكتروني"
+              label={t('email')}
               type="email"
               value={checkEmail}
               onChange={(e) => setCheckEmail(e.target.value)}
@@ -355,17 +359,17 @@ const RequestInvitationPage = () => {
               disabled={loading}
               sx={{ mb: 2 }}
             >
-              {loading ? <CircularProgress size={24} /> : 'التحقق'}
+              {loading ? <CircularProgress size={24} /> : t('verify')}
             </Button>
 
             {statusData && (
               <Paper sx={{ p: 2, bgcolor: 'background.default', mb: 2 }}>
                 <Alert severity={getStatusColor(statusData.status)}>
-                  <strong>الحالة:</strong> {getStatusText(statusData.status)}
+                  <strong>{t('status')}:</strong> {getStatusText(statusData.status)}
                 </Alert>
                 {statusData.rejectionReason && (
                   <Alert severity="error" sx={{ mt: 2 }}>
-                    <strong>سبب الرفض:</strong> {statusData.rejectionReason}
+                    <strong>{t('rejectionReason')}:</strong> {statusData.rejectionReason}
                   </Alert>
                 )}
               </Paper>
@@ -376,7 +380,7 @@ const RequestInvitationPage = () => {
               fullWidth
               onClick={() => setStep(0)}
             >
-              العودة
+              {t('back')}
             </Button>
           </CardContent>
         </Card>
@@ -388,10 +392,10 @@ const RequestInvitationPage = () => {
             <Box display="flex" flexDirection="column" alignItems="center" textAlign="center">
               <CheckCircleOutline sx={{ fontSize: 80, color: 'success.main', mb: 2 }} />
               <Typography variant="h5" fontWeight="bold" sx={{ mb: 1 }}>
-                تم إرسال الطلب بنجاح
+                {t('requestSentSuccessTitle')}
               </Typography>
               <Typography color="textSecondary" sx={{ mb: 3 }}>
-                سيقوم الإدمن بمراجعة طلبك وإرسال دعوة على بريدك الإلكتروني
+                {t('requestSentSuccessSubtitle')}
               </Typography>
 
               <Button
@@ -402,7 +406,7 @@ const RequestInvitationPage = () => {
                   setFormData({ name: '', email: '', password: '', confirmPassword: '', role: 'student' });
                 }}
               >
-                طلب دعوة جديد
+                {t('newRequest')}
               </Button>
             </Box>
           </CardContent>

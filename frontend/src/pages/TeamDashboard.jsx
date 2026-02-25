@@ -23,6 +23,7 @@ import {
   Person as PersonIcon,
 } from '@mui/icons-material';
 import api from '../services/api';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 /**
  * TeamDashboard Component
@@ -33,6 +34,7 @@ import api from '../services/api';
 const TeamDashboard = () => {
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
+  const { t } = useAppSettings();
   
   const [team, setTeam] = useState(null);
   const [projects, setProjects] = useState([]);
@@ -57,7 +59,7 @@ const TeamDashboard = () => {
       
       setLoading(false);
     } catch (err) {
-      setError(err.response?.data?.message || 'حدث خطأ في جلب بيانات الفريق');
+      setError(err.response?.data?.message || t('teamDataFetchError'));
       setLoading(false);
     }
   };
@@ -82,7 +84,7 @@ const TeamDashboard = () => {
     return (
       <Container maxWidth="lg" sx={{ mt: 4 }}>
         <Alert severity="info">
-          أنت لست عضواً في أي فريق بعد. يرجى التواصل مع المدير لإضافتك إلى فريق.
+          {t('notInTeamYet')}
         </Alert>
       </Container>
     );
@@ -112,7 +114,7 @@ const TeamDashboard = () => {
 
         {/* Team Members */}
         <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <PersonIcon /> أعضاء الفريق
+          <PersonIcon /> {t('teamMembers')}
         </Typography>
         <Grid container spacing={2} sx={{ mt: 1 }}>
           {team.members.map((member) => (
@@ -148,7 +150,7 @@ const TeamDashboard = () => {
                     </Box>
                   </Box>
                   {member._id === user._id && (
-                    <Chip label="أنت" size="small" color="primary" sx={{ mt: 1 }} />
+                    <Chip label={t('you')} size="small" color="primary" sx={{ mt: 1 }} />
                   )}
                 </CardContent>
               </Card>
@@ -159,12 +161,12 @@ const TeamDashboard = () => {
 
       {/* Enrolled Projects */}
       <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <AssignmentIcon /> المشاريع المسجلة
+        <AssignmentIcon /> {t('enrolledProjects')}
       </Typography>
       
       {projects.length === 0 ? (
         <Alert severity="info" sx={{ mt: 2 }}>
-          فريقك لم يسجل في أي مشروع بعد.
+          {t('teamNoProjectsYet')}
         </Alert>
       ) : (
         <Grid container spacing={3} sx={{ mt: 1 }}>
@@ -180,13 +182,13 @@ const TeamDashboard = () => {
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                     <Chip 
-                      label={`المستوى: ${enrollment.project.level || 'غير محدد'}`} 
+                      label={t('levelWithValue', { level: enrollment.project.level || t('notSpecified') })} 
                       size="small" 
                       color="primary" 
                       variant="outlined"
                     />
                     <Chip 
-                      label={`تاريخ التسجيل: ${new Date(enrollment.enrolledAt).toLocaleDateString('ar-EG')}`} 
+                      label={t('enrollmentDateWithValue', { date: new Date(enrollment.enrolledAt).toLocaleDateString('ar-EG') })} 
                       size="small" 
                       variant="outlined"
                     />
@@ -197,7 +199,7 @@ const TeamDashboard = () => {
                     size="small" 
                     onClick={() => navigate(`/team/project/${enrollment.project._id}`)}
                   >
-                    عرض المشروع والتسليمات
+                    {t('viewProjectAndSubmissions')}
                   </Button>
                 </CardActions>
               </Card>

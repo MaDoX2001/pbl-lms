@@ -21,28 +21,30 @@ import {
 } from '@mui/material';
 import { submitPreTest, getPreTestQuestions } from '../redux/slices/preTestSlice';
 import { setPreTestCompleted } from '../redux/slices/authSlice';
-
-const LIKERT_OPTIONS = [
-  { value: 1, label: 'لا أوافق بشدة' },
-  { value: 2, label: 'لا أوافق' },
-  { value: 3, label: 'محايد' },
-  { value: 4, label: 'أوافق' },
-  { value: 5, label: 'أوافق بشدة' }
-];
-
-const SECTIONS = [
-  { key: 'technicalReadiness', title: 'الجاهزية التقنية الرقمية', icon: '💻' },
-  { key: 'programmingReadiness', title: 'الجاهزية البرمجية', icon: '👨‍💻' },
-  { key: 'arduinoReadiness', title: 'الجاهزية لاستخدام Arduino', icon: '🔧' },
-  { key: 'smartSystemsReadiness', title: 'الجاهزية للأنظمة الذكية', icon: '🤖' },
-  { key: 'projectLearningReadiness', title: 'الجاهزية للتعلم بالمشاريع', icon: '📚' }
-];
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const PreTestPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const { t } = useAppSettings();
   const { user } = useSelector((state) => state.auth);
   const { questions, loading, error } = useSelector((state) => state.preTest);
+
+  const LIKERT_OPTIONS = [
+    { value: 1, label: t('stronglyDisagree') },
+    { value: 2, label: t('disagree') },
+    { value: 3, label: t('neutral') },
+    { value: 4, label: t('agree') },
+    { value: 5, label: t('stronglyAgree') }
+  ];
+
+  const SECTIONS = [
+    { key: 'technicalReadiness', title: t('technicalReadinessDigitalTitle'), icon: '💻' },
+    { key: 'programmingReadiness', title: t('programmingReadinessTitle'), icon: '👨‍💻' },
+    { key: 'arduinoReadiness', title: t('arduinoReadinessTitle'), icon: '🔧' },
+    { key: 'smartSystemsReadiness', title: t('smartSystemsReadinessTitle'), icon: '🤖' },
+    { key: 'projectLearningReadiness', title: t('projectLearningReadinessTitle'), icon: '📚' }
+  ];
 
   const [activeStep, setActiveStep] = useState(0);
   const [answers, setAnswers] = useState({});
@@ -105,7 +107,7 @@ const PreTestPage = () => {
       // Navigate to results page with the data
       navigate('/pretest-result', { state: { result } });
     } catch (err) {
-      setSubmitError(err.message || 'حدث خطأ في إرسال الاختبار');
+      setSubmitError(err.message || t('preTestSubmitError'));
     } finally {
       setSubmitLoading(false);
     }
@@ -135,13 +137,13 @@ const PreTestPage = () => {
         {/* Header */}
         <Box textAlign="center" mb={4}>
           <Typography variant="h4" fontWeight="bold" gutterBottom>
-            اختبار الجاهزية للمنصة
+            {t('preTestPlatformReadinessTitle')}
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            يهدف هذا الاختبار لقياس جاهزيتك قبل البدء في استخدام المنصة
+            {t('preTestPlatformReadinessSubtitle')}
           </Typography>
           <Typography variant="body2" color="text.secondary" mt={1}>
-            الاختبار غير مُقيّم ويُستخدم فقط لتحديد مستوى الجاهزية
+            {t('preTestNotGradedNote')}
           </Typography>
         </Box>
 
@@ -149,7 +151,7 @@ const PreTestPage = () => {
         <Box mb={3}>
           <Box display="flex" justifyContent="space-between" mb={1}>
             <Typography variant="body2" color="text.secondary">
-              التقدم
+              {t('progress')}
             </Typography>
             <Typography variant="body2" color="primary" fontWeight="bold">
               {Math.round(progressPercentage)}%
@@ -237,7 +239,7 @@ const PreTestPage = () => {
             onClick={handleBack}
             disabled={activeStep === 0}
           >
-            السابق
+            {t('previous')}
           </Button>
 
           {activeStep === SECTIONS.length - 1 ? (
@@ -246,7 +248,7 @@ const PreTestPage = () => {
               onClick={handleSubmit}
               disabled={!isCurrentSectionComplete() || submitLoading}
             >
-              {submitLoading ? <CircularProgress size={24} /> : 'إرسال الاختبار'}
+              {submitLoading ? <CircularProgress size={24} /> : t('submitPreTest')}
             </Button>
           ) : (
             <Button
@@ -254,7 +256,7 @@ const PreTestPage = () => {
               onClick={handleNext}
               disabled={!isCurrentSectionComplete()}
             >
-              التالي
+              {t('next')}
             </Button>
           )}
         </Box>

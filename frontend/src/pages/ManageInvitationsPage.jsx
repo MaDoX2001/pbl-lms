@@ -29,8 +29,10 @@ import {
 import { CheckCircleOutline, BlockOutlined, RefreshOutlined } from '@mui/icons-material';
 import invitationService from '../services/invitationService';
 import { toast } from 'react-toastify';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const ManageInvitationsPage = () => {
+  const { t } = useAppSettings();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -61,7 +63,7 @@ const ManageInvitationsPage = () => {
       setTotal(response.total);
       setPages(response.pages);
     } catch (error) {
-      toast.error(error.message || 'خطأ في تحميل الطلبات');
+      toast.error(error.message || t('invitationRequestsLoadError'));
     } finally {
       setLoading(false);
     }
@@ -71,12 +73,12 @@ const ManageInvitationsPage = () => {
     setLoading(true);
     try {
       await invitationService.approveRequest(selectedRequest._id);
-      toast.success('تم الموافقة على الطلب وإرسال الدعوة');
+      toast.success(t('requestApprovedAndInvitationSent'));
       setOpenApproveDialog(false);
       setSelectedRequest(null);
       fetchRequests();
     } catch (error) {
-      toast.error(error.message || 'خطأ في الموافقة');
+      toast.error(error.message || t('approveRequestFailed'));
     } finally {
       setLoading(false);
     }
@@ -84,20 +86,20 @@ const ManageInvitationsPage = () => {
 
   const handleReject = async () => {
     if (!rejectionReason.trim()) {
-      toast.error('يجب إدخال سبب الرفض');
+      toast.error(t('enterRejectionReason'));
       return;
     }
 
     setLoading(true);
     try {
       await invitationService.rejectRequest(selectedRequest._id, rejectionReason);
-      toast.success('تم رفض الطلب');
+      toast.success(t('requestRejected'));
       setOpenRejectDialog(false);
       setSelectedRequest(null);
       setRejectionReason('');
       fetchRequests();
     } catch (error) {
-      toast.error(error.message || 'خطأ في رفض الطلب');
+      toast.error(error.message || t('rejectRequestFailed'));
     } finally {
       setLoading(false);
     }
@@ -110,14 +112,14 @@ const ManageInvitationsPage = () => {
       rejected: 'error'
     };
     const labels = {
-      pending: 'قيد المراجعة',
-      approved: 'موافق عليه',
-      rejected: 'مرفوض'
+      pending: t('pendingReview'),
+      approved: t('approved'),
+      rejected: t('rejected')
     };
     return <Chip label={labels[status]} color={colors[status]} size="small" />;
   };
 
-  const getRoleLabel = (role) => role === 'student' ? 'طالب' : 'معلم';
+  const getRoleLabel = (role) => role === 'student' ? t('student') : t('teacher');
 
   if (loading && requests.length === 0) {
     return (
@@ -132,40 +134,44 @@ const ManageInvitationsPage = () => {
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Typography variant="h5" fontWeight="bold" sx={{ mb: 3 }}>
-            إدارة طلبات الدعوات
+            {t('manageInvitationRequestsTitle')}
           </Typography>
 
           <Box display="flex" gap={2} sx={{ mb: 3, flexWrap: 'wrap' }}>
             <FormControl sx={{ minWidth: 200 }}>
-              <InputLabel>الحالة</InputLabel>
+              <InputLabel id="invitation-status-filter-label">{t('status')}</InputLabel>
               <Select
+                id="invitation-status-filter"
+                labelId="invitation-status-filter-label"
                 value={filter.status}
                 onChange={(e) => {
                   setFilter(prev => ({ ...prev, status: e.target.value }));
                   setPage(1);
                 }}
-                label="الحالة"
+                label={t('status')}
               >
-                <MenuItem value="">الكل</MenuItem>
-                <MenuItem value="pending">قيد المراجعة</MenuItem>
-                <MenuItem value="approved">موافق عليه</MenuItem>
-                <MenuItem value="rejected">مرفوض</MenuItem>
+                <MenuItem value="">{t('all')}</MenuItem>
+                <MenuItem value="pending">{t('pendingReview')}</MenuItem>
+                <MenuItem value="approved">{t('approved')}</MenuItem>
+                <MenuItem value="rejected">{t('rejected')}</MenuItem>
               </Select>
             </FormControl>
 
             <FormControl sx={{ minWidth: 200 }}>
-              <InputLabel>الدور</InputLabel>
+              <InputLabel id="invitation-role-filter-label">{t('role')}</InputLabel>
               <Select
+                id="invitation-role-filter"
+                labelId="invitation-role-filter-label"
                 value={filter.role}
                 onChange={(e) => {
                   setFilter(prev => ({ ...prev, role: e.target.value }));
                   setPage(1);
                 }}
-                label="الدور"
+                label={t('role')}
               >
-                <MenuItem value="">الكل</MenuItem>
-                <MenuItem value="student">طالب</MenuItem>
-                <MenuItem value="teacher">معلم</MenuItem>
+                <MenuItem value="">{t('all')}</MenuItem>
+                <MenuItem value="student">{t('student')}</MenuItem>
+                <MenuItem value="teacher">{t('teacher')}</MenuItem>
               </Select>
             </FormControl>
 
@@ -175,12 +181,12 @@ const ManageInvitationsPage = () => {
               onClick={fetchRequests}
               disabled={loading}
             >
-              تحديث
+              {t('refresh')}
             </Button>
           </Box>
 
           <Alert severity="info" sx={{ mb: 2 }}>
-            إجمالي الطلبات: <strong>{total}</strong>
+            {t('totalRequestsWithCount', { count: total })}
           </Alert>
         </CardContent>
       </Card>
@@ -189,19 +195,19 @@ const ManageInvitationsPage = () => {
         <Table>
           <TableHead sx={{ bgcolor: 'primary.light' }}>
             <TableRow>
-              <TableCell align="right">الاسم</TableCell>
-              <TableCell align="right">البريد الإلكتروني</TableCell>
-              <TableCell align="right">الدور</TableCell>
-              <TableCell align="right">الحالة</TableCell>
-              <TableCell align="right">تاريخ الطلب</TableCell>
-              <TableCell align="right">الإجراءات</TableCell>
+              <TableCell align="right">{t('name')}</TableCell>
+              <TableCell align="right">{t('email')}</TableCell>
+              <TableCell align="right">{t('role')}</TableCell>
+              <TableCell align="right">{t('status')}</TableCell>
+              <TableCell align="right">{t('requestDate')}</TableCell>
+              <TableCell align="right">{t('actions')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {requests.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                  <Typography color="textSecondary">لا توجد طلبات</Typography>
+                  <Typography color="textSecondary">{t('noRequestsFound')}</Typography>
                 </TableCell>
               </TableRow>
             ) : (
@@ -228,7 +234,7 @@ const ManageInvitationsPage = () => {
                           }}
                           sx={{ mr: 1 }}
                         >
-                          موافق
+                          {t('approve')}
                         </Button>
                         <Button
                           variant="contained"
@@ -240,7 +246,7 @@ const ManageInvitationsPage = () => {
                             setOpenRejectDialog(true);
                           }}
                         >
-                          رفض
+                          {t('reject')}
                         </Button>
                       </>
                     )}
@@ -265,58 +271,58 @@ const ManageInvitationsPage = () => {
 
       {/* Approve Dialog */}
       <Dialog open={openApproveDialog} onClose={() => setOpenApproveDialog(false)}>
-        <DialogTitle>تأكيد الموافقة</DialogTitle>
+        <DialogTitle>{t('approveConfirmationTitle')}</DialogTitle>
         <DialogContent>
           {selectedRequest && (
             <Box sx={{ pt: 2 }}>
               <Typography>
-                هل تريد الموافقة على طلب <strong>{selectedRequest.name}</strong>؟
+                {t('approveRequestForUser', { name: selectedRequest.name })}
               </Typography>
               <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-                سيتم إرسال دعوة على بريده الإلكتروني: {selectedRequest.email}
+                {t('invitationWillBeSentTo', { email: selectedRequest.email })}
               </Typography>
             </Box>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenApproveDialog(false)}>إلغاء</Button>
+          <Button onClick={() => setOpenApproveDialog(false)}>{t('cancel')}</Button>
           <Button
             variant="contained"
             color="success"
             onClick={handleApprove}
             disabled={loading}
           >
-            {loading ? <CircularProgress size={24} /> : 'موافق'}
+            {loading ? <CircularProgress size={24} /> : t('approve')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Reject Dialog */}
       <Dialog open={openRejectDialog} onClose={() => setOpenRejectDialog(false)} fullWidth>
-        <DialogTitle>رفض الطلب</DialogTitle>
+        <DialogTitle>{t('rejectInvitationRequest')}</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
           <Typography sx={{ mb: 2 }}>
-            أدخل سبب الرفض (سيتم إرساله للمستخدم)
+            {t('enterRejectionReasonForUser')}
           </Typography>
           <TextField
             fullWidth
-            label="سبب الرفض"
+            label={t('rejectionReason')}
             multiline
             rows={3}
             value={rejectionReason}
             onChange={(e) => setRejectionReason(e.target.value)}
-            placeholder="مثال: البريد غير صحيح، أو لا تتوفر الشروط..."
+            placeholder={t('rejectionReasonPlaceholder')}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenRejectDialog(false)}>إلغاء</Button>
+          <Button onClick={() => setOpenRejectDialog(false)}>{t('cancel')}</Button>
           <Button
             variant="contained"
             color="error"
             onClick={handleReject}
             disabled={loading || !rejectionReason.trim()}
           >
-            {loading ? <CircularProgress size={24} /> : 'رفض'}
+            {loading ? <CircularProgress size={24} /> : t('reject')}
           </Button>
         </DialogActions>
       </Dialog>

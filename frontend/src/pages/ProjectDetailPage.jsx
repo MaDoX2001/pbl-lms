@@ -51,6 +51,7 @@ import ResourceUploadDialog from '../components/ResourceUploadDialog';
 import HomeworkSubmitDialog from '../components/HomeworkSubmitDialog';
 import CreateAssignmentDialog from '../components/CreateAssignmentDialog';
 import api from '../services/api';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const ProjectDetailPage = () => {
   const { id } = useParams();
@@ -58,6 +59,7 @@ const ProjectDetailPage = () => {
   const dispatch = useDispatch();
   const { currentProject: project, loading } = useSelector((state) => state.projects);
   const { user, isAuthenticated } = useSelector((state) => state.auth);
+  const { t } = useAppSettings();
 
   const [materials, setMaterials] = useState([]);
   const [assignments, setAssignments] = useState([]);
@@ -123,26 +125,26 @@ const ProjectDetailPage = () => {
   };
 
   const handleDeleteMaterial = async (materialId) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذه المادة؟')) return;
+    if (!window.confirm(t('confirmDeleteMaterial'))) return;
 
     try {
       await api.delete(`/resources/${id}/materials/${materialId}`);
-      toast.success('تم حذف المادة بنجاح');
+      toast.success(t('materialDeletedSuccess'));
       fetchCourseMaterials();
     } catch (error) {
-      toast.error('فشل حذف المادة');
+      toast.error(t('materialDeleteFailed'));
     }
   };
 
   const handleDeleteAssignment = async (assignmentId) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذه المهمة؟')) return;
+    if (!window.confirm(t('confirmDeleteAssignment'))) return;
 
     try {
       await api.delete(`/resources/${id}/assignments/${assignmentId}`);
-      toast.success('تم حذف المهمة بنجاح');
+      toast.success(t('assignmentDeletedSuccess'));
       fetchAssignments();
     } catch (error) {
-      toast.error('فشل حذف المهمة');
+      toast.error(t('assignmentDeleteFailed'));
     }
   };
 
@@ -167,9 +169,9 @@ const ProjectDetailPage = () => {
       link.remove();
       window.URL.revokeObjectURL(url);
       
-      toast.success('تم تحميل الملف بنجاح');
+      toast.success(t('fileDownloadedSuccess'));
     } catch (error) {
-      toast.error('فشل تحميل الملف');
+      toast.error(t('fileDownloadFailed'));
       console.error('Download error:', error);
     }
   };
@@ -269,17 +271,17 @@ const ProjectDetailPage = () => {
       }
 
       if (successCount > 0) {
-        toast.success(`تم تسجيل ${successCount} فريق في المشروع بنجاح`);
+        toast.success(t('teamsRegisteredInProject', { count: successCount }));
       }
       if (errorCount > 0) {
-        toast.warning(`${errorCount} فريق مسجل بالفعل`);
+        toast.warning(t('teamsAlreadyRegistered', { count: errorCount }));
       }
 
       setTeamRegisterDialogOpen(false);
       setSelectedTeams([]);
       setSelectAllTeams(false);
     } catch (error) {
-      toast.error(error.response?.data?.message || 'فشل تسجيل الفريق');
+      toast.error(error.response?.data?.message || t('teamRegisterFailed'));
     }
   };
 
@@ -304,9 +306,9 @@ const ProjectDetailPage = () => {
     (user.role === 'teacher' && project.instructor?._id === user._id)
   );
   const difficultyLabel = {
-    beginner: 'مبتدئ',
-    intermediate: 'متوسط',
-    advanced: 'متقدم',
+    beginner: t('beginner'),
+    intermediate: t('intermediate'),
+    advanced: t('advanced'),
   };
 
   const handleTogglePublish = async () => {
@@ -315,11 +317,11 @@ const ProjectDetailPage = () => {
         isPublished: !project.isPublished
       });
       
-      toast.success(project.isPublished ? 'تم إلغاء نشر المشروع' : 'تم نشر المشروع');
+      toast.success(project.isPublished ? t('projectUnpublished') : t('projectPublished'));
       dispatch(fetchProjectById(id)); // Refresh project data
     } catch (error) {
       console.error('Error toggling publish status:', error);
-      toast.error('فشل تغيير حالة النشر');
+      toast.error(t('publishStatusChangeFailed'));
     }
   };
 
@@ -347,7 +349,7 @@ const ProjectDetailPage = () => {
                   }
                 }}
               >
-                تعديل المشروع
+                {t('editProject')}
               </Button>
               <Button
                 variant="contained"
@@ -360,7 +362,7 @@ const ProjectDetailPage = () => {
                   }
                 }}
               >
-                {project.isPublished ? 'إلغاء النشر' : 'نشر المشروع'}
+                {project.isPublished ? t('unpublishProject') : t('publishProject')}
               </Button>
             </Box>
           )}
@@ -370,7 +372,7 @@ const ProjectDetailPage = () => {
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
           <Chip 
-            label={project.isPublished ? 'منشور' : 'مسودة'} 
+            label={project.isPublished ? t('published') : t('draft')}
             sx={{ 
               bgcolor: project.isPublished ? 'rgba(76,175,80,0.3)' : 'rgba(255,152,0,0.3)', 
               color: 'white',
@@ -378,8 +380,8 @@ const ProjectDetailPage = () => {
             }} 
           />
           <Chip label={difficultyLabel[project.difficulty]} sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
-          <Chip label="Arduino Uno" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
-          <Chip label="بيئة المحاكاة" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
+          <Chip label={t('arduinoUno')} sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
+          <Chip label={t('simulationEnvironment')} sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
           {project.technologies?.map((tech, i) => (
             <Chip key={i} label={tech} sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
           ))}
@@ -402,7 +404,7 @@ const ProjectDetailPage = () => {
           {/* Description */}
           <Paper sx={{ p: 3, mb: 3 }}>
             <Typography variant="h5" gutterBottom fontWeight={600}>
-              نظرة عامة
+              {t('overview')}
             </Typography>
             <Typography variant="body1" paragraph sx={{ whiteSpace: 'pre-line' }}>
               {project.description}
@@ -413,7 +415,7 @@ const ProjectDetailPage = () => {
           {project.showObjectives && project.objectives?.length > 0 && (
             <Paper sx={{ p: 3, mb: 3 }}>
               <Typography variant="h5" gutterBottom fontWeight={600}>
-                أهداف التعلم
+                {t('learningObjectives')}
               </Typography>
               <List>
                 {project.objectives.map((obj, index) => (
@@ -430,7 +432,7 @@ const ProjectDetailPage = () => {
           {project.learningScenario && (
             <Paper sx={{ p: 3, mb: 3 }}>
               <Typography variant="h5" gutterBottom fontWeight={600}>
-                السيناريو التعليمي للمشروع
+                {t('projectLearningScenario')}
               </Typography>
               <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
                 {project.learningScenario}
@@ -442,7 +444,7 @@ const ProjectDetailPage = () => {
           {project.teachingStrategy && (
             <Paper sx={{ p: 3, mb: 3 }}>
               <Typography variant="h5" gutterBottom fontWeight={600}>
-                الاستراتيجية التعليمية المستخدمة
+                {t('teachingStrategy')}
               </Typography>
               <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
                 {project.teachingStrategy}
@@ -454,7 +456,7 @@ const ProjectDetailPage = () => {
           {project.finalReportNote && (
             <Paper sx={{ p: 3, mb: 3, bgcolor: '#f5f5f5' }}>
               <Typography variant="h6" gutterBottom fontWeight={600} color="primary">
-                ملاحظة هامة
+                {t('importantNote')}
               </Typography>
               <Typography variant="body1">
                 {project.finalReportNote}
@@ -466,7 +468,7 @@ const ProjectDetailPage = () => {
           {project.resources?.length > 0 && (
             <Paper sx={{ p: 3 }}>
               <Typography variant="h5" gutterBottom fontWeight={600}>
-                مصادر التعلم
+                {t('learningResources')}
               </Typography>
               <List>
                 {project.resources.map((resource, index) => (

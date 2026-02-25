@@ -27,6 +27,7 @@ import {
   CardContent,
 } from '@mui/material';
 import api from '../services/api';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 /**
  * PreAssessmentPage Component
@@ -45,6 +46,7 @@ const PreAssessmentPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
+  const { t } = useAppSettings();
 
   const [activeStep, setActiveStep] = useState(0);
   const [questions, setQuestions] = useState([]);
@@ -56,11 +58,11 @@ const PreAssessmentPage = () => {
   const [results, setResults] = useState(null);
 
   const dimensions = [
-    'الجاهزية التقنية',
-    'الجاهزية البرمجية',
-    'الجاهزية لاستخدام Arduino',
-    'الجاهزية للأنظمة الذكية',
-    'الجاهزية للتعلم بالمشاريع',
+    t('technicalReadinessTitle'),
+    t('programmingReadinessTitle'),
+    t('arduinoReadinessTitle'),
+    t('smartSystemsReadinessTitle'),
+    t('projectLearningReadinessTitle'),
   ];
 
   // Fetch questions on mount
@@ -71,7 +73,7 @@ const PreAssessmentPage = () => {
         setQuestions(response.data);
         setLoading(false);
       } catch (err) {
-        setError(err.response?.data?.message || 'Failed to load questions');
+        setError(err.response?.data?.message || t('preAssessmentLoadQuestionsFailed'));
         setLoading(false);
       }
     };
@@ -127,7 +129,7 @@ const PreAssessmentPage = () => {
       setShowResults(true);
       setSubmitting(false);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to submit assessment');
+      setError(err.response?.data?.message || t('preAssessmentSubmitFailed'));
       setSubmitting(false);
     }
   };
@@ -174,16 +176,16 @@ const PreAssessmentPage = () => {
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Paper elevation={3} sx={{ p: 4 }}>
         <Typography variant="h4" gutterBottom align="center">
-          اختبار تشخيصي
+          {t('preAssessmentTitle')}
         </Typography>
         <Typography variant="body1" color="text.secondary" align="center" sx={{ mb: 4 }}>
-          يساعدنا هذا الاختبار في فهم مستواك الحالي ومهاراتك. الرجاء الإجابة على جميع الأسئلة بصدق.
+          {t('preAssessmentSubtitle')}
         </Typography>
 
         {/* Overall Progress */}
         <Box sx={{ mb: 4 }}>
           <Typography variant="body2" color="text.secondary" gutterBottom>
-            التقدم الإجمالي: {answeredQuestions} / {totalQuestions} سؤال
+            {t('overallProgressQuestions', { answered: answeredQuestions, total: totalQuestions })}
           </Typography>
           <LinearProgress variant="determinate" value={progress} />
         </Box>
@@ -210,7 +212,7 @@ const PreAssessmentPage = () => {
               {currentDimension.dimension}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              السؤال {activeStep * 4 + 1} - {activeStep * 4 + 4} من {totalQuestions}
+              {t('questionsRangeOfTotal', { start: activeStep * 4 + 1, end: activeStep * 4 + 4, total: totalQuestions })}
             </Typography>
 
             {currentDimension.questions.map((question, index) => (
@@ -249,7 +251,7 @@ const PreAssessmentPage = () => {
             disabled={activeStep === 0 || submitting}
             variant="outlined"
           >
-            رجوع
+            {t('back')}
           </Button>
           <Button
             onClick={handleNext}
@@ -260,9 +262,9 @@ const PreAssessmentPage = () => {
             {submitting ? (
               <CircularProgress size={24} color="inherit" />
             ) : activeStep === dimensions.length - 1 ? (
-              'إرسال'
+              t('send')
             ) : (
-              'التالي'
+              t('next')
             )}
           </Button>
         </Box>
@@ -277,7 +279,7 @@ const PreAssessmentPage = () => {
       >
         <DialogTitle>
           <Typography variant="h4" align="center" sx={{ fontWeight: 'bold' }}>
-            نتيجة الاختبار التشخيصي
+            {t('preAssessmentResultTitle')}
           </Typography>
         </DialogTitle>
         <DialogContent>
@@ -286,32 +288,34 @@ const PreAssessmentPage = () => {
               {/* Overall Score */}
               <Paper elevation={3} sx={{ p: 3, mb: 3, bgcolor: 'primary.light', color: 'white' }}>
                 <Typography variant="h5" align="center" gutterBottom>
-                  النتيجة الإجمالية
+                  {t('overallScore')}
                 </Typography>
                 <Typography variant="h2" align="center" sx={{ fontWeight: 'bold' }}>
                   {results.totalScore ? results.totalScore.toFixed(1) : 0}%
                 </Typography>
                 <Typography variant="h6" align="center" sx={{ mt: 1 }}>
-                  مستوى الجاهزية: {
-                    results.readinessLevel === 'high' ? 'عالي 🎉' :
-                    results.readinessLevel === 'medium' ? 'متوسط 👍' :
-                    'يحتاج تحسين 💪'
-                  }
+                  {t('readinessLevelWithValue', {
+                    level: results.readinessLevel === 'high'
+                      ? t('readinessHigh')
+                      : results.readinessLevel === 'medium'
+                        ? t('readinessMedium')
+                        : t('readinessNeedsImprovement')
+                  })}
                 </Typography>
               </Paper>
 
               {/* Dimension Scores */}
               <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
-                النتائج التفصيلية لكل بُعد:
+                {t('dimensionDetailedScores')}
               </Typography>
               <Grid container spacing={2}>
                 {results.dimensionScores && Object.entries(results.dimensionScores).map(([key, score], index) => {
                   const dimensionNames = {
-                    technicalReadiness: 'الجاهزية التقنية',
-                    programmingReadiness: 'الجاهزية البرمجية',
-                    arduinoReadiness: 'الجاهزية لاستخدام Arduino',
-                    smartSystemsReadiness: 'الجاهزية للأنظمة الذكية',
-                    projectLearningReadiness: 'الجاهزية للتعلم بالمشاريع'
+                    technicalReadiness: t('technicalReadinessTitle'),
+                    programmingReadiness: t('programmingReadinessTitle'),
+                    arduinoReadiness: t('arduinoReadinessTitle'),
+                    smartSystemsReadiness: t('smartSystemsReadinessTitle'),
+                    projectLearningReadiness: t('projectLearningReadinessTitle')
                   };
                   
                   return (
@@ -343,7 +347,7 @@ const PreAssessmentPage = () => {
 
               <Alert severity="info" sx={{ mt: 3 }}>
                 <Typography variant="body2">
-                  ستساعدنا هذه النتائج في تقديم تجربة تعليمية مخصصة لك. يمكنك البدء في استكشاف المشاريع الآن! 🚀
+                  {t('preAssessmentResultsInfo')}
                 </Typography>
               </Alert>
             </Box>
@@ -357,7 +361,7 @@ const PreAssessmentPage = () => {
             size="large"
             fullWidth
           >
-            الانتقال إلى لوحة التحكم
+            {t('goToDashboard')}
           </Button>
         </DialogActions>
       </Dialog>

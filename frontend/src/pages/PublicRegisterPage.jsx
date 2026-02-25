@@ -56,7 +56,7 @@ const PublicRegisterPage = () => {
       return;
     }
 
-    if (formData.password.length < 6) {
+    if (formData.password.length < 8) {
       setError(t('passwordMin8'));
       return;
     }
@@ -73,7 +73,7 @@ const PublicRegisterPage = () => {
 
       if (response.data.success) {
         setSuccess(true);
-        toast.success(t('activationSuccess'));
+        toast.success(t('registerRequestSubmitted'));
         
         // Send email verification OTP
         try {
@@ -113,7 +113,7 @@ const PublicRegisterPage = () => {
               {t('requestApprovalMsg')}
             </Typography>
             <Typography variant="body2" sx={{ mt: 2 }}>
-              {t('redirectingToLogin')}
+              {t('redirectingToEmailVerification')}
             </Typography>
           </Alert>
           <Button

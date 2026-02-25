@@ -25,6 +25,7 @@ import {
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../services/api';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 /**
  * AllUsersPage Component
@@ -34,6 +35,7 @@ import api from '../services/api';
  */
 const AllUsersPage = () => {
   const navigate = useNavigate();
+  const { t } = useAppSettings();
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -55,7 +57,7 @@ const AllUsersPage = () => {
       setUsers(response.data.data);
       setLoading(false);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'حدث خطأ في جلب المستخدمين');
+      toast.error(err.response?.data?.message || t('allUsersFetchError'));
       setLoading(false);
     }
   };
@@ -95,11 +97,11 @@ const AllUsersPage = () => {
   const getRoleLabel = (role) => {
     switch (role) {
       case 'admin':
-        return 'مدير';
+        return t('adminRole');
       case 'teacher':
-        return 'معلم';
+        return t('teacher');
       case 'student':
-        return 'طالب';
+        return t('student');
       default:
         return role;
     }
@@ -108,13 +110,13 @@ const AllUsersPage = () => {
   const getTabLabel = (role) => {
     switch (role) {
       case 'all':
-        return 'الكل';
+        return t('all');
       case 'student':
-        return 'الطلاب';
+        return t('studentsPlural');
       case 'teacher':
-        return 'المعلمين';
+        return t('teachersPlural');
       case 'admin':
-        return 'المديرين';
+        return t('adminsPlural');
       default:
         return role;
     }
@@ -140,10 +142,10 @@ const AllUsersPage = () => {
           <PeopleIcon sx={{ fontSize: 40, color: 'primary.main' }} />
           <Box>
             <Typography variant="h4" fontWeight={700}>
-              كل المستخدمين
+              {t('users')}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              إدارة وعرض جميع المستخدمين على المنصة
+              {t('allUsersSubtitle')}
             </Typography>
           </Box>
         </Box>
@@ -151,7 +153,7 @@ const AllUsersPage = () => {
         {/* Search Bar */}
         <TextField
           fullWidth
-          placeholder="ابحث بالاسم أو البريد الإلكتروني..."
+          placeholder={t('allUsersSearchPlaceholder')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           InputProps={{
@@ -179,7 +181,7 @@ const AllUsersPage = () => {
       </Paper>
 
       {filteredUsers.length === 0 ? (
-        <Alert severity="info">لا يوجد مستخدمين</Alert>
+        <Alert severity="info">{t('allUsersEmpty')}</Alert>
       ) : (
         <Grid container spacing={3}>
           {filteredUsers.map((user) => (

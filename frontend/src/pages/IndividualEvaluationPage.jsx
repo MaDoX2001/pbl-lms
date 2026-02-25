@@ -27,16 +27,17 @@ import {
 } from '@mui/material';
 import { NavigateNext as NavigateNextIcon, Lock as LockIcon, ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import axios from 'axios';
-
-const ROLES = {
-  system_designer: 'مصمم النظام',
-  hardware_engineer: 'مهندس الأجهزة',
-  programmer: 'المبرمج'
-};
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const IndividualEvaluationPage = () => {
   const { projectId, studentId, submissionId } = useParams();
   const navigate = useNavigate();
+  const { t } = useAppSettings();
+  const roleLabels = {
+    system_designer: t('roleSystemDesigner'),
+    hardware_engineer: t('roleHardwareEngineer'),
+    programmer: t('roleProgrammer')
+  };
 
   const [loading, setLoading] = useState(true);
   const [observationCard, setObservationCard] = useState(null);
@@ -119,7 +120,7 @@ const IndividualEvaluationPage = () => {
       setLoading(false);
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.message || 'فشل في تحميل البيانات');
+      setError(err.response?.data?.message || t('evaluationLoadFailed'));
       setLoading(false);
     }
   };
@@ -177,7 +178,7 @@ const IndividualEvaluationPage = () => {
     setError('');
 
     if (!studentRole) {
-      setError('يجب تحديد دور الطالب');
+      setError(t('studentRoleRequired'));
       return;
     }
 
@@ -196,7 +197,7 @@ const IndividualEvaluationPage = () => {
     });
 
     if (!allRequiredSelected) {
-      setError('يجب تحديد درجة لجميع المعايير المطلوبة');
+      setError(t('requiredCriteriaScoreMissing'));
       return;
     }
 
@@ -228,11 +229,11 @@ const IndividualEvaluationPage = () => {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
 
-      alert('تم حفظ التقييم الفردي بنجاح');
+      alert(t('individualEvaluationSavedSuccess'));
       navigate(`/projects/${projectId}/submissions`);
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.message || 'فشل في حفظ التقييم');
+      setError(err.response?.data?.message || t('evaluationSaveFailed'));
       setSubmitting(false);
     }
   };
@@ -247,7 +248,7 @@ const IndividualEvaluationPage = () => {
 
   if (!observationCard) {
     return (
-      <Alert severity="error">بطاقة الملاحظة غير موجودة</Alert>
+      <Alert severity="error">{t('observationCardNotFound')}</Alert>
     );
   }
 
@@ -258,16 +259,16 @@ const IndividualEvaluationPage = () => {
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <LockIcon sx={{ fontSize: 80, color: 'warning.main', mb: 2 }} />
           <Typography variant="h5" gutterBottom fontWeight={600}>
-            المرحلة الجماعية غير مكتملة
+            {t('groupPhaseIncomplete')}
           </Typography>
           <Typography variant="body1" color="text.secondary" paragraph>
-            يجب إكمال التقييم الجماعي (المرحلة الأولى) قبل البدء في التقييم الفردي
+            {t('completeGroupPhaseFirst')}
           </Typography>
           <Button
             variant="contained"
             onClick={() => navigate(`/projects/${projectId}/submissions`)}
           >
-            العودة إلى قائمة التسليمات
+            {t('backToSubmissionsList')}
           </Button>
         </Paper>
       </Box>
@@ -282,16 +283,16 @@ const IndividualEvaluationPage = () => {
         onClick={() => navigate(-1)}
         sx={{ mb: 2 }}
       >
-        العودة
+        {t('back')}
       </Button>
 
       {/* Breadcrumbs */}
       <Breadcrumbs separator={<NavigateNextIcon fontSize="small" />} sx={{ mb: 3 }}>
-        <Link underline="hover" color="inherit" href="/projects">المشاريع</Link>
+        <Link underline="hover" color="inherit" href="/projects">{t('projects')}</Link>
         <Link underline="hover" color="inherit" href={`/projects/${projectId}`}>
           {project?.title}
         </Link>
-        <Typography color="text.primary">التقييم الفردي</Typography>
+        <Typography color="text.primary">{t('individualEvaluationTitleShort')}</Typography>
       </Breadcrumbs>
 
       {/* Header */}
@@ -299,32 +300,34 @@ const IndividualEvaluationPage = () => {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Box>
             <Typography variant="h4" fontWeight={600} gutterBottom>
-              التقييم الفردي والشفوي (المرحلة الثانية)
+              {t('individualOralEvaluationPhaseTwoTitle')}
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              المشروع: {project?.title}
+              {t('projectWithValue', { project: project?.title })}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              الطالب: {student?.name}
+              {t('studentWithValue', { student: student?.name })}
             </Typography>
           </Box>
-          <Chip label="المرحلة 2" color="secondary" size="large" />
+          <Chip label={t('phaseTwo')} color="secondary" size="large" />
         </Box>
 
         <Alert severity="info" sx={{ mb: 2 }}>
-          هذا التقييم خاص بالطالب. المعايير ستُفلتر حسب الدور المحدد.
+          {t('individualEvaluationInfoAlert')}
         </Alert>
 
         {/* Role Selector */}
         <FormControl fullWidth sx={{ mt: 2 }}>
-          <InputLabel>دور الطالب</InputLabel>
+          <InputLabel id="student-role-label">{t('studentRole')}</InputLabel>
           <Select
+            id="student-role"
+            labelId="student-role-label"
             value={studentRole}
             onChange={(e) => setStudentRole(e.target.value)}
-            label="دور الطالب"
+            label={t('studentRole')}
           >
-            <MenuItem value="">-- اختر الدور --</MenuItem>
-            {Object.entries(ROLES).map(([value, label]) => (
+            <MenuItem value="">{t('selectRolePlaceholder')}</MenuItem>
+            {Object.entries(roleLabels).map(([value, label]) => (
               <MenuItem key={value} value={value}>{label}</MenuItem>
             ))}
           </Select>
@@ -335,7 +338,7 @@ const IndividualEvaluationPage = () => {
 
       {!studentRole && (
         <Alert severity="warning" sx={{ mb: 3 }}>
-          يرجى اختيار دور الطالب لبدء التقييم
+          {t('selectStudentRoleToStartEvaluation')}
         </Alert>
       )}
 
@@ -343,7 +346,7 @@ const IndividualEvaluationPage = () => {
       {studentRole && (
         <Paper sx={{ p: 2, mb: 3, bgcolor: 'secondary.light', color: 'secondary.contrastText' }}>
           <Typography variant="h6">
-            الدرجة المحسوبة: {calculatePreviewScore()} / 100
+            {t('calculatedScoreOutOf100', { score: calculatePreviewScore() })}
           </Typography>
         </Paper>
       )}
@@ -362,10 +365,10 @@ const IndividualEvaluationPage = () => {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell width="25%"><strong>المعيار</strong></TableCell>
-                  <TableCell width="10%" align="center"><strong>مطلوب</strong></TableCell>
-                  <TableCell width="55%"><strong>الخيارات</strong></TableCell>
-                  <TableCell width="10%" align="center"><strong>الدرجة</strong></TableCell>
+                  <TableCell width="25%"><strong>{t('criterion')}</strong></TableCell>
+                  <TableCell width="10%" align="center"><strong>{t('required')}</strong></TableCell>
+                  <TableCell width="55%"><strong>{t('options')}</strong></TableCell>
+                  <TableCell width="10%" align="center"><strong>{t('scoreLabel')}</strong></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -380,15 +383,15 @@ const IndividualEvaluationPage = () => {
                         <Typography fontWeight={600}>{criterion.name}</Typography>
                         <Typography variant="caption" color="text.secondary">
                           {criterion.applicableRoles.includes('all') 
-                            ? 'جميع الأدوار' 
-                            : criterion.applicableRoles.map(r => ROLES[r] || r).join(', ')}
+                            ? t('allRoles') 
+                            : criterion.applicableRoles.map(r => roleLabels[r] || r).join(', ')}
                         </Typography>
                       </TableCell>
                       <TableCell align="center">
                         {isRequired ? (
-                          <Chip label="نعم" color="success" size="small" />
+                          <Chip label={t('yes')} color="success" size="small" />
                         ) : (
-                          <Chip label="لا" size="small" />
+                          <Chip label={t('no')} size="small" />
                         )}
                       </TableCell>
                       <TableCell>
@@ -428,7 +431,7 @@ const IndividualEvaluationPage = () => {
                           </RadioGroup>
                         ) : (
                           <Typography variant="body2" color="text.secondary">
-                            غير مطلوب لهذا الدور
+                            {t('notRequiredForThisRole')}
                           </Typography>
                         )}
                       </TableCell>
@@ -439,7 +442,7 @@ const IndividualEvaluationPage = () => {
                             color={selected?.selectedPercentage !== null ? 'success' : 'default'}
                           />
                         ) : (
-                          <Chip label="N/A" size="small" />
+                          <Chip label={t('notApplicable')} size="small" />
                         )}
                       </TableCell>
                     </TableRow>
@@ -455,7 +458,7 @@ const IndividualEvaluationPage = () => {
       {studentRole && (
         <Paper sx={{ p: 3, mb: 3 }}>
           <Typography variant="h6" gutterBottom fontWeight={600}>
-            ملاحظات عامة (اختياري)
+            {t('generalNotesOptional')}
           </Typography>
           <TextField
             fullWidth
@@ -463,7 +466,7 @@ const IndividualEvaluationPage = () => {
             rows={4}
             value={feedbackSummary}
             onChange={(e) => setFeedbackSummary(e.target.value)}
-            placeholder="أضف ملاحظاتك العامة على أداء الطالب..."
+            placeholder={t('studentFeedbackPlaceholder')}
           />
         </Paper>
       )}
@@ -476,7 +479,7 @@ const IndividualEvaluationPage = () => {
             onClick={() => navigate(`/projects/${projectId}/submissions`)}
             disabled={submitting}
           >
-            إلغاء
+            {t('cancel')}
           </Button>
           <Button
             variant="contained"
@@ -485,7 +488,7 @@ const IndividualEvaluationPage = () => {
             onClick={handleSubmit}
             disabled={submitting}
           >
-            {submitting ? 'جاري الحفظ...' : 'حفظ التقييم الفردي'}
+            {submitting ? t('saving') : t('saveIndividualEvaluation')}
           </Button>
         </Box>
       )}

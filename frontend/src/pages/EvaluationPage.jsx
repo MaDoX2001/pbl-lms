@@ -28,10 +28,12 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { toast } from 'react-toastify';
 import { assessmentAPI } from '../services/api';
 import api from '../services/api';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const EvaluationPage = () => {
   const { submissionId } = useParams();
   const navigate = useNavigate();
+  const { t } = useAppSettings();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submission, setSubmission] = useState(null);
@@ -61,7 +63,7 @@ const EvaluationPage = () => {
       initializeSelections(cardRes.data.data);
     } catch (error) {
       console.error('Error fetching data:', error);
-      toast.error('فشل تحميل البيانات');
+      toast.error(t('evaluationLoadFailed'));
     } finally {
       setLoading(false);
     }
@@ -136,7 +138,7 @@ const EvaluationPage = () => {
         for (const criterion of section.criteria) {
           const selection = selections[part.name]?.[section.name]?.[criterion.name];
           if (!selection || selection.percentage === null) {
-            return { valid: false, message: `يجب اختيار قيمة للمعيار: ${criterion.name}` };
+            return { valid: false, message: t('evaluationCriterionRequired', { criterion: criterion.name }) };
           }
         }
       }
@@ -176,11 +178,11 @@ const EvaluationPage = () => {
       };
 
       await assessmentAPI.createEvaluation(evaluationData);
-      toast.success('تم حفظ التقييم بنجاح');
+      toast.success(t('evaluationSavedSuccess'));
       navigate(-1); // Go back to submissions page
     } catch (error) {
       console.error('Error submitting evaluation:', error);
-      toast.error(error.response?.data?.message || 'فشل حفظ التقييم');
+      toast.error(error.response?.data?.message || t('evaluationSaveFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -205,7 +207,7 @@ const EvaluationPage = () => {
     return (
       <Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
         <Alert severity="error">
-          لا توجد بطاقة ملاحظة لهذا المشروع. يرجى إنشاء بطاقة ملاحظة أولاً.
+          {t('evaluationNoObservationCard')}
         </Alert>
       </Box>
     );
@@ -214,25 +216,25 @@ const EvaluationPage = () => {
   return (
     <Box sx={{ maxWidth: 1400, mx: 'auto', p: 3 }}>
       <Typography variant="h4" component="h1" gutterBottom fontWeight={700}>
-        تقييم التسليم
+        {t('evaluateSubmissionTitle')}
       </Typography>
 
       {/* Submission Info */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" gutterBottom>
-          معلومات التسليم
+          {t('submissionInfo')}
         </Typography>
         <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
           <Box>
-            <Typography variant="body2" color="text.secondary">الطالب:</Typography>
+            <Typography variant="body2" color="text.secondary">{t('studentLabel')}</Typography>
             <Typography variant="body1">{submission?.student?.name}</Typography>
           </Box>
           <Box>
-            <Typography variant="body2" color="text.secondary">المشروع:</Typography>
+            <Typography variant="body2" color="text.secondary">{t('projectLabel')}</Typography>
             <Typography variant="body1">{submission?.assignment?.projectId?.title}</Typography>
           </Box>
           <Box>
-            <Typography variant="body2" color="text.secondary">تاريخ التسليم:</Typography>
+            <Typography variant="body2" color="text.secondary">{t('submittedAtLabel')}</Typography>
             <Typography variant="body1">{new Date(submission?.submittedAt).toLocaleDateString('ar-EG')}</Typography>
           </Box>
         </Box>
@@ -243,7 +245,7 @@ const EvaluationPage = () => {
             target="_blank"
             sx={{ mt: 2 }}
           >
-            عرض الملف المرفوع
+            {t('viewUploadedFile')}
           </Button>
         )}
       </Paper>
@@ -252,9 +254,9 @@ const EvaluationPage = () => {
       {calculatedScore !== null && (
         <Paper sx={{ p: 2, mb: 3, bgcolor: calculatedScore >= 60 ? 'success.light' : 'error.light' }}>
           <Typography variant="h5" fontWeight={600} textAlign="center">
-            الدرجة المحسوبة: {calculatedScore}% 
+            {t('calculatedScoreWithValue', { score: calculatedScore })} 
             <Chip 
-              label={calculatedScore >= 60 ? 'ناجح' : 'راسب'} 
+              label={calculatedScore >= 60 ? t('pass') : t('fail')} 
               color={calculatedScore >= 60 ? 'success' : 'error'}
               sx={{ ml: 2 }}
             />
@@ -281,7 +283,7 @@ const EvaluationPage = () => {
                   <Table size="small">
                     <TableHead>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 600 }}>المعيار</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{t('criterion')}</TableCell>
                         <TableCell sx={{ fontWeight: 600 }} align="center">0%</TableCell>
                         <TableCell sx={{ fontWeight: 600 }} align="center">20%</TableCell>
                         <TableCell sx={{ fontWeight: 600 }} align="center">40%</TableCell>
@@ -339,24 +341,24 @@ const EvaluationPage = () => {
       <Paper sx={{ p: 3, mt: 3 }}>
         <TextField
           fullWidth
-          label="ملخص التغذية الراجعة (اختياري)"
+          label={t('feedbackSummaryOptional')}
           multiline
           rows={4}
           value={feedbackSummary}
           onChange={(e) => setFeedbackSummary(e.target.value)}
-          placeholder="اكتب ملاحظات عامة للطالب..."
+          placeholder={t('feedbackSummaryStudentPlaceholder')}
         />
 
         {calculatedScore !== null && calculatedScore < 60 && (
           <FormControl sx={{ mt: 2 }}>
-            <FormLabel>هل تسمح بإعادة المحاولة؟</FormLabel>
+            <FormLabel>{t('allowRetryQuestion')}</FormLabel>
             <RadioGroup
               row
               value={retryAllowed}
               onChange={(e) => setRetryAllowed(e.target.value === 'true')}
             >
-              <FormControlLabel value={true} control={<Radio />} label="نعم" />
-              <FormControlLabel value={false} control={<Radio />} label="لا" />
+              <FormControlLabel value={true} control={<Radio />} label={t('yes')} />
+              <FormControlLabel value={false} control={<Radio />} label={t('no')} />
             </RadioGroup>
           </FormControl>
         )}
@@ -367,7 +369,7 @@ const EvaluationPage = () => {
             onClick={() => navigate(-1)}
             disabled={submitting}
           >
-            إلغاء
+            {t('cancel')}
           </Button>
           <Button
             variant="contained"
@@ -376,7 +378,7 @@ const EvaluationPage = () => {
             onClick={handleSubmit}
             disabled={submitting}
           >
-            {submitting ? 'جاري الحفظ...' : 'حفظ التقييم'}
+            {submitting ? t('saving') : t('saveEvaluation')}
           </Button>
         </Box>
       </Paper>

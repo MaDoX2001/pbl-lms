@@ -43,9 +43,11 @@ import { assessmentAPI } from '../services/api';
 import { toast } from 'react-toastify';
 import StudentLevelBadge from '../components/StudentLevelBadge';
 import BadgeCollection from '../components/BadgeCollection';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const ProfilePage = () => {
   const dispatch = useDispatch();
+  const { t } = useAppSettings();
   const { user } = useSelector((state) => state.auth);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
@@ -127,11 +129,11 @@ const ProfilePage = () => {
       setEditDialogOpen(false);
       setAvatarFile(null);
       setUploadingAvatar(false);
-      toast.success('تم تحديث الملف الشخصي بنجاح');
+      toast.success(t('profileUpdatedSuccess'));
     } catch (error) {
       console.error('Error updating profile:', error);
       setUploadingAvatar(false);
-      toast.error(error.response?.data?.message || 'فشل تحديث الملف الشخصي');
+      toast.error(error.response?.data?.message || t('profileUpdateFailed'));
     }
   };
 
@@ -140,13 +142,13 @@ const ProfilePage = () => {
     if (file) {
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        toast.error('حجم الصورة يجب ألا يتجاوز 5 ميجابايت');
+        toast.error(t('avatarSizeLimit'));
         return;
       }
 
       // Validate file type
       if (!file.type.startsWith('image/')) {
-        toast.error('يجب اختيار صورة فقط');
+        toast.error(t('avatarImageOnly'));
         return;
       }
 
@@ -163,7 +165,7 @@ const ProfilePage = () => {
 
   const handleChangePassword = async () => {
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      alert('كلمة المرور الجديدة غير متطابقة');
+      alert(t('newPasswordMismatch'));
       return;
     }
     try {
@@ -177,9 +179,9 @@ const ProfilePage = () => {
 
   const getRoleBadge = (role) => {
     const roleConfig = {
-      admin: { label: 'مسؤول', color: 'error' },
-      teacher: { label: 'معلم', color: 'primary' },
-      student: { label: 'طالب', color: 'success' }
+      admin: { label: t('adminRole'), color: 'error' },
+      teacher: { label: t('teacher'), color: 'primary' },
+      student: { label: t('student'), color: 'success' }
     };
     return roleConfig[role] || { label: role, color: 'default' };
   };
@@ -235,7 +237,7 @@ const ProfilePage = () => {
               {user?.twoFactorEnabled && (
                 <Chip 
                   icon={<Lock />}
-                  label="مفعل 2FA" 
+                  label={t('twoFactorEnabledBadge')} 
                   color="warning"
                   sx={{ fontWeight: 600 }}
                 />
@@ -263,7 +265,7 @@ const ProfilePage = () => {
                   '&:hover': { bgcolor: 'rgba(255,255,255,0.9)' }
                 }}
               >
-                تعديل الملف الشخصي
+                {t('editProfile')}
               </Button>
               <Button 
                 variant="outlined" 
@@ -279,7 +281,7 @@ const ProfilePage = () => {
                   }
                 }}
               >
-                تغيير كلمة المرور
+                {t('changePassword')}
               </Button>
             </Box>
           </Grid>
@@ -298,7 +300,7 @@ const ProfilePage = () => {
                     {stats.completedProjects}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" fontWeight={600}>
-                    مشاريع مكتملة
+                    {t('completedProjects')}
                   </Typography>
                 </CardContent>
               </Card>
@@ -311,7 +313,7 @@ const ProfilePage = () => {
                     {stats.inProgressProjects}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" fontWeight={600}>
-                    مشاريع جارية
+                    {t('ongoingProjects')}
                   </Typography>
                 </CardContent>
               </Card>
@@ -324,7 +326,7 @@ const ProfilePage = () => {
                     {stats.totalPoints}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" fontWeight={600}>
-                    إجمالي النقاط
+                    {t('totalPoints')}
                   </Typography>
                 </CardContent>
               </Card>
@@ -337,7 +339,7 @@ const ProfilePage = () => {
                     #{stats.rank}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" fontWeight={600}>
-                    الترتيب
+                    {t('rank')}
                   </Typography>
                 </CardContent>
               </Card>
@@ -350,7 +352,7 @@ const ProfilePage = () => {
           <Grid item xs={12}>
             <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #e0e0e0' }}>
               <Typography variant="h5" fontWeight={700} mb={3} color="text.primary">
-                الشارات والإنجازات
+                {t('achievements')}
               </Typography>
               <BadgeCollection studentId={user._id} />
             </Paper>
@@ -361,7 +363,7 @@ const ProfilePage = () => {
         <Grid item xs={12} md={6}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #e0e0e0', height: '100%' }}>
             <Typography variant="h5" fontWeight={700} mb={3} color="text.primary">
-              المعلومات الشخصية
+              {t('personalInfo')}
             </Typography>
             <List>
               <ListItem>
@@ -369,7 +371,7 @@ const ProfilePage = () => {
                   <Email color="primary" />
                 </ListItemIcon>
                 <ListItemText 
-                  primary="البريد الإلكتروني"
+                  primary={t('email')}
                   secondary={user?.email}
                   primaryTypographyProps={{ fontWeight: 600 }}
                 />
@@ -380,8 +382,8 @@ const ProfilePage = () => {
                   <Phone color="primary" />
                 </ListItemIcon>
                 <ListItemText 
-                  primary="رقم الهاتف"
-                  secondary={user?.phone || 'غير مسجل'}
+                  primary={t('phoneNumber')}
+                  secondary={user?.phone || t('notRegistered')}
                   primaryTypographyProps={{ fontWeight: 600 }}
                 />
               </ListItem>
@@ -391,7 +393,7 @@ const ProfilePage = () => {
                   <School color="primary" />
                 </ListItemIcon>
                 <ListItemText 
-                  primary="الدور"
+                  primary={t('role')}
                   secondary={getRoleBadge(user?.role).label}
                   primaryTypographyProps={{ fontWeight: 600 }}
                 />
@@ -402,7 +404,7 @@ const ProfilePage = () => {
                   <CalendarToday color="primary" />
                 </ListItemIcon>
                 <ListItemText 
-                  primary="تاريخ التسجيل"
+                  primary={t('registrationDate')}
                   secondary={new Date(user?.createdAt).toLocaleDateString('ar-EG')}
                   primaryTypographyProps={{ fontWeight: 600 }}
                 />
@@ -415,45 +417,45 @@ const ProfilePage = () => {
         <Grid item xs={12} md={6}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #e0e0e0', height: '100%' }}>
             <Typography variant="h5" fontWeight={700} mb={3} color="text.primary">
-              الأمان والإعدادات
+              {t('securityAndSettings')}
             </Typography>
             <List>
               <ListItem>
                 <ListItemText 
-                  primary="التحقق من البريد الإلكتروني"
-                  secondary={user?.emailVerified ? 'مفعل ✓' : 'غير مفعل'}
+                  primary={t('emailVerification')}
+                  secondary={user?.emailVerified ? t('enabledCheck') : t('disabled')}
                   primaryTypographyProps={{ fontWeight: 600 }}
                 />
                 {user?.emailVerified ? (
-                  <Chip label="مفعل" color="success" size="small" />
+                  <Chip label={t('enabled')} color="success" size="small" />
                 ) : (
-                  <Chip label="غير مفعل" color="error" size="small" />
+                  <Chip label={t('disabled')} color="error" size="small" />
                 )}
               </ListItem>
               <Divider component="li" />
               <ListItem>
                 <ListItemText 
-                  primary="المصادقة الثنائية (2FA)"
-                  secondary={user?.twoFactorEnabled ? 'مفعل ✓' : 'غير مفعل'}
+                  primary={t('twoFactorTitle')}
+                  secondary={user?.twoFactorEnabled ? t('enabledCheck') : t('disabled')}
                   primaryTypographyProps={{ fontWeight: 600 }}
                 />
                 {user?.twoFactorEnabled ? (
-                  <Chip label="مفعل" color="success" size="small" />
+                  <Chip label={t('enabled')} color="success" size="small" />
                 ) : (
-                  <Chip label="غير مفعل" color="warning" size="small" />
+                  <Chip label={t('disabled')} color="warning" size="small" />
                 )}
               </ListItem>
               <Divider component="li" />
               <ListItem>
                 <ListItemText 
-                  primary="الموافقة على الحساب"
-                  secondary={user?.isApproved ? 'تمت الموافقة ✓' : 'في انتظار الموافقة'}
+                  primary={t('accountApproval')}
+                  secondary={user?.isApproved ? t('approvedCheck') : t('pendingApproval')}
                   primaryTypographyProps={{ fontWeight: 600 }}
                 />
                 {user?.isApproved ? (
-                  <Chip label="موافق عليه" color="success" size="small" />
+                  <Chip label={t('approved')} color="success" size="small" />
                 ) : (
-                  <Chip label="معلق" color="warning" size="small" />
+                  <Chip label={t('pending')} color="warning" size="small" />
                 )}
               </ListItem>
             </List>
@@ -469,7 +471,7 @@ const ProfilePage = () => {
         fullWidth
       >
         <DialogTitle sx={{ fontWeight: 700, fontSize: '1.5rem' }}>
-          تعديل الملف الشخصي
+          {t('editProfile')}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2 }}>
@@ -500,7 +502,7 @@ const ProfilePage = () => {
                   startIcon={<PhotoCamera />}
                   disabled={uploadingAvatar}
                 >
-                  {uploadingAvatar ? 'جاري الرفع...' : 'تغيير الصورة الشخصية'}
+                  {uploadingAvatar ? t('uploading') : t('changeAvatar')}
                 </Button>
               </label>
               {avatarFile && (
@@ -512,7 +514,7 @@ const ProfilePage = () => {
 
             <TextField
               fullWidth
-              label="الاسم"
+              label={t('fullName')}
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               margin="normal"
@@ -520,7 +522,7 @@ const ProfilePage = () => {
             />
             <TextField
               fullWidth
-              label="البريد الإلكتروني"
+              label={t('email')}
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               margin="normal"
@@ -528,7 +530,7 @@ const ProfilePage = () => {
             />
             <TextField
               fullWidth
-              label="رقم الهاتف"
+              label={t('phoneNumber')}
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               margin="normal"
@@ -537,7 +539,7 @@ const ProfilePage = () => {
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={() => setEditDialogOpen(false)} disabled={uploadingAvatar}>
-            إلغاء
+            {t('cancel')}
           </Button>
           <Button 
             variant="contained" 
@@ -546,7 +548,7 @@ const ProfilePage = () => {
             disabled={uploadingAvatar}
             startIcon={uploadingAvatar ? <CircularProgress size={20} /> : null}
           >
-            {uploadingAvatar ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+            {uploadingAvatar ? t('saving') : t('saveChanges')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -559,14 +561,14 @@ const ProfilePage = () => {
         fullWidth
       >
         <DialogTitle sx={{ fontWeight: 700, fontSize: '1.5rem' }}>
-          تغيير كلمة المرور
+          {t('changePassword')}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2 }}>
             <TextField
               fullWidth
               type="password"
-              label="كلمة المرور الحالية"
+              label={t('currentPassword')}
               value={passwordData.currentPassword}
               onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
               margin="normal"
@@ -575,7 +577,7 @@ const ProfilePage = () => {
             <TextField
               fullWidth
               type="password"
-              label="كلمة المرور الجديدة"
+              label={t('newPassword')}
               value={passwordData.newPassword}
               onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
               margin="normal"
@@ -584,7 +586,7 @@ const ProfilePage = () => {
             <TextField
               fullWidth
               type="password"
-              label="تأكيد كلمة المرور الجديدة"
+              label={t('confirmNewPassword')}
               value={passwordData.confirmPassword}
               onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
               margin="normal"
@@ -592,13 +594,13 @@ const ProfilePage = () => {
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setPasswordDialogOpen(false)}>إلغاء</Button>
+          <Button onClick={() => setPasswordDialogOpen(false)}>{t('cancel')}</Button>
           <Button 
             variant="contained" 
             onClick={handleChangePassword}
             sx={{ fontWeight: 600 }}
           >
-            تغيير كلمة المرور
+            {t('changePassword')}
           </Button>
         </DialogActions>
       </Dialog>

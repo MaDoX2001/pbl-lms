@@ -28,9 +28,11 @@ import {
 import { useSelector } from 'react-redux';
 import api from '../services/api';
 import { toast } from 'react-toastify';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const LiveLecturesPage = () => {
   const { user } = useSelector((state) => state.auth);
+  const { t } = useAppSettings();
   const [lectures, setLectures] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
@@ -54,7 +56,7 @@ const LiveLecturesPage = () => {
       setLectures(response.data.data || []);
     } catch (error) {
       console.error('Error fetching lectures:', error);
-      toast.error('فشل تحميل المحاضرات');
+      toast.error(t('loadLecturesFailed'));
     } finally {
       setLoading(false);
     }
@@ -63,26 +65,26 @@ const LiveLecturesPage = () => {
   const handleCreateLecture = async () => {
     try {
       await api.post('/lectures', formData);
-      toast.success('تم إنشاء المحاضرة بنجاح');
+      toast.success(t('lectureCreatedSuccess'));
       setOpenDialog(false);
       setFormData({ title: '', description: '', meetingLink: '', scheduledTime: '' });
       fetchLectures();
     } catch (error) {
       console.error('Error creating lecture:', error);
-      toast.error('فشل إنشاء المحاضرة');
+      toast.error(t('lectureCreateFailed'));
     }
   };
 
   const handleDeleteLecture = async (id) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذه المحاضرة؟')) return;
+    if (!window.confirm(t('confirmDeleteLecture'))) return;
     
     try {
       await api.delete(`/lectures/${id}`);
-      toast.success('تم حذف المحاضرة بنجاح');
+      toast.success(t('lectureDeletedSuccess'));
       fetchLectures();
     } catch (error) {
       console.error('Error deleting lecture:', error);
-      toast.error('فشل حذف المحاضرة');
+      toast.error(t('lectureDeleteFailed'));
     }
   };
 
@@ -95,10 +97,10 @@ const LiveLecturesPage = () => {
     const lectureTime = new Date(scheduledTime);
     const diffMinutes = (lectureTime - now) / (1000 * 60);
 
-    if (diffMinutes < -60) return { label: 'انتهت', color: 'default' };
-    if (diffMinutes < 0) return { label: 'جارية الآن', color: 'success' };
-    if (diffMinutes < 30) return { label: 'قريباً', color: 'warning' };
-    return { label: 'مجدولة', color: 'info' };
+    if (diffMinutes < -60) return { label: t('ended'), color: 'default' };
+    if (diffMinutes < 0) return { label: t('liveNow'), color: 'success' };
+    if (diffMinutes < 30) return { label: t('startingSoon'), color: 'warning' };
+    return { label: t('scheduled'), color: 'info' };
   };
 
   const formatDateTime = (dateString) => {
@@ -118,10 +120,10 @@ const LiveLecturesPage = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box>
           <Typography variant="h3" component="h1" fontWeight={700} gutterBottom>
-            المحاضرات المباشرة
+            {t('liveLectures')}
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            انضم إلى المحاضرات المباشرة أو شاهد التسجيلات
+            {t('liveLecturesSubtitle')}
           </Typography>
         </Box>
         {isTeacher && (
@@ -131,7 +133,7 @@ const LiveLecturesPage = () => {
             onClick={() => setOpenDialog(true)}
             sx={{ minWidth: 150 }}
           >
-            إنشاء محاضرة
+            {t('createLecture')}
           </Button>
         )}
       </Box>
@@ -152,7 +154,7 @@ const LiveLecturesPage = () => {
         >
           <VideocamOutlined sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
           <Typography variant="h6" color="text.secondary" gutterBottom>
-            لا توجد محاضرات متاحة حالياً
+            {t('noLecturesAvailable')}
           </Typography>
           {isTeacher && (
             <Button
@@ -161,7 +163,7 @@ const LiveLecturesPage = () => {
               onClick={() => setOpenDialog(true)}
               sx={{ mt: 2 }}
             >
-              إنشاء محاضرة جديدة
+              {t('createNewLecture')}
             </Button>
           )}
         </Box>
@@ -213,7 +215,7 @@ const LiveLecturesPage = () => {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <PersonOutline fontSize="small" color="action" />
                       <Typography variant="body2" color="text.secondary">
-                        {lecture.instructor?.name || 'المعلم'}
+                        {lecture.instructor?.name || t('teacher')}
                       </Typography>
                     </Box>
 
@@ -231,15 +233,15 @@ const LiveLecturesPage = () => {
                       variant="contained"
                       startIcon={<LinkOutlined />}
                       onClick={() => handleJoinLecture(lecture.meetingLink)}
-                      disabled={status.label === 'انتهت'}
+                      disabled={status.label === t('ended')}
                       sx={{
-                        bgcolor: status.label === 'جارية الآن' ? '#4caf50' : 'primary.main',
+                        bgcolor: status.label === t('liveNow') ? '#4caf50' : 'primary.main',
                         '&:hover': {
-                          bgcolor: status.label === 'جارية الآن' ? '#45a049' : 'primary.dark'
+                          bgcolor: status.label === t('liveNow') ? '#45a049' : 'primary.dark'
                         }
                       }}
                     >
-                      {status.label === 'جارية الآن' ? 'انضم الآن' : 'فتح الرابط'}
+                      {status.label === t('liveNow') ? t('joinNow') : t('openLink')}
                     </Button>
                   </CardActions>
                 </Card>
@@ -251,12 +253,12 @@ const LiveLecturesPage = () => {
 
       {/* Create Lecture Dialog */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>إنشاء محاضرة جديدة</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700 }}>{t('createNewLecture')}</DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2 }}>
             <TextField
               fullWidth
-              label="عنوان المحاضرة"
+              label={t('lectureTitle')}
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               margin="normal"
@@ -264,7 +266,7 @@ const LiveLecturesPage = () => {
             />
             <TextField
               fullWidth
-              label="وصف المحاضرة"
+              label={t('lectureDescription')}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               margin="normal"
@@ -273,16 +275,16 @@ const LiveLecturesPage = () => {
             />
             <TextField
               fullWidth
-              label="رابط الاجتماع (Zoom, Google Meet, Teams)"
+              label={t('meetingLinkLabel')}
               value={formData.meetingLink}
               onChange={(e) => setFormData({ ...formData, meetingLink: e.target.value })}
               margin="normal"
               required
-              placeholder="https://zoom.us/j/..."
+              placeholder={t('meetingLinkPlaceholder')}
             />
             <TextField
               fullWidth
-              label="موعد المحاضرة"
+              label={t('lectureScheduleTime')}
               type="datetime-local"
               value={formData.scheduledTime}
               onChange={(e) => setFormData({ ...formData, scheduledTime: e.target.value })}
@@ -293,13 +295,13 @@ const LiveLecturesPage = () => {
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setOpenDialog(false)}>إلغاء</Button>
+          <Button onClick={() => setOpenDialog(false)}>{t('cancel')}</Button>
           <Button
             variant="contained"
             onClick={handleCreateLecture}
             disabled={!formData.title || !formData.meetingLink || !formData.scheduledTime}
           >
-            إنشاء
+            {t('create')}
           </Button>
         </DialogActions>
       </Dialog>

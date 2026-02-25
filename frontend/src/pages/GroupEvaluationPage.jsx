@@ -23,10 +23,12 @@ import {
 } from '@mui/material';
 import { NavigateNext as NavigateNextIcon, ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import axios from 'axios';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const GroupEvaluationPage = () => {
   const { projectId, teamId, submissionId } = useParams();
   const navigate = useNavigate();
+  const { t } = useAppSettings();
 
   const [loading, setLoading] = useState(true);
   const [observationCard, setObservationCard] = useState(null);
@@ -80,7 +82,7 @@ const GroupEvaluationPage = () => {
       setLoading(false);
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.message || 'فشل في تحميل البيانات');
+      setError(err.response?.data?.message || t('evaluationLoadFailed'));
       setLoading(false);
     }
   };
@@ -131,7 +133,7 @@ const GroupEvaluationPage = () => {
     );
 
     if (!allSelected) {
-      setError('يجب تحديد درجة لكل معيار');
+      setError(t('mustSelectScoreForEachCriterion'));
       return;
     }
 
@@ -162,11 +164,11 @@ const GroupEvaluationPage = () => {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
 
-      alert('تم حفظ التقييم الجماعي بنجاح');
+      alert(t('groupEvaluationSavedSuccess'));
       navigate(`/projects/${projectId}/submissions`);
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.message || 'فشل في حفظ التقييم');
+      setError(err.response?.data?.message || t('evaluationSaveFailed'));
       setSubmitting(false);
     }
   };
@@ -181,7 +183,7 @@ const GroupEvaluationPage = () => {
 
   if (!observationCard) {
     return (
-      <Alert severity="error">بطاقة الملاحظة غير موجودة</Alert>
+      <Alert severity="error">{t('observationCardNotFound')}</Alert>
     );
   }
 
@@ -193,16 +195,16 @@ const GroupEvaluationPage = () => {
         onClick={() => navigate(-1)}
         sx={{ mb: 2 }}
       >
-        العودة
+        {t('back')}
       </Button>
 
       {/* Breadcrumbs */}
       <Breadcrumbs separator={<NavigateNextIcon fontSize="small" />} sx={{ mb: 3 }}>
-        <Link underline="hover" color="inherit" href="/projects">المشاريع</Link>
+        <Link underline="hover" color="inherit" href="/projects">{t('projects')}</Link>
         <Link underline="hover" color="inherit" href={`/projects/${projectId}`}>
           {project?.title}
         </Link>
-        <Typography color="text.primary">التقييم الجماعي</Typography>
+        <Typography color="text.primary">{t('groupEvaluationTitleShort')}</Typography>
       </Breadcrumbs>
 
       {/* Header */}
@@ -210,20 +212,20 @@ const GroupEvaluationPage = () => {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Box>
             <Typography variant="h4" fontWeight={600} gutterBottom>
-              التقييم الجماعي (المرحلة الأولى)
+              {t('groupEvaluationPhaseOneTitle')}
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              المشروع: {project?.title}
+              {t('projectWithValue', { project: project?.title })}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              الفريق: {team?.name}
+              {t('teamWithValue', { team: team?.name })}
             </Typography>
           </Box>
-          <Chip label="المرحلة 1" color="primary" size="large" />
+          <Chip label={t('phaseOne')} color="primary" size="large" />
         </Box>
 
         <Alert severity="info">
-          هذا التقييم يطبق على الفريق بالكامل. جميع أعضاء الفريق سيحصلون على نفس الدرجة في هذه المرحلة.
+          {t('groupEvaluationInfoAlert')}
         </Alert>
       </Paper>
 
@@ -232,7 +234,7 @@ const GroupEvaluationPage = () => {
       {/* Preview Score */}
       <Paper sx={{ p: 2, mb: 3, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
         <Typography variant="h6">
-          الدرجة المحسوبة: {calculatePreviewScore()} / 100
+          {t('calculatedScoreOutOf100', { score: calculatePreviewScore() })}
         </Typography>
       </Paper>
 
@@ -250,9 +252,9 @@ const GroupEvaluationPage = () => {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell width="30%"><strong>المعيار</strong></TableCell>
-                  <TableCell width="60%"><strong>الخيارات</strong></TableCell>
-                  <TableCell width="10%" align="center"><strong>الدرجة</strong></TableCell>
+                  <TableCell width="30%"><strong>{t('criterion')}</strong></TableCell>
+                  <TableCell width="60%"><strong>{t('options')}</strong></TableCell>
+                  <TableCell width="10%" align="center"><strong>{t('scoreLabel')}</strong></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -318,7 +320,7 @@ const GroupEvaluationPage = () => {
       {/* Feedback */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" gutterBottom fontWeight={600}>
-          ملاحظات عامة (اختياري)
+          {t('generalNotesOptional')}
         </Typography>
         <TextField
           fullWidth
@@ -326,7 +328,7 @@ const GroupEvaluationPage = () => {
           rows={4}
           value={feedbackSummary}
           onChange={(e) => setFeedbackSummary(e.target.value)}
-          placeholder="أضف ملاحظاتك العامة على أداء الفريق..."
+          placeholder={t('teamFeedbackPlaceholder')}
         />
       </Paper>
 
@@ -337,7 +339,7 @@ const GroupEvaluationPage = () => {
           onClick={() => navigate(`/projects/${projectId}/submissions`)}
           disabled={submitting}
         >
-          إلغاء
+          {t('cancel')}
         </Button>
         <Button
           variant="contained"
@@ -346,7 +348,7 @@ const GroupEvaluationPage = () => {
           onClick={handleSubmit}
           disabled={submitting}
         >
-          {submitting ? 'جاري الحفظ...' : 'حفظ التقييم الجماعي'}
+          {submitting ? t('saving') : t('saveGroupEvaluation')}
         </Button>
       </Box>
     </Box>

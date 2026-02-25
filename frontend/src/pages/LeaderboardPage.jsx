@@ -15,8 +15,10 @@ import {
 } from '@mui/material';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import api from '../services/api';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const LeaderboardPage = () => {
+  const { t } = useAppSettings();
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -47,10 +49,10 @@ const LeaderboardPage = () => {
       <Box sx={{ textAlign: 'center', mb: 4 }}>
         <EmojiEventsIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
         <Typography variant="h3" component="h1" gutterBottom fontWeight={700}>
-          لوحة المتصدرين
+          {t('leaderboard')}
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          أفضل الطلاب على المنصة حسب النقاط المكتسبة
+          {t('leaderboardSubtitle')}
         </Typography>
       </Box>
 
@@ -64,19 +66,19 @@ const LeaderboardPage = () => {
             <TableHead>
               <TableRow sx={{ bgcolor: 'grey.100' }}>
                 <TableCell align="center" width={80}>
-                  <strong>الترتيب</strong>
+                  <strong>{t('rank')}</strong>
                 </TableCell>
                 <TableCell>
-                  <strong>الطالب</strong>
+                  <strong>{t('student')}</strong>
                 </TableCell>
                 <TableCell align="center">
-                  <strong>المستوى</strong>
+                  <strong>{t('level')}</strong>
                 </TableCell>
                 <TableCell align="center">
-                  <strong>النقاط</strong>
+                  <strong>{t('pointsLabel')}</strong>
                 </TableCell>
                 <TableCell align="center">
-                  <strong>المشاريع المكتملة</strong>
+                  <strong>{t('completedProjects')}</strong>
                 </TableCell>
               </TableRow>
             </TableHead>
@@ -129,7 +131,7 @@ const LeaderboardPage = () => {
                   </TableCell>
                   <TableCell align="center">
                     <Chip 
-                      label={`المستوى ${student.level}`} 
+                      label={t('levelLabel', { level: student.level })} 
                       color="primary" 
                       size="small" 
                     />
@@ -152,7 +154,7 @@ const LeaderboardPage = () => {
       {!loading && leaderboard.length === 0 && (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography color="text.secondary">
-            لا توجد بيانات متاحة حالياً
+            {t('noDataAvailable')}
           </Typography>
         </Paper>
       )}

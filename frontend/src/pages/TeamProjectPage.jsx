@@ -40,6 +40,7 @@ import StudentEvaluationStatus from '../components/StudentEvaluationStatus';
 import FinalEvaluationSummary from '../components/FinalEvaluationSummary';
 import EvaluationProgressBar from '../components/EvaluationProgressBar';
 import BadgeCelebrationPopup from '../components/BadgeCelebrationPopup';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 /**
  * TeamProjectPage Component
@@ -52,6 +53,7 @@ const TeamProjectPage = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
+  const { t } = useAppSettings();
 
   const [project, setProject] = useState(null);
   const [team, setTeam] = useState(null);
@@ -92,7 +94,7 @@ const TeamProjectPage = () => {
           setSubmissions(submissionsResponse.data.data);
         } catch (teamErr) {
           console.error('Team fetch error:', teamErr);
-          toast.warning('لم يتم العثور على فريق لهذا المشروع');
+          toast.warning(t('teamNotFoundForProject'));
         }
       } else {
         // Individual project - get individual submissions
@@ -113,7 +115,7 @@ const TeamProjectPage = () => {
 
       setLoading(false);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'حدث خطأ في جلب البيانات');
+      toast.error(err.response?.data?.message || t('genericLoadError'));
       setLoading(false);
     }
   };
@@ -170,7 +172,7 @@ const TeamProjectPage = () => {
 
   const handleUploadSubmit = async () => {
     if (!uploadForm.file) {
-      toast.error('يجب اختيار ملف');
+      toast.error(t('fileRequired'));
       return;
     }
 
@@ -189,12 +191,12 @@ const TeamProjectPage = () => {
         }
       });
 
-      toast.success('تم رفع التسليم بنجاح');
+      toast.success(t('submissionUploadSuccess'));
       setOpenUploadDialog(false);
       setUploadForm({ file: null, description: '' });
       fetchData();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'حدث خطأ في رفع الملف');
+      toast.error(err.response?.data?.message || t('uploadFileError'));
     } finally {
       setUploading(false);
     }
@@ -214,11 +216,11 @@ const TeamProjectPage = () => {
   const getStatusLabel = (status) => {
     switch (status) {
       case 'graded':
-        return 'مُقيّم';
+        return t('graded');
       case 'reviewed':
-        return 'تمت المراجعة';
+        return t('reviewed');
       default:
-        return 'قيد الانتظار';
+        return t('pending');
     }
   };
 
@@ -245,7 +247,7 @@ const TeamProjectPage = () => {
   if (!project || !team) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4 }}>
-        <Alert severity="error">فشل في تحميل بيانات المشروع</Alert>
+        <Alert severity="error">{t('projectDataLoadFailed')}</Alert>
       </Container>
     );
   }
@@ -257,7 +259,7 @@ const TeamProjectPage = () => {
         onClick={() => navigate('/team/dashboard')}
         sx={{ mb: 2 }}
       >
-        العودة للوحة الفريق
+        {t('backToTeamDashboard')}
       </Button>
 
       {/* Project Details */}
@@ -269,15 +271,15 @@ const TeamProjectPage = () => {
           {project.description}
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          <Chip label={`المستوى: ${project.projectLevel || project.difficulty || 'غير محدد'}`} />
+          <Chip label={t('levelWithValue', { level: project.projectLevel || project.difficulty || t('notSpecified') })} />
           {project.isTeamProject && team && (
-            <Chip label={`الفريق: ${team.name}`} color="primary" />
+            <Chip label={t('teamWithValue', { team: team.name })} color="primary" />
           )}
           {!project.isTeamProject && (
-            <Chip label="مشروع فردي" color="secondary" />
+            <Chip label={t('individualProject')} color="secondary" />
           )}
           {project.projectOrder && (
-            <Chip label={`الترتيب: ${project.projectOrder}`} variant="outlined" />
+            <Chip label={t('orderWithValue', { order: project.projectOrder })} variant="outlined" />
           )}
         </Box>
       </Paper>
@@ -286,7 +288,7 @@ const TeamProjectPage = () => {
       {user.role === 'student' && evaluationStatus && (
         <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
           <Typography variant="h5" gutterBottom>
-            حالة التقييم
+            {t('evaluationStatusTitle')}
           </Typography>
           <Divider sx={{ mb: 2 }} />
           
@@ -313,7 +315,7 @@ const TeamProjectPage = () => {
         <Box sx={{ mb: 3 }}>
           {project.deadline && new Date() > new Date(project.deadline) ? (
             <Alert severity="warning" sx={{ mb: 2 }}>
-              انتهى موعد تسليم المشروع
+              {t('projectDeadlinePassed')}
             </Alert>
           ) : (
             <Button
@@ -322,7 +324,7 @@ const TeamProjectPage = () => {
               onClick={() => setOpenUploadDialog(true)}
               fullWidth
             >
-              رفع تسليم جديد
+              {t('uploadNewSubmission')}
             </Button>
           )}
         </Box>
@@ -331,12 +333,12 @@ const TeamProjectPage = () => {
       {/* Submissions List */}
       <Paper elevation={3} sx={{ p: 3 }}>
         <Typography variant="h5" gutterBottom>
-          التسليمات ({submissions.length})
+          {t('submissionsCount', { count: submissions.length })}
         </Typography>
         <Divider sx={{ mb: 2 }} />
 
         {submissions.length === 0 ? (
-          <Alert severity="info">لم يتم رفع أي تسليم بعد</Alert>
+          <Alert severity="info">{t('noSubmissionsYet')}</Alert>
         ) : (
           <List>
             {submissions.map((submission, index) => (
@@ -345,13 +347,13 @@ const TeamProjectPage = () => {
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
                     <Box>
                       <Typography variant="h6">
-                        التسليم #{submissions.length - index}
+                        {t('submissionNumber', { number: submissions.length - index })}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        رفع بواسطة: {submission.submittedBy.name}
+                        {t('uploadedBy', { name: submission.submittedBy.name })}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        التاريخ: {new Date(submission.submittedAt).toLocaleString('ar-EG')}
+                        {t('dateWithValue', { date: new Date(submission.submittedAt).toLocaleString('ar-EG') })}
                       </Typography>
                     </Box>
                     <Chip
@@ -378,7 +380,7 @@ const TeamProjectPage = () => {
                   {submission.description && (
                     <Box sx={{ mb: 2 }}>
                       <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                        الوصف:
+                        {t('descriptionLabel')}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
                         {submission.description}
@@ -390,7 +392,7 @@ const TeamProjectPage = () => {
                   {submission.feedback && (
                     <Alert severity="info" icon={<FeedbackIcon />} sx={{ mb: 1 }}>
                       <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                        ملاحظات المعلم:
+                        {t('teacherFeedbackLabel')}
                       </Typography>
                       <Typography variant="body2">
                         {submission.feedback}
@@ -407,7 +409,7 @@ const TeamProjectPage = () => {
                   {submission.score !== null && (
                     <Alert severity="success" icon={<GradeIcon />}>
                       <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                        الدرجة: {submission.score} / 100
+                        {t('scoreOutOf100', { score: submission.score })}
                       </Typography>
                     </Alert>
                   )}
@@ -420,7 +422,7 @@ const TeamProjectPage = () => {
 
       {/* Upload Dialog */}
       <Dialog open={openUploadDialog} onClose={() => setOpenUploadDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>رفع تسليم جديد</DialogTitle>
+        <DialogTitle>{t('uploadNewSubmission')}</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
             <Button
@@ -428,7 +430,7 @@ const TeamProjectPage = () => {
               component="label"
               fullWidth
             >
-              {uploadForm.file ? uploadForm.file.name : 'اختر ملف'}
+              {uploadForm.file ? uploadForm.file.name : t('chooseFile')}
               <input
                 type="file"
                 hidden
@@ -437,7 +439,7 @@ const TeamProjectPage = () => {
             </Button>
 
             <TextField
-              label="الوصف (اختياري)"
+              label={t('descriptionOptional')}
               value={uploadForm.description}
               onChange={(e) => setUploadForm({ ...uploadForm, description: e.target.value })}
               multiline
@@ -446,18 +448,18 @@ const TeamProjectPage = () => {
             />
 
             <Alert severity="info">
-              يمكنك رفع أي نوع من الملفات. الحد الأقصى للحجم: 50 ميجابايت
+              {t('uploadAnyFileMaxSize')}
             </Alert>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenUploadDialog(false)}>إلغاء</Button>
+          <Button onClick={() => setOpenUploadDialog(false)}>{t('cancel')}</Button>
           <Button
             onClick={handleUploadSubmit}
             variant="contained"
             disabled={!uploadForm.file || uploading}
           >
-            {uploading ? <CircularProgress size={24} /> : 'رفع'}
+            {uploading ? <CircularProgress size={24} /> : t('upload')}
           </Button>
         </DialogActions>
       </Dialog>

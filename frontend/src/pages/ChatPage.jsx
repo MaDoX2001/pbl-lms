@@ -47,9 +47,11 @@ import DoneAllIcon from '@mui/icons-material/DoneAll';
 import CloseIcon from '@mui/icons-material/Close';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const ChatPage = () => {
   const { user, token } = useSelector((state) => state.auth);
+  const { t } = useAppSettings();
   
   console.log('ChatPage - User:', user);
   console.log('ChatPage - User role:', user?.role);
@@ -153,7 +155,7 @@ const ChatPage = () => {
 
     const handleUserTyping = (data) => {
       if (selectedConversation && data.conversationId === selectedConversation._id) {
-        setTypingUsers((prev) => new Map(prev).set(data.userId, data.userName || 'مستخدم'));
+        setTypingUsers((prev) => new Map(prev).set(data.userId, data.userName || t('user')));
       }
     };
 
@@ -219,8 +221,8 @@ const ChatPage = () => {
 
   // Helper: Get date header text
   const getDateHeader = (date) => {
-    if (isToday(date)) return 'اليوم';
-    if (isYesterday(date)) return 'أمس';
+    if (isToday(date)) return t('today');
+    if (isYesterday(date)) return t('yesterday');
     return format(date, 'd MMMM yyyy', { locale: ar });
   };
 
@@ -285,7 +287,7 @@ const ChatPage = () => {
       setHasMoreMessages(newMessages.length === 20);
       setMessagePage(page);
     } catch (error) {
-      toast.error('فشل تحميل الرسائل');
+      toast.error(t('loadMessagesFailed'));
     } finally {
       setLoadingMessages(false);
     }
@@ -357,7 +359,7 @@ const ChatPage = () => {
       setMessages((prev) => prev.map(msg => 
         msg._id === tempId ? { ...msg, status: 'failed' } : msg
       ));
-      toast.error('فشل إرسال الرسالة');
+      toast.error(t('sendMessageFailed'));
     } finally {
       setSendingMessage(false);
     }
@@ -390,7 +392,7 @@ const ChatPage = () => {
       setMessages((prev) => prev.map(msg => 
         msg._id === tempId ? { ...msg, status: 'failed' } : msg
       ));
-      toast.error('فشل إعادة الإرسال');
+      toast.error(t('retrySendFailed'));
     }
   };
 
@@ -417,7 +419,7 @@ const ChatPage = () => {
       setChatType('direct');
       fetchConversations();
     } catch (error) {
-      toast.error('فشل بدء المحادثة');
+      toast.error(t('startConversationFailed'));
     }
   };
 
@@ -431,7 +433,7 @@ const ChatPage = () => {
       setSelectedConversation(conversation);
       fetchConversations();
     } catch (error) {
-      const errorMsg = error.response?.data?.message || 'فشل فتح محادثة الفريق';
+      const errorMsg = error.response?.data?.message || t('openTeamChatFailed');
       console.error('Team chat error:', error);
       console.error('Error response:', error.response?.data);
       toast.error(errorMsg);
@@ -448,7 +450,7 @@ const ChatPage = () => {
       setSelectedConversation(conversation);
       fetchConversations();
     } catch (error) {
-      const errorMsg = error.response?.data?.message || 'فشل فتح محادثة الفريق + المعلمين';
+      const errorMsg = error.response?.data?.message || t('openTeamTeachersChatFailed');
       console.error('Team teachers chat error:', error);
       console.error('Error response:', error.response?.data);
       toast.error(errorMsg);
@@ -462,7 +464,7 @@ const ChatPage = () => {
       setSelectedConversation(conversation);
       fetchConversations();
     } catch (error) {
-      const errorMsg = error.response?.data?.message || 'فشل فتح المحادثة العامة';
+      const errorMsg = error.response?.data?.message || t('openGeneralChatFailed');
       toast.error(errorMsg);
       console.error('General chat error:', error);
     }
@@ -470,7 +472,7 @@ const ChatPage = () => {
 
   const handleCreateGroup = async () => {
     if (!groupName.trim() || selectedUsers.length < 2) {
-      toast.error('يجب إدخال اسم المجموعة واختيار عضوين على الأقل');
+      toast.error(t('groupNameAndTwoMembersRequired'));
       return;
     }
 
@@ -486,14 +488,14 @@ const ChatPage = () => {
       setGroupDialogOpen(false);
       setGroupName('');
       setSelectedUsers([]);
-      toast.success('تم إنشاء المجموعة بنجاح');
+      toast.success(t('groupCreatedSuccess'));
     } catch (error) {
-      toast.error('فشل إنشاء المجموعة');
+      toast.error(t('groupCreateFailed'));
     }
   };
 
   const getConversationName = (conversation) => {
-    if (!conversation) return 'محادثة';
+    if (!conversation) return t('conversation');
     
     if (conversation.type === 'team') {
       return conversation.name || `${conversation.team?.name || 'الفريق'} - محادثة الفريق`;
@@ -502,17 +504,17 @@ const ChatPage = () => {
       return conversation.name || `${conversation.team?.name || 'الفريق'} + المعلمين`;
     }
     if (conversation.type === 'general') {
-      return conversation.name || 'المحادثة العامة';
+      return conversation.name || t('generalConversation');
     }
     if (conversation.type === 'group') {
-      return conversation.name || 'مجموعة';
+      return conversation.name || t('group');
     }
     // Direct conversation
     if (!conversation.participants || conversation.participants.length === 0) {
-      return 'محادثة مباشرة';
+      return t('directConversation');
     }
     const otherUser = conversation.participants.find(p => p?._id !== user.id);
-    return otherUser?.name || 'مستخدم';
+    return otherUser?.name || t('user');
   };
 
   const getConversationAvatar = (conversation) => {
@@ -597,7 +599,7 @@ const ChatPage = () => {
           <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
               <Typography variant="h6" gutterBottom>
-                المحادثات
+                {t('chats')}
               </Typography>
               
               {/* Chat Type Tabs */}
@@ -610,14 +612,14 @@ const ChatPage = () => {
               >
                 <Tab 
                   value="direct" 
-                  label="خاصة" 
+                  label={t('privateChats')} 
                   icon={<PersonIcon />}
                   iconPosition="start"
                 />
                 {user?.role === 'student' && (
                   <Tab 
                     value="team" 
-                    label="الفريق" 
+                    label={t('team')} 
                     icon={<GroupIcon />}
                     iconPosition="start"
                   />
@@ -625,14 +627,14 @@ const ChatPage = () => {
                 {user?.role === 'student' && (
                   <Tab 
                     value="team_teachers" 
-                    label="فريق+معلمين" 
+                    label={t('teamTeachers')} 
                     icon={<GroupsIcon />}
                     iconPosition="start"
                   />
                 )}
                 <Tab 
                   value="general" 
-                  label="عامة" 
+                  label={t('general')} 
                   icon={<PublicIcon />}
                   iconPosition="start"
                 />
@@ -643,7 +645,7 @@ const ChatPage = () => {
                 size="small"
                 id="conversation-search"
                 name="conversationSearch"
-                placeholder="بحث..."
+                placeholder={t('search') + '...'}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 InputProps={{
@@ -664,7 +666,7 @@ const ChatPage = () => {
                   startIcon={<SearchIcon />}
                   onClick={() => setNewChatDialogOpen(true)}
                 >
-                  محادثة جديدة
+                  {t('newConversation')}
                 </Button>
               )}
               {chatType === 'team' && user?.role === 'student' && filteredConversations.length === 0 && (
@@ -703,10 +705,10 @@ const ChatPage = () => {
               {filteredConversations.length === 0 ? (
                 <Box sx={{ textAlign: 'center', py: 4 }}>
                   <Typography variant="body2" color="text.secondary">
-                    {chatType === 'direct' && 'لا توجد محادثات خاصة'}
-                    {chatType === 'team' && 'لا توجد محادثة فريق'}
-                    {chatType === 'team_teachers' && 'لا توجد محادثة فريق + معلمين'}
-                    {chatType === 'general' && 'لا توجد محادثة عامة'}
+                    {chatType === 'direct' && t('noPrivateChats')}
+                    {chatType === 'team' && t('noTeamChat')}
+                    {chatType === 'team_teachers' && t('noTeamTeachersChat')}
+                    {chatType === 'general' && t('noGeneralChat')}
                   </Typography>
                 </Box>
               ) : (
@@ -729,7 +731,7 @@ const ChatPage = () => {
                       secondary={
                         conversation.lastMessage?.text
                           ? `${conversation.lastMessage.text.substring(0, 30)}...`
-                          : 'لا توجد رسائل'
+                          : t('noMessages')
                       }
                       secondaryTypographyProps={{
                         sx: { fontWeight: getUnreadCount(conversation) > 0 ? 'bold' : 'normal' }
@@ -778,7 +780,7 @@ const ChatPage = () => {
                     size="small"
                     id="in-chat-search"
                     name="inChatSearch"
-                    placeholder="ابحث في المحادثة..."
+                    placeholder={t('searchInConversation')}
                     value={inChatSearch}
                     onChange={(e) => setInChatSearch(e.target.value)}
                     InputProps={{
@@ -819,7 +821,7 @@ const ChatPage = () => {
                       disabled={loadingMessages}
                       variant="outlined"
                     >
-                      {loadingMessages ? <CircularProgress size={20} /> : 'تحميل المزيد'}
+                      {loadingMessages ? <CircularProgress size={20} /> : t('loadMore')}
                     </Button>
                   </Box>
                 )}
@@ -865,7 +867,7 @@ const ChatPage = () => {
                         <Box sx={{ display: 'flex', alignItems: 'center', my: 2 }}>
                           <Divider sx={{ flex: 1 }} />
                           <Chip 
-                            label="رسائل جديدة" 
+                            label={t('newMessages')} 
                             size="small" 
                             color="primary" 
                             sx={{ mx: 1 }}
@@ -889,7 +891,7 @@ const ChatPage = () => {
                             size="small" 
                             color="error"
                             onClick={() => handleRetryMessage(message)}
-                            title="إعادة الإرسال"
+                            title={t('retrySend')}
                           >
                             <RefreshIcon fontSize="small" />
                           </IconButton>
@@ -947,7 +949,7 @@ const ChatPage = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <CircularProgress size={12} />
                     <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                      {Array.from(typingUsers.values()).join('، ')} يكتب...
+                      {Array.from(typingUsers.values()).join('، ')} {t('typing')}
                     </Typography>
                   </Box>
                 )}
@@ -975,7 +977,7 @@ const ChatPage = () => {
                       }
                     }
                   }}
-                  placeholder="اكتب رسالة... (Enter للإرسال، Shift+Enter لسطر جديد)"
+                  placeholder={t('typeMessageHint')}
                   disabled={sendingMessage}
                   InputProps={{
                     endAdornment: (
@@ -992,7 +994,7 @@ const ChatPage = () => {
           ) : (
             <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Typography variant="h6" color="text.secondary">
-                اختر محادثة للبدء
+                {t('selectConversationToStart')}
               </Typography>
             </Box>
           )}
@@ -1001,7 +1003,7 @@ const ChatPage = () => {
 
       {/* New Chat Dialog */}
       <Dialog open={newChatDialogOpen} onClose={() => setNewChatDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>محادثة جديدة</DialogTitle>
+        <DialogTitle>{t('newConversation')}</DialogTitle>
         <DialogContent>
           <List>
             {users.map((user) => (
@@ -1019,13 +1021,13 @@ const ChatPage = () => {
 
       {/* Create Group Dialog */}
       <Dialog open={groupDialogOpen} onClose={() => setGroupDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>إنشاء مجموعة جديدة</DialogTitle>
+        <DialogTitle>{t('createNewGroup')}</DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
             id="group-name"
             name="groupName"
-            label="اسم المجموعة"
+            label={t('groupName')}
             value={groupName}
             onChange={(e) => setGroupName(e.target.value)}
             sx={{ mb: 2, mt: 1 }}
@@ -1036,7 +1038,7 @@ const ChatPage = () => {
             getOptionLabel={(option) => option.name}
             value={selectedUsers}
             onChange={(e, newValue) => setSelectedUsers(newValue)}
-            renderInput={(params) => <TextField {...params} label="إضافة أعضاء" />}
+            renderInput={(params) => <TextField {...params} label={t('addMembers')} />}
             renderOption={(props, option) => (
               <li {...props}>
                 <Avatar src={option.avatar} sx={{ mr: 1, width: 32, height: 32 }}>
@@ -1048,9 +1050,9 @@ const ChatPage = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setGroupDialogOpen(false)}>إلغاء</Button>
+          <Button onClick={() => setGroupDialogOpen(false)}>{t('cancel')}</Button>
           <Button onClick={handleCreateGroup} variant="contained">
-            إنشاء
+            {t('create')}
           </Button>
         </DialogActions>
       </Dialog>
