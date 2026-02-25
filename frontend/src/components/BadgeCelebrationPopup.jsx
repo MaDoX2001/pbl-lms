@@ -16,6 +16,7 @@ import {
 } from '@mui/icons-material';
 import Confetti from 'react-confetti';
 import { useWindowSize } from 'react-use';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 /**
  * BadgeCelebrationPopup Component
@@ -34,6 +35,7 @@ import { useWindowSize } from 'react-use';
  * @param {object} badge - Badge data { name, description, icon }
  */
 const BadgeCelebrationPopup = ({ open, onClose, badge = {} }) => {
+  const { t } = useAppSettings();
   const { width, height } = useWindowSize();
   const [showConfetti, setShowConfetti] = useState(false);
 
@@ -170,15 +172,15 @@ const BadgeCelebrationPopup = ({ open, onClose, badge = {} }) => {
               mb: 2
             }}
           >
-            مبروك! 🎉
+            {t('badgeCelebrationCongrats')}
           </Typography>
 
           <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 1 }}>
-            {badge.name || 'شارة جديدة'}
+            {badge.name || t('badgeCelebrationNewBadge')}
           </Typography>
 
           <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-            {badge.description || 'لقد حصلت على شارة جديدة!'}
+            {badge.description || t('badgeCelebrationEarnedMessage')}
           </Typography>
 
           {/* Motivational message */}
@@ -191,7 +193,7 @@ const BadgeCelebrationPopup = ({ open, onClose, badge = {} }) => {
             }}
           >
             <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
-              "استمر في العمل الجيد! إنجازك يستحق التقدير 💪"
+              {t('badgeCelebrationMotivation')}
             </Typography>
           </Box>
 
@@ -211,7 +213,7 @@ const BadgeCelebrationPopup = ({ open, onClose, badge = {} }) => {
               }
             }}
           >
-            رائع!
+            {t('badgeCelebrationAwesome')}
           </Button>
         </DialogContent>
       </Dialog>

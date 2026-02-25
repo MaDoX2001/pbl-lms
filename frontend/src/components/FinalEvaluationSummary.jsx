@@ -19,16 +19,31 @@ import {
   EmojiEvents as TrophyIcon
 } from '@mui/icons-material';
 import axios from 'axios';
+import { useAppSettings } from '../context/AppSettingsContext';
 
-const VERBAL_GRADES = {
-  'ممتاز': { color: '#4caf50', threshold: 85 },
-  'جيد جدًا': { color: '#8bc34a', threshold: 75 },
-  'جيد': { color: '#ffc107', threshold: 65 },
-  'مقبول': { color: '#ff9800', threshold: 60 },
-  'غير مجتاز': { color: '#f44336', threshold: 0 }
+const VERBAL_GRADE_CONFIG = {
+  excellent: { color: '#4caf50', threshold: 85 },
+  veryGood: { color: '#8bc34a', threshold: 75 },
+  good: { color: '#ffc107', threshold: 65 },
+  acceptable: { color: '#ff9800', threshold: 60 },
+  notPassed: { color: '#f44336', threshold: 0 }
+};
+
+const VERBAL_GRADE_ALIASES = {
+  'ممتاز': 'excellent',
+  Excellent: 'excellent',
+  'جيد جدًا': 'veryGood',
+  'Very Good': 'veryGood',
+  'جيد': 'good',
+  Good: 'good',
+  'مقبول': 'acceptable',
+  Acceptable: 'acceptable',
+  'غير مجتاز': 'notPassed',
+  'Not Passed': 'notPassed'
 };
 
 const FinalEvaluationSummary = ({ projectId, studentId, showActions = false, onRetryAllowed }) => {
+  const { t } = useAppSettings();
   const [loading, setLoading] = useState(true);
   const [finalEval, setFinalEval] = useState(null);
   const [project, setProject] = useState(null);
@@ -57,9 +72,9 @@ const FinalEvaluationSummary = ({ projectId, studentId, showActions = false, onR
     } catch (err) {
       console.error(err);
       if (err.response?.status === 404) {
-        setError('التقييم النهائي غير متوفر بعد');
+        setError(t('finalEvaluationNotAvailableYet'));
       } else {
-        setError(err.response?.data?.message || 'فشل في تحميل التقييم النهائي');
+        setError(err.response?.data?.message || t('finalEvaluationLoadFailed'));
       }
       setLoading(false);
     }
@@ -78,10 +93,12 @@ const FinalEvaluationSummary = ({ projectId, studentId, showActions = false, onR
   }
 
   if (!finalEval) {
-    return <Alert severity="warning">لم يتم إنهاء التقييم بعد</Alert>;
+    return <Alert severity="warning">{t('evaluationNotCompletedYet')}</Alert>;
   }
 
-  const verbalGradeColor = VERBAL_GRADES[finalEval.verbalGrade]?.color || '#757575';
+  const verbalGradeKey = VERBAL_GRADE_ALIASES[finalEval.verbalGrade] || 'notPassed';
+  const verbalGradeColor = VERBAL_GRADE_CONFIG[verbalGradeKey]?.color || '#757575';
+  const verbalGradeLabel = t(`grade${verbalGradeKey.charAt(0).toUpperCase()}${verbalGradeKey.slice(1)}`);
   const isPassed = finalEval.status === 'passed';
 
   return (
@@ -89,18 +106,18 @@ const FinalEvaluationSummary = ({ projectId, studentId, showActions = false, onR
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5" fontWeight={600}>
-          التقييم النهائي
+          {t('finalEvaluationTitle')}
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           {isPassed ? (
             <>
               <CheckCircleIcon sx={{ color: 'success.main', fontSize: 32 }} />
-              <Chip label="نجح" color="success" size="large" />
+              <Chip label={t('pass')} color="success" size="large" />
             </>
           ) : (
             <>
               <CancelIcon sx={{ color: 'error.main', fontSize: 32 }} />
-              <Chip label="لم ينجح" color="error" size="large" />
+              <Chip label={t('fail')} color="error" size="large" />
             </>
           )}
         </Box>
@@ -109,7 +126,7 @@ const FinalEvaluationSummary = ({ projectId, studentId, showActions = false, onR
       {/* Attempt Number */}
       {finalEval.attemptNumber > 1 && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          المحاولة رقم: {finalEval.attemptNumber}
+          {t('attemptNumberWithValue', { number: finalEval.attemptNumber })}
         </Alert>
       )}
 
@@ -121,13 +138,13 @@ const FinalEvaluationSummary = ({ projectId, studentId, showActions = false, onR
             <Card sx={{ bgcolor: 'primary.light', height: '100%' }}>
               <CardContent>
                 <Typography variant="overline" color="primary.contrastText">
-                  المرحلة الجماعية
+                  {t('groupPhase')}
                 </Typography>
                 <Typography variant="h3" fontWeight={700} color="primary.contrastText">
                   {finalEval.groupScore}
                 </Typography>
                 <Typography variant="body2" color="primary.contrastText">
-                  من 100
+                  {t('from100')}
                 </Typography>
               </CardContent>
             </Card>
@@ -139,13 +156,13 @@ const FinalEvaluationSummary = ({ projectId, studentId, showActions = false, onR
           <Card sx={{ bgcolor: 'secondary.light', height: '100%' }}>
             <CardContent>
               <Typography variant="overline" color="secondary.contrastText">
-                المرحلة الفردية والشفوية
+                {t('individualOralPhase')}
               </Typography>
               <Typography variant="h3" fontWeight={700} color="secondary.contrastText">
                 {finalEval.individualScore}
               </Typography>
               <Typography variant="body2" color="secondary.contrastText">
-                من 100
+                {t('from100')}
               </Typography>
             </CardContent>
           </Card>
@@ -156,13 +173,13 @@ const FinalEvaluationSummary = ({ projectId, studentId, showActions = false, onR
           <Card sx={{ bgcolor: verbalGradeColor, height: '100%' }}>
             <CardContent>
               <Typography variant="overline" sx={{ color: 'white' }}>
-                الدرجة النهائية
+                {t('finalResult')}
               </Typography>
               <Typography variant="h3" fontWeight={700} sx={{ color: 'white' }}>
                 {finalEval.finalScore}
               </Typography>
               <Typography variant="body2" sx={{ color: 'white' }}>
-                من 200
+                {t('from200')}
               </Typography>
             </CardContent>
           </Card>
@@ -174,7 +191,7 @@ const FinalEvaluationSummary = ({ projectId, studentId, showActions = false, onR
       {/* Percentage & Verbal Grade */}
       <Box sx={{ mb: 3 }}>
         <Typography variant="h6" gutterBottom>
-          النسبة المئوية
+          {t('percentage')}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
           <Box sx={{ flex: 1 }}>
@@ -198,7 +215,7 @@ const FinalEvaluationSummary = ({ projectId, studentId, showActions = false, onR
 
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
           <Chip
-            label={finalEval.verbalGrade}
+            label={verbalGradeLabel}
             sx={{
               bgcolor: verbalGradeColor,
               color: 'white',
@@ -215,8 +232,8 @@ const FinalEvaluationSummary = ({ projectId, studentId, showActions = false, onR
       <Alert severity={isPassed ? 'success' : 'error'} sx={{ mb: 2 }}>
         <Typography variant="body2">
           {isPassed
-            ? `تجاوز الطالب نسبة النجاح المطلوبة (60%)`
-            : `لم يتجاوز الطالب نسبة النجاح المطلوبة (60%). الدرجة الحالية: ${finalEval.finalPercentage.toFixed(2)}%`}
+            ? t('passedThresholdRequired')
+            : t('failedThresholdWithCurrent', { percentage: finalEval.finalPercentage.toFixed(2) })}
         </Typography>
       </Alert>
 
@@ -225,7 +242,7 @@ const FinalEvaluationSummary = ({ projectId, studentId, showActions = false, onR
         <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'success.light', borderRadius: 2 }}>
           <TrophyIcon sx={{ fontSize: 48, color: 'success.dark', mb: 1 }} />
           <Typography variant="h6" color="success.dark" fontWeight={600}>
-            تم منح شارة المشروع
+            {t('projectBadgeAwarded')}
           </Typography>
         </Box>
       )}
@@ -238,7 +255,7 @@ const FinalEvaluationSummary = ({ projectId, studentId, showActions = false, onR
             color="warning"
             onClick={onRetryAllowed}
           >
-            السماح بإعادة المحاولة
+            {t('allowRetry')}
           </Button>
         </Box>
       )}
@@ -247,20 +264,32 @@ const FinalEvaluationSummary = ({ projectId, studentId, showActions = false, onR
       <Divider sx={{ my: 3 }} />
       <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
         <Typography variant="subtitle2" gutterBottom fontWeight={600}>
-          طريقة الحساب:
+          {t('calculationMethod')}
         </Typography>
         <Typography variant="body2" color="text.secondary">
           {project?.isTeamProject ? (
             <>
-              الدرجة النهائية = درجة المرحلة الجماعية + درجة المرحلة الفردية والشفوية<br />
-              {finalEval.groupScore} + {finalEval.individualScore} = {finalEval.finalScore} من 200<br />
-              النسبة المئوية = ({finalEval.finalScore} / 200) × 100 = {finalEval.finalPercentage.toFixed(2)}%
+              {t('teamCalculationLine1')}<br />
+              {t('teamCalculationLine2', {
+                group: finalEval.groupScore,
+                individual: finalEval.individualScore,
+                total: finalEval.finalScore
+              })}<br />
+              {t('teamCalculationLine3', {
+                total: finalEval.finalScore,
+                percentage: finalEval.finalPercentage.toFixed(2)
+              })}
             </>
           ) : (
             <>
-              الدرجة النهائية = درجة المرحلة الفردية والشفوية<br />
-              {finalEval.individualScore} من 100<br />
-              النسبة المئوية = ({finalEval.individualScore} / 100) × 100 = {finalEval.finalPercentage.toFixed(2)}%
+              {t('individualCalculationLine1')}<br />
+              {t('individualCalculationLine2', {
+                individual: finalEval.individualScore
+              })}<br />
+              {t('individualCalculationLine3', {
+                individual: finalEval.individualScore,
+                percentage: finalEval.finalPercentage.toFixed(2)
+              })}
             </>
           )}
         </Typography>

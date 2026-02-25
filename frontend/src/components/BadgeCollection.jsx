@@ -15,8 +15,10 @@ import {
   Lock as LockIcon
 } from '@mui/icons-material';
 import axios from 'axios';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const BadgeCollection = ({ studentId }) => {
+  const { t, language } = useAppSettings();
   const [loading, setLoading] = useState(true);
   const [badges, setBadges] = useState([]);
   const [allProjects, setAllProjects] = useState([]);
@@ -62,7 +64,7 @@ const BadgeCollection = ({ studentId }) => {
     <Paper sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5" fontWeight={600}>
-          مجموعة الشارات
+          {t('badgeCollectionTitle')}
         </Typography>
         <Chip
           label={`${badges.length} / ${allProjects.length}`}
@@ -73,7 +75,7 @@ const BadgeCollection = ({ studentId }) => {
 
       {badges.length === 0 && allProjects.length === 0 ? (
         <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ py: 4 }}>
-          لا توجد شارات متاحة بعد
+          {t('noBadgesAvailableYet')}
         </Typography>
       ) : (
         <Grid container spacing={2}>
@@ -109,7 +111,7 @@ const BadgeCollection = ({ studentId }) => {
 
                   <Box sx={{ textAlign: 'center', mt: 2 }}>
                     <Chip
-                      label={badge.project?.title || 'مشروع'}
+                      label={badge.project?.title || t('projectFallback')}
                       size="small"
                       sx={{ bgcolor: 'rgba(255,255,255,0.3)', color: 'white' }}
                     />
@@ -124,7 +126,7 @@ const BadgeCollection = ({ studentId }) => {
                       opacity: 0.7
                     }}
                   >
-                    حصلت عليها في: {new Date(badge.awardedAt).toLocaleDateString('ar-EG')}
+                    {t('badgeAwardedOn')}: {new Date(badge.awardedAt).toLocaleDateString(language === 'en' ? 'en-US' : 'ar-EG')}
                   </Typography>
                 </CardContent>
               </Card>
@@ -148,10 +150,10 @@ const BadgeCollection = ({ studentId }) => {
                     <Box sx={{ textAlign: 'center', mb: 2 }}>
                       <LockIcon sx={{ fontSize: '3rem', mb: 1 }} />
                       <Typography variant="h6" fontWeight={600}>
-                        شارة مقفلة
+                        {t('lockedBadgeTitle')}
                       </Typography>
                       <Typography variant="body2" sx={{ mt: 1 }}>
-                        أكمل المشروع للحصول على الشارة
+                        {t('completeProjectToUnlockBadge')}
                       </Typography>
                     </Box>
 

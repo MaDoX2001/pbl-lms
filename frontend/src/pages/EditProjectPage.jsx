@@ -386,11 +386,11 @@ const EditProjectPage = () => {
                 <Box key={index} sx={{ display: 'flex', gap: 1, mb: 2 }}>
                   <TextField
                     fullWidth
-                    label={`الهدف ${index + 1}`}
+                    label={t('objectiveWithNumber', { number: index + 1 })}
                     value={objective}
                     onChange={(e) => handleObjectiveChange(index, e.target.value)}
                     disabled={loading}
-                    placeholder="ماذا سيتعلم الطالب من هذا المشروع؟"
+                    placeholder={t('projectObjectivePlaceholder')}
                   />
                   <IconButton
                     color="error"
@@ -420,7 +420,7 @@ const EditProjectPage = () => {
                 disabled={loading}
                 multiline
                 rows={8}
-                placeholder="1. يبدأ المتعلم بقراءة وصف المشكلة التعليمية لفهم التحدي المطلوب&#10;2. يراجع مصادر التعلم الرقمية المرتبطة بالمشروع&#10;3. يخطط لحل المشكلة من خلال تصميم الفكرة المبدئية للنظام&#10;..."
+                placeholder={t('learningScenarioPlaceholder')}
                 helperText={t('learningScenarioHelper')}
               />
             </Grid>
@@ -435,7 +435,7 @@ const EditProjectPage = () => {
                 disabled={loading}
                 multiline
                 rows={3}
-                placeholder="1. التعلم القائم على المشروعات&#10;2. التعلم التعاوني"
+                placeholder={t('teachingStrategyPlaceholder')}
                 helperText={t('teachingStrategyHelper')}
               />
             </Grid>
@@ -450,7 +450,7 @@ const EditProjectPage = () => {
                 disabled={loading}
                 multiline
                 rows={2}
-                placeholder="يقوم المتعلم بإعداد تقرير شامل عن المشروع باستخدام النموذج المرفق ويُعد هذا التقرير هو المنتج النهائي للمشروع"
+                placeholder={t('finalReportNotePlaceholder')}
                 helperText={t('finalReportNoteHelper')}
               />
             </Grid>
