@@ -12,6 +12,7 @@ import {
   Lock as LockIcon,
   CheckCircle as CheckCircleIcon
 } from '@mui/icons-material';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 /**
  * SmartEvaluationButton Component
@@ -41,17 +42,18 @@ const SmartEvaluationButton = ({
     phase2Complete = false,
     finalComplete = false
   } = status;
+  const { t } = useAppSettings();
 
   // Determine button state
   const getButtonConfig = () => {
     // If observation cards missing
     if (!hasObservationCards) {
       return {
-        label: 'بدء التقييم',
+        label: t('startEvaluation'),
         icon: <LockIcon />,
         color: 'default',
         disabled: true,
-        tooltip: 'يجب إنشاء بطاقات الملاحظات أولاً',
+        tooltip: t('mustCreateObservationCardsFirst'),
         onClick: null
       };
     }
@@ -59,11 +61,11 @@ const SmartEvaluationButton = ({
     // If final evaluation complete
     if (finalComplete) {
       return {
-        label: 'التقييم مكتمل',
+        label: t('evaluationCompleted'),
         icon: <CheckCircleIcon />,
         color: 'success',
         disabled: true,
-        tooltip: 'تم إكمال التقييم النهائي',
+        tooltip: t('finalEvaluationCompleted'),
         onClick: null
       };
     }
@@ -71,11 +73,11 @@ const SmartEvaluationButton = ({
     // If Phase 2 complete, waiting for finalization
     if (phase2Complete) {
       return {
-        label: 'في انتظار النتيجة',
+        label: t('waitingForResult'),
         icon: <CheckCircleIcon />,
         color: 'info',
         disabled: true,
-        tooltip: 'تم إكمال جميع مراحل التقييم. في انتظار النتيجة النهائية.',
+        tooltip: t('allEvaluationPhasesDoneWaitingFinal'),
         onClick: null
       };
     }
@@ -83,22 +85,22 @@ const SmartEvaluationButton = ({
     // If Phase 1 complete, open Phase 2
     if (phase1Complete || !isTeamProject) {
       return {
-        label: 'تقييم فردي',
+        label: t('individualEvaluationTitleShort'),
         icon: <PersonIcon />,
         color: 'secondary',
         disabled: false,
-        tooltip: 'بدء التقييم الفردي والشفهي (المرحلة الثانية)',
+        tooltip: t('startIndividualOralPhaseTwo'),
         onClick: onStartIndividualEval
       };
     }
 
     // Default: Start Phase 1
     return {
-      label: 'تقييم جماعي',
+      label: t('groupEvaluationTitleShort'),
       icon: <GroupsIcon />,
       color: 'primary',
       disabled: false,
-      tooltip: 'بدء التقييم الجماعي (المرحلة الأولى)',
+      tooltip: t('startGroupPhaseOne'),
       onClick: onStartGroupEval
     };
   };

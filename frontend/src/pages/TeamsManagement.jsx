@@ -32,6 +32,7 @@ import {
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../services/api';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 /**
  * TeamsManagement Component
@@ -40,6 +41,7 @@ import api from '../services/api';
  * Access: Admin only
  */
 const TeamsManagement = () => {
+  const { t, language } = useAppSettings();
   const [teams, setTeams] = useState([]);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -64,7 +66,7 @@ const TeamsManagement = () => {
       setTeams(response.data.data);
       setLoading(false);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'حدث خطأ في جلب الفرق');
+      toast.error(err.response?.data?.message || t('failedToFetchTeams'));
       setLoading(false);
     }
   };
@@ -116,17 +118,17 @@ const TeamsManagement = () => {
     try {
       // Validation
       if (!formData.name.trim()) {
-        toast.error('اسم الفريق مطلوب');
+        toast.error(t('teamNameRequired'));
         return;
       }
 
       if (formData.name.trim().length < 3) {
-        toast.error('اسم الفريق يجب أن يكون 3 أحرف على الأقل');
+        toast.error(t('teamNameMin3'));
         return;
       }
 
       if (formData.members.length < 2 || formData.members.length > 4) {
-        toast.error('يجب اختيار من 2 إلى 4 أعضاء');
+        toast.error(t('membersCount2To4'));
         return;
       }
 
@@ -138,30 +140,30 @@ const TeamsManagement = () => {
 
       if (editMode) {
         await api.put(`/teams/${currentTeam._id}`, payload);
-        toast.success('تم تحديث الفريق بنجاح');
+        toast.success(t('teamUpdatedSuccess'));
       } else {
         await api.post('/teams', payload);
-        toast.success('تم إنشاء الفريق بنجاح');
+        toast.success(t('teamCreatedSuccess'));
       }
 
       handleCloseDialog();
       fetchTeams();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'حدث خطأ');
+      toast.error(err.response?.data?.message || t('genericError'));
     }
   };
 
   const handleDelete = async (teamId) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذا الفريق؟')) {
+    if (!window.confirm(t('confirmDeleteTeam'))) {
       return;
     }
 
     try {
       await api.delete(`/teams/${teamId}`);
-      toast.success('تم حذف الفريق بنجاح');
+      toast.success(t('teamDeletedSuccess'));
       fetchTeams();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'حدث خطأ في حذف الفريق');
+      toast.error(err.response?.data?.message || t('teamDeleteFailed'));
     }
   };
 
@@ -177,29 +179,29 @@ const TeamsManagement = () => {
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">
-          إدارة الفرق
+          {t('teamsManagementTitle')}
         </Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => handleOpenDialog()}
         >
-          إنشاء فريق جديد
+          {t('createNewTeam')}
         </Button>
       </Box>
 
       {teams.length === 0 ? (
-        <Alert severity="info">لا توجد فرق بعد. قم بإنشاء فريق جديد.</Alert>
+        <Alert severity="info">{t('noTeamsYetCreateOne')}</Alert>
       ) : (
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell><strong>اسم الفريق</strong></TableCell>
-                <TableCell><strong>الأعضاء</strong></TableCell>
-                <TableCell><strong>الوصف</strong></TableCell>
-                <TableCell><strong>تاريخ الإنشاء</strong></TableCell>
-                <TableCell align="center"><strong>الإجراءات</strong></TableCell>
+                <TableCell><strong>{t('teamName')}</strong></TableCell>
+                <TableCell><strong>{t('members')}</strong></TableCell>
+                <TableCell><strong>{t('description')}</strong></TableCell>
+                <TableCell><strong>{t('creationDate')}</strong></TableCell>
+                <TableCell align="center"><strong>{t('actions')}</strong></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -234,7 +236,7 @@ const TeamsManagement = () => {
                     )}
                   </TableCell>
                   <TableCell>
-                    {new Date(team.createdAt).toLocaleDateString('ar-EG')}
+                    {new Date(team.createdAt).toLocaleDateString(language === 'en' ? 'en-US' : 'ar-EG')}
                   </TableCell>
                   <TableCell align="center">
                     <IconButton
@@ -262,12 +264,12 @@ const TeamsManagement = () => {
       {/* Create/Edit Dialog */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
-          {editMode ? 'تعديل الفريق' : 'إنشاء فريق جديد'}
+          {editMode ? t('editTeam') : t('createNewTeam')}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
             <TextField
-              label="اسم الفريق"
+              label={t('teamName')}
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               fullWidth
@@ -275,13 +277,13 @@ const TeamsManagement = () => {
               error={formData.name.trim().length > 0 && formData.name.trim().length < 3}
               helperText={
                 formData.name.trim().length > 0 && formData.name.trim().length < 3
-                  ? 'اسم الفريق يجب أن يكون 3 أحرف على الأقل'
+                  ? t('teamNameMin3')
                   : ''
               }
             />
 
             <TextField
-              label="الوصف (اختياري)"
+              label={t('descriptionOptional')}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               fullWidth
@@ -303,8 +305,8 @@ const TeamsManagement = () => {
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label="اختر من 2 إلى 4 طلاب"
-                  placeholder="ابحث عن طالب..."
+                  label={t('choose2To4Students')}
+                  placeholder={t('searchStudent')}
                   required
                 />
               )}
@@ -320,18 +322,18 @@ const TeamsManagement = () => {
             />
             
             <Alert severity="info">
-              يجب اختيار من 2 إلى 4 أعضاء. عدد الأعضاء المختارين: {formData.members.length}
+              {t('membersSelectionCount', { count: formData.members.length })}
             </Alert>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>إلغاء</Button>
+          <Button onClick={handleCloseDialog}>{t('cancel')}</Button>
           <Button
             onClick={handleSubmit}
             variant="contained"
             disabled={formData.members.length < 2 || formData.members.length > 4}
           >
-            {editMode ? 'تحديث' : 'إنشاء'}
+            {editMode ? t('update') : t('create')}
           </Button>
         </DialogActions>
       </Dialog>

@@ -23,8 +23,10 @@ import {
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../services/api';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const ResourceUploadDialog = ({ open, onClose, projectId, onSuccess }) => {
+  const { t } = useAppSettings();
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -38,7 +40,7 @@ const ResourceUploadDialog = ({ open, onClose, projectId, onSuccess }) => {
     if (selectedFile) {
       // Check file size (max 100MB)
       if (selectedFile.size > 100 * 1024 * 1024) {
-        setError('حجم الملف يتجاوز 100 ميجابايت');
+        setError(t('fileSizeExceeds100MB'));
         return;
       }
       setFile(selectedFile);
@@ -58,12 +60,12 @@ const ResourceUploadDialog = ({ open, onClose, projectId, onSuccess }) => {
 
   const handleSubmit = async () => {
     if (!file) {
-      setError('يرجى اختيار ملف');
+      setError(t('pleaseChooseFile'));
       return;
     }
 
     if (!title.trim()) {
-      setError('يرجى إدخال عنوان للملف');
+      setError(t('pleaseEnterFileTitle'));
       return;
     }
 
@@ -93,13 +95,13 @@ const ResourceUploadDialog = ({ open, onClose, projectId, onSuccess }) => {
         }
       );
 
-      toast.success('تم تحميل الملف بنجاح');
+      toast.success(t('fileUploadedSuccessfully'));
       onSuccess(response.data.material);
       handleClose();
     } catch (error) {
       console.error('Error uploading file:', error);
-      setError(error.response?.data?.message || 'فشل تحميل الملف');
-      toast.error('فشل تحميل الملف');
+      setError(error.response?.data?.message || t('fileUploadFailed'));
+      toast.error(error.response?.data?.message || t('fileUploadFailed'));
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -122,7 +124,7 @@ const ResourceUploadDialog = ({ open, onClose, projectId, onSuccess }) => {
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
-          تحميل مادة تعليمية
+          {t('uploadMaterial')}
           <IconButton onClick={handleClose} disabled={uploading}>
             <CloseIcon />
           </IconButton>
@@ -153,7 +155,7 @@ const ResourceUploadDialog = ({ open, onClose, projectId, onSuccess }) => {
               disabled={uploading}
               sx={{ mb: 2, py: 2 }}
             >
-              {file ? 'تغيير الملف' : 'اختر ملف'}
+              {file ? t('changeFile') : t('chooseFile')}
             </Button>
           </label>
 
@@ -184,7 +186,7 @@ const ResourceUploadDialog = ({ open, onClose, projectId, onSuccess }) => {
 
           <TextField
             fullWidth
-            label="عنوان الملف"
+            label={t('fileTitle')}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             disabled={uploading}
@@ -194,7 +196,7 @@ const ResourceUploadDialog = ({ open, onClose, projectId, onSuccess }) => {
 
           <TextField
             fullWidth
-            label="وصف الملف (اختياري)"
+            label={t('fileDescriptionOptional')}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             disabled={uploading}
@@ -204,26 +206,26 @@ const ResourceUploadDialog = ({ open, onClose, projectId, onSuccess }) => {
           />
 
           <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>نوع الملف</InputLabel>
+            <InputLabel>{t('fileType')}</InputLabel>
             <Select
               value={fileType}
               onChange={(e) => setFileType(e.target.value)}
               disabled={uploading}
-              label="نوع الملف"
+              label={t('fileType')}
             >
-              <MenuItem value="video">فيديو</MenuItem>
+              <MenuItem value="video">{t('typeVideo')}</MenuItem>
               <MenuItem value="pdf">PDF</MenuItem>
-              <MenuItem value="document">مستند</MenuItem>
-              <MenuItem value="image">صورة</MenuItem>
-              <MenuItem value="zip">ملف مضغوط</MenuItem>
-              <MenuItem value="other">أخرى</MenuItem>
+              <MenuItem value="document">{t('typeDocument')}</MenuItem>
+              <MenuItem value="image">{t('typeImage')}</MenuItem>
+              <MenuItem value="zip">{t('compressedFile')}</MenuItem>
+              <MenuItem value="other">{t('catOther')}</MenuItem>
             </Select>
           </FormControl>
 
           {uploading && (
             <Box sx={{ mt: 2 }}>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                جاري التحميل... {uploadProgress}%
+                {t('uploading')} {uploadProgress}%
               </Typography>
               <LinearProgress variant="determinate" value={uploadProgress} />
             </Box>
@@ -232,14 +234,14 @@ const ResourceUploadDialog = ({ open, onClose, projectId, onSuccess }) => {
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose} disabled={uploading}>
-          إلغاء
+          {t('cancel')}
         </Button>
         <Button
           onClick={handleSubmit}
           variant="contained"
           disabled={uploading || !file}
         >
-          {uploading ? 'جاري التحميل...' : 'تحميل'}
+          {uploading ? t('uploading') : t('upload')}
         </Button>
       </DialogActions>
     </Dialog>
