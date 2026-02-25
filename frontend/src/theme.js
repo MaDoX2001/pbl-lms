@@ -1,8 +1,9 @@
 import { createTheme } from '@mui/material/styles';
 
-const theme = createTheme({
-  direction: 'rtl',
+const createAppTheme = (mode = 'light', direction = 'rtl') => createTheme({
+  direction,
   palette: {
+    mode,
     primary: {
       main: '#1976d2',
       light: '#42a5f5',
@@ -23,8 +24,8 @@ const theme = createTheme({
       main: '#f44336',
     },
     background: {
-      default: '#f5f5f5',
-      paper: '#ffffff',
+      default: mode === 'dark' ? '#121212' : '#f5f5f5',
+      paper: mode === 'dark' ? '#1e1e1e' : '#ffffff',
     },
   },
   typography: {
@@ -68,7 +69,7 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 12,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          boxShadow: mode === 'dark' ? '0 2px 10px rgba(0,0,0,0.4)' : '0 2px 8px rgba(0,0,0,0.1)',
         },
       },
     },
@@ -82,4 +83,4 @@ const theme = createTheme({
   },
 });
 
-export default theme;
+export default createAppTheme;

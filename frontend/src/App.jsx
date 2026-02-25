@@ -92,7 +92,7 @@ function App() {
             flex: 1,
             py: 3,
             px: { xs: 2, md: 3 },
-            backgroundColor: '#fafafa',
+            backgroundColor: 'background.default',
             minHeight: 'calc(100vh - 56px)'
           }}
         >

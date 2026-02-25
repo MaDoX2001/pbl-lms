@@ -5,12 +5,25 @@ import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../redux/slices/authSlice';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import MenuIcon from '@mui/icons-material/Menu';
+import TranslateIcon from '@mui/icons-material/Translate';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const Navbar = ({ onMenuToggle }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { isAuthenticated, user } = useSelector((state) => state.auth);
+  const { language, mode, direction, toggleLanguage, toggleMode } = useAppSettings();
   const [anchorEl, setAnchorEl] = React.useState(null);
+
+  const text = {
+    title: language === 'ar' ? 'منصة التعلم بالمشروعات' : 'PBL Learning Platform',
+    profile: language === 'ar' ? 'الملف الشخصي' : 'Profile',
+    logout: language === 'ar' ? 'تسجيل الخروج' : 'Logout',
+    login: language === 'ar' ? 'تسجيل الدخول' : 'Login',
+    language: language === 'ar' ? 'EN' : 'AR',
+  };
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -28,7 +41,7 @@ const Navbar = ({ onMenuToggle }) => {
 
   return (
     <AppBar position="sticky" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, boxShadow: '0 1px 3px rgba(0,0,0,0.12)' }}>
-      <Toolbar sx={{ minHeight: '52px !important', py: 0.5, direction: 'ltr' }}>
+      <Toolbar sx={{ minHeight: '52px !important', py: 0.5, direction }}>
         <IconButton
           color="inherit"
           aria-label="toggle menu"
@@ -36,7 +49,8 @@ const Navbar = ({ onMenuToggle }) => {
           edge="start"
           size="medium"
           sx={{ 
-            mr: 2,
+            mr: direction === 'rtl' ? 0 : 2,
+            ml: direction === 'rtl' ? 2 : 0,
             transition: 'background-color 0.2s ease',
             '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
           }}
@@ -54,13 +68,35 @@ const Navbar = ({ onMenuToggle }) => {
             color: 'inherit',
             fontWeight: 700,
             fontSize: { xs: '0.95rem', sm: '1.2rem' },
-            direction: 'rtl'
+            direction,
+            textAlign: direction === 'rtl' ? 'right' : 'left'
           }}
         >
-          منصة التعلم بالمشروعات
+          {text.title}
         </Typography>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <IconButton
+            color="inherit"
+            onClick={toggleLanguage}
+            aria-label="toggle language"
+            sx={{ borderRadius: 2 }}
+          >
+            <TranslateIcon />
+            <Typography variant="caption" sx={{ ml: 0.5, fontWeight: 700, color: 'white' }}>
+              {text.language}
+            </Typography>
+          </IconButton>
+
+          <IconButton
+            color="inherit"
+            onClick={toggleMode}
+            aria-label="toggle mode"
+            sx={{ borderRadius: 2 }}
+          >
+            {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
+          </IconButton>
+
           {isAuthenticated ? (
             <>
               <IconButton
@@ -93,14 +129,14 @@ const Navbar = ({ onMenuToggle }) => {
                 onClose={handleClose}
               >
                 <MenuItem onClick={() => { navigate(`/profile/${user?._id}`); handleClose(); }}>
-                  الملف الشخصي
+                  {text.profile}
                 </MenuItem>
-                <MenuItem onClick={handleLogout}>تسجيل الخروج</MenuItem>
+                <MenuItem onClick={handleLogout}>{text.logout}</MenuItem>
               </Menu>
             </>
           ) : (
             <Button color="inherit" component={Link} to="/login">
-              تسجيل الدخول
+              {text.login}
             </Button>
           )}
         </Box>

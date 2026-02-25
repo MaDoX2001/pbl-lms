@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { useAppSettings } from '../context/AppSettingsContext';
 import {
   Drawer,
   List,
@@ -31,11 +32,33 @@ const DRAWER_WIDTH = 280;
 
 const Sidebar = ({ open, onClose }) => {
   const { isAuthenticated, user } = useSelector((state) => state.auth);
+  const { language, direction } = useAppSettings();
+
+  const text = {
+    appName: language === 'ar' ? 'منصة التعلم بالمشروعات' : 'PBL Learning Platform',
+    home: language === 'ar' ? 'الرئيسية' : 'Home',
+    projects: language === 'ar' ? 'المشاريع' : 'Projects',
+    simulator: language === 'ar' ? 'محاكي Arduino' : 'Arduino Simulator',
+    dashboard: language === 'ar' ? 'لوحة التحكم' : 'Dashboard',
+    chats: language === 'ar' ? 'المحادثات' : 'Chats',
+    resources: language === 'ar' ? 'المصادر الداعمة' : 'Support Resources',
+    liveLectures: language === 'ar' ? 'المحاضرات المباشرة' : 'Live Lectures',
+    team: language === 'ar' ? 'فريقي' : 'My Team',
+    teachers: language === 'ar' ? 'المعلمين' : 'Teachers',
+    leaderboard: language === 'ar' ? 'لوحة المتصدرين' : 'Leaderboard',
+    createProject: language === 'ar' ? 'إنشاء مشروع' : 'Create Project',
+    studentProjects: language === 'ar' ? 'مشروعات الطلاب' : 'Student Projects',
+    teams: language === 'ar' ? 'إدارة الفرق' : 'Teams Management',
+    users: language === 'ar' ? 'كل المستخدمين' : 'All Users',
+    systemAdmin: language === 'ar' ? 'إدارة النظام' : 'System Admin',
+    contentManagement: language === 'ar' ? 'إدارة المحتوى' : 'Content Management',
+    admin: language === 'ar' ? 'الإدارة' : 'Administration',
+  };
 
   // Navigation items based on user role
   const getNavItems = () => {
     const baseItems = [
-      { to: '/', icon: <HomeIcon />, label: 'الرئيسية', public: true }
+      { to: '/', icon: <HomeIcon />, label: text.home, public: true }
     ];
 
     if (!isAuthenticated) {
@@ -43,29 +66,29 @@ const Sidebar = ({ open, onClose }) => {
     }
 
     const authenticatedItems = [
-      { to: '/projects', icon: <FolderIcon />, label: 'المشاريع' },
-      { to: '/arduino-simulator', icon: <CodeIcon />, label: 'محاكي Arduino' },
-      { to: '/dashboard', icon: <DashboardIcon />, label: 'لوحة التحكم' },
-      { to: '/chat', icon: <ChatIcon />, label: 'المحادثات' },
-      { to: '/resources', icon: <BookmarkIcon />, label: 'المصادر الداعمة' },
-      { to: '/live-lectures', icon: <VideocamIcon />, label: 'المحاضرات المباشرة' }
+      { to: '/projects', icon: <FolderIcon />, label: text.projects },
+      { to: '/arduino-simulator', icon: <CodeIcon />, label: text.simulator },
+      { to: '/dashboard', icon: <DashboardIcon />, label: text.dashboard },
+      { to: '/chat', icon: <ChatIcon />, label: text.chats },
+      { to: '/resources', icon: <BookmarkIcon />, label: text.resources },
+      { to: '/live-lectures', icon: <VideocamIcon />, label: text.liveLectures }
     ];
 
     if (user?.role === 'student') {
-      authenticatedItems.push({ to: '/team/dashboard', icon: <GroupsIcon />, label: 'فريقي', student: true });
-      authenticatedItems.push({ to: '/teachers', icon: <SchoolIcon />, label: 'المعلمين', student: true });
+      authenticatedItems.push({ to: '/team/dashboard', icon: <GroupsIcon />, label: text.team, student: true });
+      authenticatedItems.push({ to: '/teachers', icon: <SchoolIcon />, label: text.teachers, student: true });
     }
 
     if (user?.role === 'teacher' || user?.role === 'admin') {
-      authenticatedItems.push({ to: '/leaderboard', icon: <LeaderboardIcon />, label: 'لوحة المتصدرين', teacher: true });
-      authenticatedItems.push({ to: '/create-project', icon: <AddBoxIcon />, label: 'إنشاء مشروع', teacher: true });
-      authenticatedItems.push({ to: '/admin/student-projects', icon: <AssignmentIcon />, label: 'مشروعات الطلاب', teacher: true });
-      authenticatedItems.push({ to: '/admin/teams', icon: <GroupsIcon />, label: 'إدارة الفرق', teacher: true });
-      authenticatedItems.push({ to: '/users', icon: <PeopleIcon />, label: 'كل المستخدمين', teacher: true });
+      authenticatedItems.push({ to: '/leaderboard', icon: <LeaderboardIcon />, label: text.leaderboard, teacher: true });
+      authenticatedItems.push({ to: '/create-project', icon: <AddBoxIcon />, label: text.createProject, teacher: true });
+      authenticatedItems.push({ to: '/admin/student-projects', icon: <AssignmentIcon />, label: text.studentProjects, teacher: true });
+      authenticatedItems.push({ to: '/admin/teams', icon: <GroupsIcon />, label: text.teams, teacher: true });
+      authenticatedItems.push({ to: '/users', icon: <PeopleIcon />, label: text.users, teacher: true });
     }
 
     if (user?.role === 'admin') {
-      authenticatedItems.push({ to: '/admin', icon: <AdminPanelSettingsIcon />, label: 'إدارة النظام', admin: true });
+      authenticatedItems.push({ to: '/admin', icon: <AdminPanelSettingsIcon />, label: text.systemAdmin, admin: true });
     }
 
     return [...baseItems, ...authenticatedItems];
@@ -94,7 +117,7 @@ const Sidebar = ({ open, onClose }) => {
       
       {/* Sidebar Drawer */}
       <Drawer
-        anchor="left"
+        anchor={direction === 'rtl' ? 'right' : 'left'}
         open={open}
         onClose={onClose}
         variant="temporary"
@@ -109,12 +132,14 @@ const Sidebar = ({ open, onClose }) => {
             top: 0,
             height: '100vh',
             backgroundColor: '#ffffff',
-            borderRight: '1px solid #e0e0e0',
+            borderRight: direction === 'rtl' ? 'none' : '1px solid #e0e0e0',
+            borderLeft: direction === 'rtl' ? '1px solid #e0e0e0' : 'none',
             boxShadow: '4px 0 12px rgba(0,0,0,0.15)',
             transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
             display: 'flex',
             flexDirection: 'column',
-            overflowY: 'auto'
+            overflowY: 'auto',
+            direction
           }
         }}
       >
@@ -133,7 +158,7 @@ const Sidebar = ({ open, onClose }) => {
           }}
         >
           <Box sx={{ fontSize: '1.05rem', fontWeight: 600 }}>
-            منصة التعلم بالمشروعات
+            {text.appName}
           </Box>
           <IconButton 
             onClick={onClose}
@@ -234,7 +259,7 @@ const Sidebar = ({ open, onClose }) => {
                 <>
                   <Divider sx={{ my: 2 }} />
                   <Box sx={{ px: 2, py: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                    إدارة المحتوى
+                    {text.contentManagement}
                   </Box>
                   {navItems.filter(item => item.teacher).map((item) => (
                     <ListItem
@@ -278,7 +303,7 @@ const Sidebar = ({ open, onClose }) => {
                 <>
                   <Divider sx={{ my: 2 }} />
                   <Box sx={{ px: 2, py: 1, fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}>
-                    الإدارة
+                    {text.admin}
                   </Box>
                   <ListItem
                     key={item.to}
