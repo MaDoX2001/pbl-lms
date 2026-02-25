@@ -15,9 +15,11 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 function ForgotPasswordPage() {
   const navigate = useNavigate();
+  const { t } = useAppSettings();
   const [activeStep, setActiveStep] = useState(0);
   const [formData, setFormData] = useState({
     email: '',
@@ -29,7 +31,7 @@ function ForgotPasswordPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const steps = ['إدخال البريد الإلكتروني', 'إدخال رمز التحقق', 'كلمة المرور الجديدة'];
+  const steps = [t('stepEmail'), t('stepOtp'), t('stepNewPassword')];
 
   const handleChange = (e) => {
     setFormData({
@@ -44,17 +46,17 @@ function ForgotPasswordPage() {
     setSuccess('');
 
     if (!formData.email) {
-      setError('البريد الإلكتروني مطلوب');
+      setError(t('emailRequired'));
       return;
     }
 
     setLoading(true);
     try {
       await api.post('/email/forgot-password', { email: formData.email });
-      setSuccess('تم إرسال رمز إعادة التعيين إلى بريدك الإلكتروني');
+      setSuccess(t('resetCodeSentSuccess'));
       setActiveStep(1);
     } catch (err) {
-      setError(err.response?.data?.message || 'حدث خطأ');
+      setError(err.response?.data?.message || t('genericError'));
     } finally {
       setLoading(false);
     }
@@ -65,12 +67,12 @@ function ForgotPasswordPage() {
     setError('');
 
     if (!formData.otp) {
-      setError('رمز التحقق مطلوب');
+      setError(t('otpRequired'));
       return;
     }
 
     if (formData.otp.length !== 6) {
-      setError('رمز التحقق يجب أن يكون 6 أرقام');
+      setError(t('otp6Digits'));
       return;
     }
 
@@ -83,17 +85,17 @@ function ForgotPasswordPage() {
     setSuccess('');
 
     if (!formData.newPassword || !formData.confirmPassword) {
-      setError('جميع الحقول مطلوبة');
+      setError(t('allFieldsRequired'));
       return;
     }
 
     if (formData.newPassword.length < 8) {
-      setError('كلمة المرور يجب أن تكون 8 أحرف على الأقل');
+      setError(t('passwordMin8'));
       return;
     }
 
     if (formData.newPassword !== formData.confirmPassword) {
-      setError('كلمات المرور غير متطابقة');
+      setError(t('passwordsMismatch'));
       return;
     }
 
@@ -104,12 +106,12 @@ function ForgotPasswordPage() {
         otp: formData.otp,
         newPassword: formData.newPassword
       });
-      setSuccess('تم إعادة تعيين كلمة المرور بنجاح!');
+      setSuccess(t('resetPasswordSuccess'));
       setTimeout(() => {
         navigate('/login');
       }, 2000);
     } catch (err) {
-      setError(err.response?.data?.message || 'فشل إعادة تعيين كلمة المرور');
+      setError(err.response?.data?.message || t('resetPasswordFailed'));
     } finally {
       setLoading(false);
     }
@@ -121,7 +123,7 @@ function ForgotPasswordPage() {
         <Card>
           <CardContent sx={{ p: 4 }}>
             <Typography variant="h4" component="h1" gutterBottom align="center" fontWeight={700}>
-              نسيت كلمة المرور
+              {t('forgotTitle')}
             </Typography>
 
             <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
@@ -139,12 +141,12 @@ function ForgotPasswordPage() {
             {activeStep === 0 && (
               <Box component="form" onSubmit={handleRequestOTP}>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  أدخل بريدك الإلكتروني وسنرسل لك رمز إعادة التعيين
+                  {t('enterEmailReset')}
                 </Typography>
                 
                 <TextField
                   fullWidth
-                  label="البريد الإلكتروني"
+                  label={t('email')}
                   name="email"
                   type="email"
                   value={formData.email}
@@ -162,7 +164,7 @@ function ForgotPasswordPage() {
                   disabled={loading}
                   sx={{ mt: 3, mb: 2 }}
                 >
-                  {loading ? <CircularProgress size={24} /> : 'إرسال الرمز'}
+                  {loading ? <CircularProgress size={24} /> : t('sendCode')}
                 </Button>
 
                 <Button
@@ -170,7 +172,7 @@ function ForgotPasswordPage() {
                   variant="outlined"
                   onClick={() => navigate('/login')}
                 >
-                  العودة لتسجيل الدخول
+                  {t('backToLogin')}
                 </Button>
               </Box>
             )}
@@ -179,12 +181,12 @@ function ForgotPasswordPage() {
             {activeStep === 1 && (
               <Box component="form" onSubmit={handleVerifyOTP}>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  تم إرسال رمز إعادة التعيين إلى {formData.email}
+                  {t('codeSentTo', { email: formData.email })}
                 </Typography>
 
                 <TextField
                   fullWidth
-                  label="رمز التحقق"
+                  label={t('verificationCode')}
                   name="otp"
                   value={formData.otp}
                   onChange={handleChange}
@@ -201,7 +203,7 @@ function ForgotPasswordPage() {
                   size="large"
                   sx={{ mt: 3, mb: 2 }}
                 >
-                  التالي
+                  {t('next')}
                 </Button>
 
                 <Button
@@ -211,7 +213,7 @@ function ForgotPasswordPage() {
                   onClick={handleRequestOTP}
                   sx={{ mb: 2 }}
                 >
-                  إعادة إرسال الرمز
+                  {t('resendCode')}
                 </Button>
 
                 <Button
@@ -219,7 +221,7 @@ function ForgotPasswordPage() {
                   variant="outlined"
                   onClick={() => setActiveStep(0)}
                 >
-                  رجوع
+                  {t('back')}
                 </Button>
               </Box>
             )}
@@ -228,12 +230,12 @@ function ForgotPasswordPage() {
             {activeStep === 2 && (
               <Box component="form" onSubmit={handleResetPassword}>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  أدخل كلمة المرور الجديدة
+                  {t('enterNewPassword')}
                 </Typography>
 
                 <TextField
                   fullWidth
-                  label="كلمة المرور الجديدة"
+                  label={t('newPassword')}
                   name="newPassword"
                   type="password"
                   value={formData.newPassword}
@@ -245,7 +247,7 @@ function ForgotPasswordPage() {
 
                 <TextField
                   fullWidth
-                  label="تأكيد كلمة المرور"
+                  label={t('confirmPassword')}
                   name="confirmPassword"
                   type="password"
                   value={formData.confirmPassword}
@@ -263,7 +265,7 @@ function ForgotPasswordPage() {
                   disabled={loading}
                   sx={{ mt: 3, mb: 2 }}
                 >
-                  {loading ? <CircularProgress size={24} /> : 'إعادة تعيين كلمة المرور'}
+                  {loading ? <CircularProgress size={24} /> : t('resetPassword')}
                 </Button>
 
                 <Button
@@ -272,7 +274,7 @@ function ForgotPasswordPage() {
                   onClick={() => setActiveStep(1)}
                   disabled={loading}
                 >
-                  رجوع
+                  {t('back')}
                 </Button>
               </Box>
             )}

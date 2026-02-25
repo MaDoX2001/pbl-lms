@@ -12,10 +12,12 @@ import {
 } from '@mui/material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 function EmailVerificationPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useAppSettings();
   const email = location.state?.email || '';
   
   const [formData, setFormData] = useState({
@@ -36,7 +38,7 @@ function EmailVerificationPage() {
 
   const handleResendOTP = async () => {
     if (!formData.email) {
-      setError('البريد الإلكتروني مطلوب');
+      setError(t('emailRequired'));
       return;
     }
 
@@ -44,9 +46,9 @@ function EmailVerificationPage() {
     setError('');
     try {
       await api.post('/email/send-verification-otp', { email: formData.email });
-      setSuccess('تم إرسال رمز التفعيل مرة أخرى');
+      setSuccess(t('activationSentAgain'));
     } catch (err) {
-      setError(err.response?.data?.message || 'فشل إرسال رمز التفعيل');
+      setError(err.response?.data?.message || t('activationSendFailed'));
     } finally {
       setResending(false);
     }
@@ -58,24 +60,24 @@ function EmailVerificationPage() {
     setSuccess('');
 
     if (!formData.email || !formData.otp) {
-      setError('جميع الحقول مطلوبة');
+      setError(t('allFieldsRequired'));
       return;
     }
 
     if (formData.otp.length !== 6) {
-      setError('رمز التفعيل يجب أن يكون 6 أرقام');
+      setError(t('otp6Digits'));
       return;
     }
 
     setLoading(true);
     try {
       await api.post('/email/verify-email', formData);
-      setSuccess('تم تفعيل البريد الإلكتروني بنجاح!');
+      setSuccess(t('activationSuccess'));
       setTimeout(() => {
         navigate('/login');
       }, 2000);
     } catch (err) {
-      setError(err.response?.data?.message || 'فشل التفعيل');
+      setError(err.response?.data?.message || t('activationFailed'));
     } finally {
       setLoading(false);
     }
@@ -87,11 +89,11 @@ function EmailVerificationPage() {
         <Card>
           <CardContent sx={{ p: 4 }}>
             <Typography variant="h4" component="h1" gutterBottom align="center" fontWeight={700}>
-              تفعيل البريد الإلكتروني
+              {t('emailVerificationTitle')}
             </Typography>
             
             <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
-              أدخل رمز التفعيل المرسل إلى بريدك الإلكتروني
+              {t('emailVerificationSubtitle')}
             </Typography>
 
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -100,7 +102,7 @@ function EmailVerificationPage() {
             <Box component="form" onSubmit={handleSubmit}>
               <TextField
                 fullWidth
-                label="البريد الإلكتروني"
+                label={t('email')}
                 name="email"
                 type="email"
                 value={formData.email}
@@ -112,7 +114,7 @@ function EmailVerificationPage() {
 
               <TextField
                 fullWidth
-                label="رمز التفعيل"
+                label={t('activationCode')}
                 name="otp"
                 value={formData.otp}
                 onChange={handleChange}
@@ -131,7 +133,7 @@ function EmailVerificationPage() {
                 disabled={loading}
                 sx={{ mt: 3, mb: 2 }}
               >
-                {loading ? <CircularProgress size={24} /> : 'تفعيل'}
+                {loading ? <CircularProgress size={24} /> : t('verify')}
               </Button>
 
               <Button
@@ -142,7 +144,7 @@ function EmailVerificationPage() {
                 disabled={resending || !formData.email}
                 sx={{ mb: 2 }}
               >
-                {resending ? <CircularProgress size={20} /> : 'إعادة إرسال الرمز'}
+                {resending ? <CircularProgress size={20} /> : t('resendActivation')}
               </Button>
 
               <Button
@@ -150,7 +152,7 @@ function EmailVerificationPage() {
                 variant="outlined"
                 onClick={() => navigate('/login')}
               >
-                العودة لتسجيل الدخول
+                {t('backToLogin')}
               </Button>
             </Box>
           </CardContent>

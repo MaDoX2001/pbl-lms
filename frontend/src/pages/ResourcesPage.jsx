@@ -26,17 +26,18 @@ import {
 } from '@mui/icons-material';
 import api from '../services/api';
 import SupportResourceUploadDialog from '../components/SupportResourceUploadDialog';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const ResourcesPage = () => {
   // Get user from Redux
   const reduxUser = useSelector(state => state.auth?.user);
+  const { t, direction } = useAppSettings();
   
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [userRole, setUserRole] = useState(null);
-  const [debugInfo, setDebugInfo] = useState('');
   const [filters, setFilters] = useState({
     search: '',
     category: 'all',
@@ -81,14 +82,7 @@ const ResourcesPage = () => {
       role = userData?.role;
     }
     
-    console.log('=== RESOURCES PAGE DEBUG ===');
-    console.log('Redux User:', reduxUser);
-    console.log('LocalStorage User:', JSON.parse(localStorage.getItem('user') || '{}'));
-    console.log('Final Role:', role);
-    console.log('===========================');
-    
     setUserRole(role || null);
-    setDebugInfo(`Role: ${role || 'none'}`);
   }, [reduxUser]);
 
   // Fetch resources when filters change
@@ -109,11 +103,10 @@ const ResourcesPage = () => {
 
       const response = await api.get(`/resources/support?${params.toString()}`);
       setResources(response.data.data || []);
-      console.log('Resources fetched:', response.data.data);
       setError(null);
     } catch (err) {
       console.error('Error fetching resources:', err);
-      setError('حدث خطأ في تحميل المصادر');
+      setError(t('loadResourcesError'));
     } finally {
       setLoading(false);
     }
@@ -128,13 +121,13 @@ const ResourcesPage = () => {
   };
 
   const handleDelete = async (resourceId) => {
-    if (window.confirm('هل أنت متأكد من حذف هذا المصدر؟')) {
+    if (window.confirm(t('confirmDeleteResource'))) {
       try {
         await api.delete(`/resources/support/${resourceId}`);
         setResources(resources.filter(r => r._id !== resourceId));
       } catch (err) {
         console.error('Error deleting resource:', err);
-        setError('خطأ في حذف المصدر');
+        setError(t('deleteResourceError'));
       }
     }
   };
@@ -173,28 +166,49 @@ const ResourcesPage = () => {
 
   const getTypeLabel = (type) => {
     const labels = {
-      image: 'صورة',
-      video: 'فيديو',
-      pdf: 'ملف PDF',
-      document: 'مستند',
-      link: 'رابط خارجي',
-      other: 'ملف آخر'
+      image: t('typeImage'),
+      video: t('typeVideo'),
+      pdf: t('typePdf'),
+      document: t('typeDocument'),
+      link: t('typeLink'),
+      other: t('typeOther')
     };
     return labels[type] || type;
   };
 
+  const getCategoryLabel = (category) => {
+    const labels = {
+      'الإلكترونيات': t('catElectronics'),
+      'البرمجة': t('catProgramming'),
+      'الدوائر الكهربائية': t('catCircuits'),
+      'المحاكاة': t('catSimulation'),
+      'الأنظمة الذكية': t('catSmartSystems'),
+      'التعليمات والشروحات': t('catInstructions'),
+      'مراجع عامة': t('catReferences'),
+      'أخرى': t('catOther')
+    };
+    return labels[category] || category;
+  };
+
+  const getDifficultyLabel = (difficulty) => {
+    const labels = {
+      'مبتدئ': t('beginner'),
+      'متوسط': t('intermediate'),
+      'متقدم': t('advanced')
+    };
+    return labels[difficulty] || difficulty;
+  };
+
   return (
-    <Container maxWidth="lg" sx={{ py: 4, direction: 'rtl' }}>
+    <Container maxWidth="lg" sx={{ py: 4, direction }}>
       {/* Header */}
-      <Box sx={{ mb: 4, textAlign: 'right' }}>
+      <Box sx={{ mb: 4, textAlign: direction === 'rtl' ? 'right' : 'left' }}>
         <Typography variant="h3" sx={{ mb: 2, fontWeight: 'bold', color: '#1976d2' }}>
-          المصادر التعليمية الداعمة
+          {t('resourcesTitle')}
         </Typography>
         <Typography variant="body1" sx={{ color: '#666', mb: 3 }}>
-          اطلع على مكتبتنا من المصادر التعليمية. يمكنك البحث، التصفية، والتقييم، وتحميل المصادر
+          {t('resourcesSubtitle')}
         </Typography>
-        
-        {debugInfo && <Alert severity="info" sx={{ mb: 2 }}>Debug: {debugInfo}</Alert>}
         
         {userRole && (userRole === 'teacher' || userRole === 'admin') && (
           <Button
@@ -211,10 +225,10 @@ const ResourcesPage = () => {
             }}
             size="large"
           >
-            📤 رفع مصدر جديد
+            📤 {t('uploadNewResource')}
           </Button>
         )}
-        {!userRole && <Alert severity="warning">لم يتم تحديد دورك - تحقق من تسجيل الدخول</Alert>}
+        {!userRole && <Alert severity="warning">{t('roleNotDetected')}</Alert>}
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
@@ -225,7 +239,7 @@ const ResourcesPage = () => {
           <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
-              label="البحث"
+              label={t('search')}
               variant="outlined"
               startAdornment={<SearchIcon sx={{ mr: 1 }} />}
               value={filters.search}
@@ -238,14 +252,14 @@ const ResourcesPage = () => {
             <TextField
               fullWidth
               select
-              label="الفئة"
+              label={t('category')}
               value={filters.category}
               onChange={(e) => handleFilterChange('category', e.target.value)}
               size="small"
             >
               {categories.map(cat => (
                 <MenuItem key={cat} value={cat}>
-                  {cat === 'all' ? 'الكل' : cat}
+                  {cat === 'all' ? t('all') : getCategoryLabel(cat)}
                 </MenuItem>
               ))}
             </TextField>
@@ -254,14 +268,14 @@ const ResourcesPage = () => {
             <TextField
               fullWidth
               select
-              label="نوع المصدر"
+              label={t('resourceType')}
               value={filters.resourceType}
               onChange={(e) => handleFilterChange('resourceType', e.target.value)}
               size="small"
             >
               {resourceTypes.map(type => (
                 <MenuItem key={type} value={type}>
-                  {type === 'all' ? 'الكل' : getTypeLabel(type)}
+                  {type === 'all' ? t('all') : getTypeLabel(type)}
                 </MenuItem>
               ))}
             </TextField>
@@ -270,15 +284,15 @@ const ResourcesPage = () => {
             <TextField
               fullWidth
               select
-              label="الترتيب"
+              label={t('sort')}
               value={filters.sort}
               onChange={(e) => handleFilterChange('sort', e.target.value)}
               size="small"
             >
-              <MenuItem value="newest">الأحدث</MenuItem>
-              <MenuItem value="popular">الأكثر مشاهدة</MenuItem>
-              <MenuItem value="rated">الأعلى تقييماً</MenuItem>
-              <MenuItem value="downloads">الأكثر تنزيلاً</MenuItem>
+              <MenuItem value="newest">{t('newest')}</MenuItem>
+              <MenuItem value="popular">{t('mostViewed')}</MenuItem>
+              <MenuItem value="rated">{t('topRated')}</MenuItem>
+              <MenuItem value="downloads">{t('mostDownloaded')}</MenuItem>
             </TextField>
           </Grid>
         </Grid>
@@ -290,7 +304,7 @@ const ResourcesPage = () => {
           <CircularProgress />
         </Box>
       ) : resources.length === 0 ? (
-        <Alert severity="info">لا توجد مصادر متطابقة مع معايير البحث</Alert>
+        <Alert severity="info">{t('noResourcesFound')}</Alert>
       ) : (
         <Grid container spacing={3}>
           {resources.map(resource => (
@@ -340,13 +354,13 @@ const ResourcesPage = () => {
                     />
                     <Chip
                       size="small"
-                      label={resource.category}
+                      label={getCategoryLabel(resource.category)}
                       variant="outlined"
                       color="secondary"
                     />
                     <Chip
                       size="small"
-                      label={resource.difficulty}
+                      label={getDifficultyLabel(resource.difficulty)}
                       variant="outlined"
                     />
                   </Box>
@@ -364,13 +378,13 @@ const ResourcesPage = () => {
                       </Typography>
                     </Box>
                     <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
-                      👁️ {resource.views} مشاهدة | ⬇️ {resource.downloads} تنزيل
+                      👁️ {resource.views} {t('viewsCount')} | ⬇️ {resource.downloads} {t('downloadsCount')}
                     </Typography>
                   </Box>
 
                   {/* Uploader */}
                   <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
-                    من: {resource.uploadedBy?.name || 'مستخدم'}
+                    {t('from')}: {resource.uploadedBy?.name || t('user')}
                   </Typography>
                 </CardContent>
 
@@ -378,7 +392,7 @@ const ResourcesPage = () => {
                 <Box sx={{ p: 2, borderTop: '1px solid #eee', display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     {/* View Button */}
-                    <Tooltip title="عرض">
+                    <Tooltip title={t('view')}>
                       <IconButton
                         size="small"
                         color="info"
@@ -389,7 +403,7 @@ const ResourcesPage = () => {
                     </Tooltip>
 
                     {/* Download Button */}
-                    <Tooltip title="تحميل">
+                    <Tooltip title={t('download')}>
                       <IconButton
                         size="small"
                         color="primary"
@@ -415,7 +429,7 @@ const ResourcesPage = () => {
                       
                       if (isOwner || isAdmin) {
                         return (
-                          <Tooltip title="حذف">
+                          <Tooltip title={t('delete')}>
                             <IconButton
                               size="small"
                               color="error"
@@ -431,7 +445,7 @@ const ResourcesPage = () => {
                   </Box>
 
                   {/* Rating */}
-                  <Tooltip title="تقييم">
+                  <Tooltip title={t('rate')}>
                     <Rating
                       size="small"
                       onChange={(_, value) => handleRate(resource._id, value)}

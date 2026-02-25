@@ -21,11 +21,13 @@ import { useDispatch } from 'react-redux';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 import { setCredentials } from '../redux/slices/authSlice';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const TwoFactorAuthPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
+  const { t } = useAppSettings();
   
   const [verificationCode, setVerificationCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -36,16 +38,16 @@ const TwoFactorAuthPage = () => {
 
   useEffect(() => {
     if (!userId) {
-      toast.error('معلومات تسجيل الدخول غير موجودة');
+      toast.error(t('twoFactorLoginInfoMissing'));
       navigate('/login');
     }
-  }, [userId, navigate]);
+  }, [userId, navigate, t]);
 
   const handleVerify = async (e) => {
     e.preventDefault();
     
     if (!verificationCode || verificationCode.length !== 6) {
-      setError('رمز التحقق يجب أن يكون 6 أرقام');
+      setError(t('otp6Digits'));
       return;
     }
 
@@ -68,12 +70,12 @@ const TwoFactorAuthPage = () => {
           token: response.data.data.token
         }));
 
-        toast.success('تم تسجيل الدخول بنجاح!');
+        toast.success(t('twoFactorLoginSuccess'));
         navigate('/dashboard');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'رمز التحقق غير صحيح');
-      toast.error(err.response?.data?.message || 'رمز التحقق غير صحيح');
+      setError(err.response?.data?.message || t('twoFactorWrongCode'));
+      toast.error(err.response?.data?.message || t('twoFactorWrongCode'));
       setVerificationCode('');
     } finally {
       setLoading(false);
@@ -104,13 +106,13 @@ const TwoFactorAuthPage = () => {
             <Box sx={{ textAlign: 'center', mb: 4 }}>
               <SecurityOutlined sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
               <Typography variant="h4" gutterBottom fontWeight="bold">
-                المصادقة الثنائية
+                {t('twoFactorTitle')}
               </Typography>
               <Typography variant="body1" color="text.secondary">
-                مرحباً {userName || 'بك'}
+                {userName ? t('helloUser', { name: userName }) : t('helloGeneric')}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                أدخل الرمز المكون من 6 أرقام من تطبيق المصادقة
+                {t('twoFactorPrompt')}
               </Typography>
             </Box>
 
@@ -125,7 +127,7 @@ const TwoFactorAuthPage = () => {
               <Box sx={{ mb: 3 }}>
                 <TextField
                   fullWidth
-                  label="رمز التحقق"
+                  label={t('verificationCode')}
                   value={verificationCode}
                   onChange={handleCodeChange}
                   placeholder="123456"
@@ -151,7 +153,7 @@ const TwoFactorAuthPage = () => {
                 disabled={loading || verificationCode.length !== 6}
                 sx={{ mb: 2 }}
               >
-                {loading ? <CircularProgress size={24} /> : 'تحقق'}
+                {loading ? <CircularProgress size={24} /> : t('twoFactorVerify')}
               </Button>
 
               <Button
@@ -160,7 +162,7 @@ const TwoFactorAuthPage = () => {
                 onClick={() => navigate('/login')}
                 disabled={loading}
               >
-                العودة لتسجيل الدخول
+                {t('backToLogin')}
               </Button>
             </form>
 
@@ -178,11 +180,11 @@ const TwoFactorAuthPage = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <PhoneAndroidOutlined sx={{ mr: 1, color: 'info.main' }} />
                 <Typography variant="subtitle2" fontWeight="bold">
-                  نصيحة
+                  {t('tip')}
                 </Typography>
               </Box>
               <Typography variant="body2" color="text.secondary">
-                الرمز يتغير كل 30 ثانية. تأكد من إدخال الرمز الحالي من تطبيق المصادقة.
+                {t('otpRotates')}
               </Typography>
             </Paper>
           </CardContent>
@@ -192,7 +194,7 @@ const TwoFactorAuthPage = () => {
         <Box sx={{ mt: 3, textAlign: 'center' }}>
           <Typography variant="body2" sx={{ color: 'white' }}>
             <SecurityOutlined sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
-            المصادقة الثنائية تحمي حسابك من الوصول غير المصرح به
+            {t('twoFactorProtects')}
           </Typography>
         </Box>
       </Container>

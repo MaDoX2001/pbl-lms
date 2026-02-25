@@ -18,9 +18,11 @@ import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { toast } from 'react-toastify';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const PublicRegisterPage = () => {
   const navigate = useNavigate();
+  const { t } = useAppSettings();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -50,12 +52,12 @@ const PublicRegisterPage = () => {
 
     // Validation
     if (formData.password !== formData.confirmPassword) {
-      setError('كلمات المرور غير متطابقة');
+      setError(t('passwordsMismatch'));
       return;
     }
 
     if (formData.password.length < 6) {
-      setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+      setError(t('passwordMin8'));
       return;
     }
 
@@ -71,7 +73,7 @@ const PublicRegisterPage = () => {
 
       if (response.data.success) {
         setSuccess(true);
-        toast.success('تم التسجيل بنجاح! يرجى تفعيل بريدك الإلكتروني');
+        toast.success(t('activationSuccess'));
         
         // Send email verification OTP
         try {
@@ -85,8 +87,8 @@ const PublicRegisterPage = () => {
         }, 2000);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'حدث خطأ أثناء التسجيل');
-      toast.error(err.response?.data?.message || 'فشل التسجيل');
+      setError(err.response?.data?.message || t('genericError'));
+      toast.error(err.response?.data?.message || t('genericError'));
     } finally {
       setLoading(false);
     }
@@ -105,13 +107,13 @@ const PublicRegisterPage = () => {
         <Paper elevation={3} sx={{ p: 4, maxWidth: 500, width: '100%' }}>
           <Alert severity="success" sx={{ mb: 2 }}>
             <Typography variant="h6" gutterBottom>
-              تم إرسال طلبك بنجاح! ✅
+              {t('requestSentSuccess')}
             </Typography>
             <Typography variant="body2">
-              تم إنشاء حسابك وإرسال طلب الموافقة للمشرف. سيتم إعلامك عند الموافقة على حسابك.
+              {t('requestApprovalMsg')}
             </Typography>
             <Typography variant="body2" sx={{ mt: 2 }}>
-              جاري التوجيه لصفحة تسجيل الدخول...
+              {t('redirectingToLogin')}
             </Typography>
           </Alert>
           <Button
@@ -120,7 +122,7 @@ const PublicRegisterPage = () => {
             component={RouterLink}
             to="/login"
           >
-            العودة لتسجيل الدخول
+            {t('backToLogin')}
           </Button>
         </Paper>
       </Box>
@@ -138,10 +140,10 @@ const PublicRegisterPage = () => {
     >
       <Paper elevation={3} sx={{ p: 4, maxWidth: 400, width: '100%' }}>
         <Typography variant="h4" component="h1" gutterBottom align="center" fontWeight={700}>
-          إنشاء حساب جديد
+          {t('registerTitle')}
         </Typography>
         <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
-          أنشئ حسابك وانتظر موافقة المشرف
+          {t('registerSubtitle')}
         </Typography>
 
         {error && (
@@ -153,7 +155,7 @@ const PublicRegisterPage = () => {
         <form onSubmit={handleSubmit}>
           <TextField
             fullWidth
-            label="الاسم الكامل"
+            label={t('fullName')}
             name="name"
             value={formData.name}
             onChange={handleChange}
@@ -162,7 +164,7 @@ const PublicRegisterPage = () => {
           />
           <TextField
             fullWidth
-            label="البريد الإلكتروني"
+            label={t('email')}
             name="email"
             type="email"
             value={formData.email}
@@ -171,21 +173,21 @@ const PublicRegisterPage = () => {
             sx={{ mb: 2 }}
           />
           <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>اختر دورك *</InputLabel>
+            <InputLabel>{t('chooseRole')} *</InputLabel>
             <Select
               name="role"
               value={formData.role}
               onChange={handleChange}
-              label="اختر دورك *"
+              label={`${t('chooseRole')} *`}
               required
             >
-              <MenuItem value="student">طالب</MenuItem>
-              <MenuItem value="teacher">معلم</MenuItem>
+              <MenuItem value="student">{t('student')}</MenuItem>
+              <MenuItem value="teacher">{t('teacher')}</MenuItem>
             </Select>
           </FormControl>
           <TextField
             fullWidth
-            label="كلمة المرور"
+            label={t('password')}
             name="password"
             type={showPassword ? 'text' : 'password'}
             value={formData.password}
@@ -207,7 +209,7 @@ const PublicRegisterPage = () => {
           />
           <TextField
             fullWidth
-            label="تأكيد كلمة المرور"
+            label={t('confirmPassword')}
             name="confirmPassword"
             type={showConfirmPassword ? 'text' : 'password'}
             value={formData.confirmPassword}
@@ -234,15 +236,15 @@ const PublicRegisterPage = () => {
             size="large"
             disabled={loading}
           >
-            {loading ? 'جاري التسجيل...' : 'تسجيل'}
+            {loading ? t('registering') : t('registerTitle')}
           </Button>
         </form>
 
         <Box sx={{ mt: 2, textAlign: 'center' }}>
           <Typography variant="body2" color="text.secondary">
-            لديك حساب بالفعل؟{' '}
+            {t('alreadyHaveAccount')}{' '}
             <Link component={RouterLink} to="/login" underline="hover">
-              تسجيل الدخول
+              {t('login')}
             </Link>
           </Typography>
         </Box>

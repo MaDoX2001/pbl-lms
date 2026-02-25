@@ -31,11 +31,13 @@ import { useSelector, useDispatch } from 'react-redux';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 import { loadUser } from '../redux/slices/authSlice';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const TwoFactorSetupPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
+  const { t } = useAppSettings();
   
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -44,11 +46,7 @@ const TwoFactorSetupPage = () => {
   const [verificationCode, setVerificationCode] = useState('');
   const [error, setError] = useState('');
 
-  const steps = [
-    'تنزيل تطبيق المصادقة',
-    'مسح رمز QR',
-    'التحقق من الإعداد'
-  ];
+  const steps = [t('installAuthApp'), t('scanQr'), t('verifySetup')];
 
   useEffect(() => {
     // Check if user already has 2FA enabled
@@ -68,11 +66,11 @@ const TwoFactorSetupPage = () => {
         setQrCode(response.data.qrCode);
         setSecret(response.data.secret);
         setActiveStep(1);
-        toast.success('تم إنشاء رمز QR بنجاح');
+        toast.success(t('qrCreatedSuccess'));
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'خطأ في إعداد المصادقة الثنائية');
-      toast.error(err.response?.data?.message || 'خطأ في إعداد المصادقة الثنائية');
+      setError(err.response?.data?.message || t('twoFactorSetupError'));
+      toast.error(err.response?.data?.message || t('twoFactorSetupError'));
     } finally {
       setLoading(false);
     }
@@ -80,7 +78,7 @@ const TwoFactorSetupPage = () => {
 
   const handleVerify2FA = async () => {
     if (!verificationCode || verificationCode.length !== 6) {
-      setError('رمز التحقق يجب أن يكون 6 أرقام');
+      setError(t('otp6Digits'));
       return;
     }
 
@@ -93,7 +91,7 @@ const TwoFactorSetupPage = () => {
       });
 
       if (response.data.success) {
-        toast.success('تم تفعيل المصادقة الثنائية بنجاح!');
+        toast.success(t('twoFactorEnabledSuccess'));
         setActiveStep(2);
         
         // Reload user data
@@ -105,8 +103,8 @@ const TwoFactorSetupPage = () => {
         }, 2000);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'رمز التحقق غير صحيح');
-      toast.error(err.response?.data?.message || 'رمز التحقق غير صحيح');
+      setError(err.response?.data?.message || t('twoFactorWrongCode'));
+      toast.error(err.response?.data?.message || t('twoFactorWrongCode'));
     } finally {
       setLoading(false);
     }
@@ -142,18 +140,17 @@ const TwoFactorSetupPage = () => {
             <Box sx={{ textAlign: 'center', mb: 4 }}>
               <SecurityOutlined sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
               <Typography variant="h4" gutterBottom fontWeight="bold">
-                إعداد المصادقة الثنائية
+                {t('twoFactorSetupTitle')}
               </Typography>
               <Typography variant="body1" color="text.secondary">
-                المصادقة الثنائية إلزامية لجميع المستخدمين لحماية حسابك
+                {t('twoFactorMandatory')}
               </Typography>
             </Box>
 
             {/* Alert */}
             <Alert severity="info" sx={{ mb: 3 }}>
               <Typography variant="body2">
-                <strong>هام:</strong> المصادقة الثنائية مطلوبة للوصول إلى جميع ميزات النظام. 
-                يرجى اتباع الخطوات أدناه لإكمال الإعداد.
+                <strong>{t('important')}:</strong> {t('twoFactorMandatoryMsg')}
               </Typography>
             </Alert>
 
@@ -168,11 +165,11 @@ const TwoFactorSetupPage = () => {
               {/* Step 1: Download Authenticator App */}
               <Step>
                 <StepLabel>
-                  <Typography variant="h6">تنزيل تطبيق المصادقة</Typography>
+                  <Typography variant="h6">{t('installAuthApp')}</Typography>
                 </StepLabel>
                 <StepContent>
                   <Typography variant="body2" color="text.secondary" paragraph>
-                    قم بتنزيل أحد تطبيقات المصادقة التالية على هاتفك:
+                    {t('installAuthInstruction')}
                   </Typography>
                   
                   <List>
@@ -182,7 +179,7 @@ const TwoFactorSetupPage = () => {
                       </ListItemIcon>
                       <ListItemText 
                         primary="Google Authenticator"
-                        secondary="iOS و Android"
+                        secondary={t('iosAndroid')}
                       />
                     </ListItem>
                     <ListItem>
@@ -191,7 +188,7 @@ const TwoFactorSetupPage = () => {
                       </ListItemIcon>
                       <ListItemText 
                         primary="Microsoft Authenticator"
-                        secondary="iOS و Android"
+                        secondary={t('iosAndroid')}
                       />
                     </ListItem>
                     <ListItem>
@@ -200,7 +197,7 @@ const TwoFactorSetupPage = () => {
                       </ListItemIcon>
                       <ListItemText 
                         primary="Authy"
-                        secondary="iOS و Android"
+                        secondary={t('iosAndroid')}
                       />
                     </ListItem>
                   </List>
@@ -212,7 +209,7 @@ const TwoFactorSetupPage = () => {
                       disabled={loading}
                       sx={{ mr: 1 }}
                     >
-                      {loading ? <CircularProgress size={24} /> : 'التالي'}
+                      {loading ? <CircularProgress size={24} /> : t('next')}
                     </Button>
                   </Box>
                 </StepContent>
@@ -221,11 +218,11 @@ const TwoFactorSetupPage = () => {
               {/* Step 2: Scan QR Code */}
               <Step>
                 <StepLabel>
-                  <Typography variant="h6">مسح رمز QR</Typography>
+                  <Typography variant="h6">{t('scanQr')}</Typography>
                 </StepLabel>
                 <StepContent>
                   <Typography variant="body2" color="text.secondary" paragraph>
-                    افتح تطبيق المصادقة وامسح رمز QR التالي:
+                    {t('scanQrInstruction')}
                   </Typography>
 
                   {qrCode && (
@@ -239,7 +236,7 @@ const TwoFactorSetupPage = () => {
                       <Divider sx={{ my: 2 }} />
                       
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        أو أدخل المفتاح يدوياً:
+                        {t('orEnterSecret')}
                       </Typography>
                       <Paper 
                         elevation={0} 
@@ -261,13 +258,13 @@ const TwoFactorSetupPage = () => {
                       onClick={handleNext}
                       sx={{ mr: 1 }}
                     >
-                      التالي
+                      {t('next')}
                     </Button>
                     <Button
                       onClick={handleBack}
                       disabled={loading}
                     >
-                      السابق
+                      {t('previous')}
                     </Button>
                   </Box>
                 </StepContent>
@@ -276,16 +273,16 @@ const TwoFactorSetupPage = () => {
               {/* Step 3: Verify Setup */}
               <Step>
                 <StepLabel>
-                  <Typography variant="h6">التحقق من الإعداد</Typography>
+                  <Typography variant="h6">{t('verifySetup')}</Typography>
                 </StepLabel>
                 <StepContent>
                   <Typography variant="body2" color="text.secondary" paragraph>
-                    أدخل الرمز المكون من 6 أرقام من تطبيق المصادقة:
+                    {t('verifySetupInstruction')}
                   </Typography>
 
                   <TextField
                     fullWidth
-                    label="رمز التحقق"
+                    label={t('verificationCode')}
                     value={verificationCode}
                     onChange={(e) => {
                       const value = e.target.value.replace(/\D/g, '').slice(0, 6);
@@ -302,7 +299,7 @@ const TwoFactorSetupPage = () => {
                   />
 
                   <Alert severity="info" icon={<InfoOutlined />} sx={{ mb: 2 }}>
-                    تأكد من إدخال الرمز الحالي من تطبيق المصادقة. يتغير الرمز كل 30 ثانية.
+                    {t('verifyCurrentCode')}
                   </Alert>
 
                   <Box sx={{ mt: 2 }}>
@@ -312,13 +309,13 @@ const TwoFactorSetupPage = () => {
                       disabled={loading || verificationCode.length !== 6}
                       sx={{ mr: 1 }}
                     >
-                      {loading ? <CircularProgress size={24} /> : 'تفعيل المصادقة الثنائية'}
+                      {loading ? <CircularProgress size={24} /> : t('enableTwoFactor')}
                     </Button>
                     <Button
                       onClick={handleBack}
                       disabled={loading}
                     >
-                      السابق
+                      {t('previous')}
                     </Button>
                   </Box>
                 </StepContent>
@@ -330,10 +327,10 @@ const TwoFactorSetupPage = () => {
               <Paper elevation={0} sx={{ p: 3, bgcolor: 'success.light', textAlign: 'center' }}>
                 <CheckCircleOutline sx={{ fontSize: 60, color: 'success.dark', mb: 2 }} />
                 <Typography variant="h5" gutterBottom>
-                  تم تفعيل المصادقة الثنائية بنجاح!
+                  {t('twoFactorEnabledDone')}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  جاري التوجيه إلى لوحة التحكم...
+                  {t('redirectingDashboard')}
                 </Typography>
               </Paper>
             )}
@@ -344,7 +341,7 @@ const TwoFactorSetupPage = () => {
         <Box sx={{ mt: 3, textAlign: 'center' }}>
           <Typography variant="body2" sx={{ color: 'white' }}>
             <SecurityOutlined sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
-            تحمي المصادقة الثنائية حسابك من الوصول غير المصرح به
+            {t('twoFactorProtects')}
           </Typography>
         </Box>
       </Container>
