@@ -41,7 +41,7 @@ import { toast } from 'react-toastify';
 import api from '../services/api';
 import socketService from '../services/socket';
 import { formatDistanceToNow, format, isToday, isYesterday, isSameDay } from 'date-fns';
-import { ar } from 'date-fns/locale';
+import { ar, enUS } from 'date-fns/locale';
 import DoneIcon from '@mui/icons-material/Done';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import CloseIcon from '@mui/icons-material/Close';
@@ -51,7 +51,7 @@ import { useAppSettings } from '../context/AppSettingsContext';
 
 const ChatPage = () => {
   const { user, token } = useSelector((state) => state.auth);
-  const { t } = useAppSettings();
+  const { t, language } = useAppSettings();
   
   console.log('ChatPage - User:', user);
   console.log('ChatPage - User role:', user?.role);
@@ -83,6 +83,7 @@ const ChatPage = () => {
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
   const [showSearch, setShowSearch] = useState(false);
   const [lastReadMessageId, setLastReadMessageId] = useState(null);
+  const dateLocale = language === 'ar' ? ar : enUS;
 
   // Debounce search query for better performance
   useEffect(() => {
@@ -223,7 +224,7 @@ const ChatPage = () => {
   const getDateHeader = (date) => {
     if (isToday(date)) return t('today');
     if (isYesterday(date)) return t('yesterday');
-    return format(date, 'd MMMM yyyy', { locale: ar });
+    return format(date, 'd MMMM yyyy', { locale: dateLocale });
   };
 
   // Helper: Should show date separator
@@ -498,10 +499,10 @@ const ChatPage = () => {
     if (!conversation) return t('conversation');
     
     if (conversation.type === 'team') {
-      return conversation.name || `${conversation.team?.name || 'الفريق'} - محادثة الفريق`;
+      return conversation.name || `${conversation.team?.name || t('team')} - ${t('teamChatLabel')}`;
     }
     if (conversation.type === 'team_teachers') {
-      return conversation.name || `${conversation.team?.name || 'الفريق'} + المعلمين`;
+      return conversation.name || `${conversation.team?.name || t('team')} + ${t('teachers')}`;
     }
     if (conversation.type === 'general') {
       return conversation.name || t('generalConversation');
@@ -676,7 +677,7 @@ const ChatPage = () => {
                   startIcon={<GroupIcon />}
                   onClick={handleOpenTeamChat}
                 >
-                  فتح محادثة الفريق
+                  {t('openTeamChat')}
                 </Button>
               )}
               {chatType === 'team_teachers' && user?.role === 'student' && filteredConversations.length === 0 && (
@@ -686,7 +687,7 @@ const ChatPage = () => {
                   startIcon={<GroupsIcon />}
                   onClick={handleOpenTeamTeachersChat}
                 >
-                  فتح محادثة الفريق + المعلمين
+                  {t('openTeamTeachersChat')}
                 </Button>
               )}
               {chatType === 'general' && filteredConversations.length === 0 && (
@@ -696,7 +697,7 @@ const ChatPage = () => {
                   startIcon={<PublicIcon />}
                   onClick={handleOpenGeneralChat}
                 >
-                  فتح المحادثة العامة
+                  {t('openGeneralChat')}
                 </Button>
               )}
             </Box>
@@ -741,7 +742,7 @@ const ChatPage = () => {
                       <Typography variant="caption" color="text.secondary">
                         {formatDistanceToNow(new Date(conversation.lastMessage.timestamp), {
                           addSuffix: true,
-                          locale: ar
+                          locale: dateLocale
                         })}
                       </Typography>
                     )}
@@ -764,7 +765,7 @@ const ChatPage = () => {
                 <Box sx={{ flex: 1 }}>
                   <Typography variant="h6">{getConversationName(selectedConversation)}</Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {selectedConversation.participants.length} عضو
+                    {selectedConversation.participants.length} {t('member')}
                   </Typography>
                 </Box>
                 <IconButton onClick={() => setShowSearch(!showSearch)} size="small">
@@ -924,7 +925,7 @@ const ChatPage = () => {
                           <Typography variant="body1">{message.content}</Typography>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
                             <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                              {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true, locale: ar })}
+                              {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true, locale: dateLocale })}
                             </Typography>
                             {isSending && (
                               <CircularProgress size={10} sx={{ color: isOwn ? 'white' : 'primary.main' }} />
@@ -949,7 +950,7 @@ const ChatPage = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <CircularProgress size={12} />
                     <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                      {Array.from(typingUsers.values()).join('، ')} {t('typing')}
+                      {Array.from(typingUsers.values()).join(t('namesSeparator'))} {t('typing')}
                     </Typography>
                   </Box>
                 )}

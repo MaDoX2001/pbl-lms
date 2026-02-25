@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Alert, Box, Chip, CircularProgress } from '@mui/material';
 import { CheckCircle as CheckIcon, Warning as WarningIcon } from '@mui/icons-material';
 import axios from 'axios';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const ObservationCardStatus = ({ projectId }) => {
+  const { t } = useAppSettings();
   const [loading, setLoading] = useState(true);
   const [groupCardExists, setGroupCardExists] = useState(false);
   const [individualCardExists, setIndividualCardExists] = useState(false);
@@ -50,7 +52,7 @@ const ObservationCardStatus = ({ projectId }) => {
   if (!projectId) {
     return (
       <Alert severity="info" sx={{ mb: 2 }}>
-        سيتم حفظ بطاقات الملاحظة بعد إنشاء المشروع
+        {t('observationCardsSavedAfterProjectCreate')}
       </Alert>
     );
   }
@@ -59,7 +61,7 @@ const ObservationCardStatus = ({ projectId }) => {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
         <CircularProgress size={20} />
-        <span>جاري التحقق من بطاقات الملاحظة...</span>
+        <span>{t('checkingObservationCards')}</span>
       </Box>
     );
   }
@@ -71,30 +73,30 @@ const ObservationCardStatus = ({ projectId }) => {
     <Box sx={{ mb: 2 }}>
       {allCardsExist && (
         <Alert severity="success" icon={<CheckIcon />}>
-          <strong>بطاقات الملاحظة موجودة:</strong> يمكن للمعلمين البدء بالتقييم
+          <strong>{t('observationCardsExistLabel')}</strong> {t('teachersCanStartEvaluation')}
         </Alert>
       )}
       
       {someCardsMissing && (
         <Alert severity="warning" icon={<WarningIcon />}>
           <Box>
-            <strong>بطاقات ملاحظة مفقودة:</strong>
+            <strong>{t('missingObservationCardsLabel')}</strong>
             <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
               <Chip 
-                label="التقييم الجماعي"
+                label={t('groupEvaluation')}
                 color={groupCardExists ? "success" : "error"}
                 size="small"
                 icon={groupCardExists ? <CheckIcon /> : <WarningIcon />}
               />
               <Chip 
-                label="التقييم الفردي والشفهي"
+                label={t('individualOralEvaluation')}
                 color={individualCardExists ? "success" : "error"}
                 size="small"
                 icon={individualCardExists ? <CheckIcon /> : <WarningIcon />}
               />
             </Box>
             <Box sx={{ mt: 1, fontSize: '0.875rem' }}>
-              لا يمكن التقييم قبل إنشاء البطاقات المفقودة
+              {t('cannotEvaluateBeforeMissingCardsCreated')}
             </Box>
           </Box>
         </Alert>
