@@ -19,8 +19,10 @@ import {
 } from '@mui/material';
 import { CloudUpload as CloudUploadIcon } from '@mui/icons-material';
 import api from '../services/api';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
+  const { t, language } = useAppSettings();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -51,7 +53,7 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
       
       if (selectedFile.size > MAX_FILE_SIZE) {
         const sizeMB = (selectedFile.size / (1024 * 1024)).toFixed(2);
-        setError(`حجم الملف كبير جداً (${sizeMB} MB). الحد الأقصى المسموح 10 ميجابايت. يرجى ضغط الملف أو استخدام رابط خارجي بدلاً من الرفع المباشر.`);
+        setError(t('supportResourceFileTooLarge', { sizeMB }));
         setFile(null);
         return;
       }
@@ -72,17 +74,17 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
   const handleSubmit = async () => {
     try {
       if (!formData.title.trim()) {
-        setError('العنوان مطلوب');
+        setError(t('titleRequired'));
         return;
       }
 
       if (!file && !formData.externalUrl.trim()) {
-        setError('يجب رفع ملف (أقل من 10MB) أو إضافة رابط خارجي (Google Drive / YouTube)');
+        setError(t('supportResourceNeedFileOrLink'));
         return;
       }
 
       if (!file && !formData.resourceType) {
-        setError('عند استخدام رابط خارجي فقط، اختر نوع المصدر (يفضل: رابط خارجي)');
+        setError(t('supportResourceSelectTypeForLink'));
         return;
       }
 
@@ -135,7 +137,7 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
       onSuccess?.();
     } catch (err) {
       console.error('Error uploading resource:', err);
-      const errorMessage = err.response?.data?.message || err.message || 'حدث خطأ في رفع المصدر';
+      const errorMessage = err.response?.data?.message || err.message || t('supportResourceUploadFailed');
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -155,12 +157,12 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
   ];
 
   const resourceTypes = [
-    { value: 'image', label: '🖼️ صورة' },
-    { value: 'video', label: '🎥 فيديو' },
-    { value: 'pdf', label: '📄 ملف PDF' },
-    { value: 'document', label: '📋 مستند' },
-    { value: 'link', label: '🔗 رابط خارجي' },
-    { value: 'other', label: '📎 ملف آخر' }
+    { value: 'image', label: `🖼️ ${t('typeImage')}` },
+    { value: 'video', label: `🎥 ${t('typeVideo')}` },
+    { value: 'pdf', label: `📄 ${t('typePdf')}` },
+    { value: 'document', label: `📋 ${t('typeDocument')}` },
+    { value: 'link', label: `🔗 ${t('typeLink')}` },
+    { value: 'other', label: `📎 ${t('typeOther')}` }
   ];
 
   const difficulties = ['مبتدئ', 'متوسط', 'متقدم'];
@@ -168,7 +170,7 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ textAlign: 'right', fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>
-        📚 رفع مصدر تعليمي جديد
+        📚 {t('uploadNewResource')}
       </DialogTitle>
 
       <DialogContent sx={{ direction: 'rtl', mt: 2 }}>
@@ -181,7 +183,7 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
         {uploadProgress > 0 && uploadProgress < 100 && (
           <Box sx={{ mb: 2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="caption">جاري الرفع</Typography>
+              <Typography variant="caption">{t('uploading')}</Typography>
               <Typography variant="caption">{uploadProgress}%</Typography>
             </Box>
             <LinearProgress variant="determinate" value={uploadProgress} />
@@ -192,11 +194,11 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
           {/* Title */}
           <TextField
             fullWidth
-            label="عنوان المصدر"
+            label={t('resourceTitle')}
             name="title"
             value={formData.title}
             onChange={handleChange}
-            placeholder="مثال: شرح how to use Arduino"
+            placeholder={t('supportResourceTitlePlaceholder')}
             disabled={loading}
           />
 
@@ -205,18 +207,18 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
             fullWidth
             multiline
             rows={3}
-            label="الوصف"
+            label={t('description')}
             name="description"
             value={formData.description}
             onChange={handleChange}
-            placeholder="اكتب وصفاً مختصراً للمصدر..."
+            placeholder={t('supportResourceDescriptionPlaceholder')}
             disabled={loading}
           />
 
           {/* File Upload */}
           <Box>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              📦 الملف (اختياري للروابط الخارجية) - الحد الأقصى 10 MB
+              📦 {t('supportResourceFileOptionalLabel')}
             </Typography>
             <Button
               variant="outlined"
@@ -225,7 +227,7 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
               startIcon={<CloudUploadIcon />}
               disabled={loading}
             >
-              {file ? `✓ ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)` : 'اختر ملفاً للرفع (أقل من 10 MB)'}
+              {file ? `✓ ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)` : t('supportResourceChooseFile')}
               <input
                 type="file"
                 hidden
@@ -236,7 +238,7 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
             </Button>
             {file && (
               <Typography variant="caption" sx={{ mt: 1, display: 'block', color: '#666' }}>
-                حجم الملف: {(file.size / (1024 * 1024)).toFixed(2)} MB
+                {t('supportResourceFileSize')}: {(file.size / (1024 * 1024)).toFixed(2)} MB
               </Typography>
             )}
           </Box>
@@ -244,23 +246,23 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
           {/* External URL */}
           <TextField
             fullWidth
-            label="رابط خارجي (بديل للملف الكبير)"
+            label={t('supportResourceExternalUrlLabel')}
             name="externalUrl"
             value={formData.externalUrl}
             onChange={handleChange}
-            placeholder="مثال: رابط Google Drive أو YouTube"
-            helperText="إذا كان الملف أكبر من 10MB، ارفعه على Google Drive أو YouTube ثم ضع الرابط هنا"
+            placeholder={t('supportResourceExternalUrlPlaceholder')}
+            helperText={t('supportResourceExternalUrlHelper')}
             disabled={loading}
           />
 
           {/* Resource Type */}
           <FormControl fullWidth disabled={loading}>
-            <InputLabel>نوع المصدر</InputLabel>
+            <InputLabel>{t('resourceType')}</InputLabel>
             <Select
               name="resourceType"
               value={formData.resourceType}
               onChange={handleChange}
-              label="نوع المصدر"
+              label={t('resourceType')}
             >
               {resourceTypes.map(type => (
                 <MenuItem key={type.value} value={type.value}>
@@ -272,12 +274,12 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
 
           {/* Category */}
           <FormControl fullWidth disabled={loading}>
-            <InputLabel>الفئة</InputLabel>
+            <InputLabel>{t('category')}</InputLabel>
             <Select
               name="category"
               value={formData.category}
               onChange={handleChange}
-              label="الفئة"
+              label={t('category')}
             >
               {categories.map(cat => (
                 <MenuItem key={cat} value={cat}>
@@ -289,12 +291,12 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
 
           {/* Difficulty */}
           <FormControl fullWidth disabled={loading}>
-            <InputLabel>مستوى الصعوبة</InputLabel>
+            <InputLabel>{t('difficultyLevel')}</InputLabel>
             <Select
               name="difficulty"
               value={formData.difficulty}
               onChange={handleChange}
-              label="مستوى الصعوبة"
+              label={t('difficultyLevel')}
             >
               {difficulties.map(diff => (
                 <MenuItem key={diff} value={diff}>
@@ -307,12 +309,12 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
           {/* Tags */}
           <TextField
             fullWidth
-            label="الكلمات المفتاحية"
+            label={t('keywords')}
             name="tags"
             value={formData.tags}
             onChange={handleChange}
-            placeholder="مثال: إلكترونيات, برمجة, Arduino"
-            helperText="افصل الكلمات بفواصل"
+            placeholder={t('supportResourceTagsPlaceholder')}
+            helperText={t('supportResourceTagsHelper')}
             disabled={loading}
           />
         </Box>
@@ -324,7 +326,7 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
           variant="outlined"
           disabled={loading}
         >
-          إلغاء
+          {t('cancel')}
         </Button>
         <Button
           onClick={handleSubmit}
@@ -334,10 +336,10 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
           {loading ? (
             <>
               <CircularProgress size={20} sx={{ mr: 1 }} />
-              جاري الرفع...
+              {t('uploading')}
             </>
           ) : (
-            'رفع المصدر'
+            t('uploadResource')
           )}
         </Button>
       </DialogActions>

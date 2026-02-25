@@ -43,6 +43,7 @@ import api from '../services/api';
 import FinalEvaluationSummary from '../components/FinalEvaluationSummary';
 import EvaluationProgressBar from '../components/EvaluationProgressBar';
 import SmartEvaluationButton from '../components/SmartEvaluationButton';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 /**
  * StudentProjectsManagement Component
@@ -57,6 +58,7 @@ import SmartEvaluationButton from '../components/SmartEvaluationButton';
  */
 const StudentProjectsManagement = () => {
   const navigate = useNavigate();
+  const { t } = useAppSettings();
   const [teams, setTeams] = useState([]);
   const [teamProjects, setTeamProjects] = useState({});
   const [evaluationStatus, setEvaluationStatus] = useState({});
@@ -145,7 +147,7 @@ const StudentProjectsManagement = () => {
       setEvaluationStatus(statusMap);
       setLoading(false);
     } catch (err) {
-      toast.error('فشل في تحميل الفرق');
+      toast.error(t('failedToLoadTeams'));
       setLoading(false);
     }
   };
@@ -164,7 +166,7 @@ const StudentProjectsManagement = () => {
       await api.get(`/assessment/observation-card/${projectId}/group`);
       navigate(`/evaluate/group/${projectId}/${teamId}/${submissionId}`);
     } catch (err) {
-      toast.error('لا يمكن التقييم قبل إنشاء بطاقة الملاحظة للتقييم الجماعي');
+      toast.error(t('cannotEvaluateBeforeGroupObservationCard'));
     }
   };
 
@@ -174,7 +176,7 @@ const StudentProjectsManagement = () => {
       await api.get(`/assessment/observation-card/${projectId}/individual_oral`);
       navigate(`/evaluate/individual/${projectId}/${studentId}/${submissionId}`);
     } catch (err) {
-      toast.error('لا يمكن التقييم قبل إنشاء بطاقة الملاحظة للتقييم الفردي والشفهي');
+      toast.error(t('cannotEvaluateBeforeIndividualObservationCard'));
     }
   };
 
@@ -189,10 +191,10 @@ const StudentProjectsManagement = () => {
         projectId,
         studentId
       });
-      toast.success('تم احتساب التقييم النهائي بنجاح');
+      toast.success(t('finalEvaluationCalculatedSuccess'));
       fetchTeams(); // Refresh data
     } catch (err) {
-      toast.error(err.response?.data?.message || 'فشل في احتساب التقييم النهائي');
+      toast.error(err.response?.data?.message || t('finalEvaluationCalculateFailed'));
     }
   };
 
@@ -202,10 +204,10 @@ const StudentProjectsManagement = () => {
         projectId,
         studentId
       });
-      toast.success('تم السماح بإعادة المحاولة');
+      toast.success(t('retryAllowedSuccess'));
       fetchTeams(); // Refresh data
     } catch (err) {
-      toast.error(err.response?.data?.message || 'فشل في السماح بإعادة المحاولة');
+      toast.error(err.response?.data?.message || t('retryAllowFailed'));
     }
   };
 
@@ -221,15 +223,15 @@ const StudentProjectsManagement = () => {
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
       <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
         <Typography variant="h4" gutterBottom>
-          مشروعات الطلاب - مركز التقييم
+          {t('studentProjectsEvaluationHubTitle')}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          عرض جميع الفرق ومشروعاتهم وحالة التقييم لكل مرحلة
+          {t('studentProjectsEvaluationHubSubtitle')}
         </Typography>
       </Paper>
 
       {teams.length === 0 ? (
-        <Alert severity="info">لا توجد فرق بعد</Alert>
+        <Alert severity="info">{t('noTeamsYet')}</Alert>
       ) : (
         <Box>
           {teams.map((team) => {
@@ -247,12 +249,12 @@ const StudentProjectsManagement = () => {
                     <GroupsIcon color="primary" />
                     <Typography variant="h6">{team.name}</Typography>
                     <Chip
-                      label={`${team.members?.length || 0} أعضاء`}
+                      label={t('teamMembersCount', { count: team.members?.length || 0 })}
                       size="small"
                       color="primary"
                     />
                     <Chip
-                      label={`${projects.length} مشروع`}
+                      label={t('projectsCount', { count: projects.length })}
                       size="small"
                       color="secondary"
                     />
@@ -263,7 +265,7 @@ const StudentProjectsManagement = () => {
                   {/* Team Members */}
                   <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                     <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                      أعضاء الفريق:
+                      {t('teamMembersLabel')}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                       {team.members?.map((member) => (
@@ -282,7 +284,7 @@ const StudentProjectsManagement = () => {
                   {/* Team Projects with Evaluation Status */}
                   {projects.length === 0 ? (
                     <Alert severity="info" sx={{ mt: 2 }}>
-                      لم يتم تسجيل الفريق في أي مشروع بعد
+                      {t('teamNoProjectsYet')}
                     </Alert>
                   ) : (
                     <Box>
@@ -304,7 +306,7 @@ const StudentProjectsManagement = () => {
                                 <AssignmentIcon color="action" />
                                 <Typography variant="h6">{project.title}</Typography>
                                 <Chip
-                                  label={project.difficulty || 'غير محدد'}
+                                  label={project.difficulty || t('notSpecified')}
                                   size="small"
                                   color={
                                     project.difficulty === 'easy' ? 'success' :
@@ -319,7 +321,7 @@ const StudentProjectsManagement = () => {
                                 startIcon={<VisibilityIcon />}
                                 onClick={() => handleViewSubmissions(project._id)}
                               >
-                                عرض التسليمات
+                                {t('viewSubmissions')}
                               </Button>
                             </Box>
 
@@ -329,19 +331,19 @@ const StudentProjectsManagement = () => {
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                   <GroupsIcon sx={{ color: 'primary.contrastText' }} />
                                   <Typography variant="subtitle1" fontWeight={600} sx={{ color: 'primary.contrastText' }}>
-                                    المرحلة الأولى - التقييم الجماعي
+                                    {t('groupEvaluationPhaseOneTitle')}
                                   </Typography>
                                   {status.phase1Complete ? (
                                     <Chip
                                       icon={<CheckCircleIcon />}
-                                      label="مكتمل"
+                                      label={t('completed')}
                                       color="success"
                                       size="small"
                                     />
                                   ) : (
                                     <Chip
                                       icon={<HourglassEmptyIcon />}
-                                      label="قيد الانتظار"
+                                      label={t('waitingStatus')}
                                       color="warning"
                                       size="small"
                                     />
@@ -353,7 +355,7 @@ const StudentProjectsManagement = () => {
                                   color={status.phase1Complete ? "success" : "primary"}
                                   onClick={() => handlePhase1Evaluation(project._id, team._id, enrollment._id)}
                                 >
-                                  {status.phase1Complete ? 'إعادة التقييم الجماعي' : 'بدء التقييم الجماعي'}
+                                  {status.phase1Complete ? t('reEvaluateGroup') : t('startGroupEvaluation')}
                                 </Button>
                               </Box>
                             </Box>
@@ -361,17 +363,17 @@ const StudentProjectsManagement = () => {
                             {/* Phase 2: Individual Evaluations per Student */}
                             <Box sx={{ p: 2, bgcolor: 'secondary.light', borderRadius: 1 }}>
                               <Typography variant="subtitle1" fontWeight={600} gutterBottom sx={{ color: 'secondary.contrastText' }}>
-                                المرحلة الثانية - التقييم الفردي والشفوي
+                                {t('individualOralEvaluationPhaseTwoTitle')}
                               </Typography>
 
                               <TableContainer component={Paper} sx={{ mt: 2 }}>
                                 <Table size="small">
                                   <TableHead>
                                     <TableRow>
-                                      <TableCell><strong>اسم الطالب</strong></TableCell>
-                                      <TableCell align="center"><strong>حالة التقييم الفردي</strong></TableCell>
-                                      <TableCell align="center"><strong>الإجراءات</strong></TableCell>
-                                      <TableCell align="center"><strong>التقييم النهائي</strong></TableCell>
+                                      <TableCell><strong>{t('studentName')}</strong></TableCell>
+                                      <TableCell align="center"><strong>{t('individualEvaluationStatus')}</strong></TableCell>
+                                      <TableCell align="center"><strong>{t('actions')}</strong></TableCell>
+                                      <TableCell align="center"><strong>{t('finalEvaluationTitle')}</strong></TableCell>
                                     </TableRow>
                                   </TableHead>
                                   <TableBody>
@@ -399,21 +401,21 @@ const StudentProjectsManagement = () => {
                                             {phase2Blocked ? (
                                               <Chip
                                                 icon={<LockIcon />}
-                                                label="محظور - أكمل المرحلة الأولى"
+                                                label={t('blockedCompletePhaseOne')}
                                                 color="error"
                                                 size="small"
                                               />
                                             ) : memberStatus.phase2Complete ? (
                                               <Chip
                                                 icon={<CheckCircleIcon />}
-                                                label="مكتمل"
+                                                label={t('completed')}
                                                 color="success"
                                                 size="small"
                                               />
                                             ) : (
                                               <Chip
                                                 icon={<HourglassEmptyIcon />}
-                                                label="قيد الانتظار"
+                                                label={t('waitingStatus')}
                                                 color="warning"
                                                 size="small"
                                               />
@@ -428,7 +430,7 @@ const StudentProjectsManagement = () => {
                                                 disabled={phase2Blocked}
                                                 onClick={() => handlePhase2Evaluation(project._id, member._id, enrollment._id)}
                                               >
-                                                {memberStatus.phase2Complete ? 'إعادة التقييم' : 'تقييم فردي'}
+                                                {memberStatus.phase2Complete ? t('reEvaluate') : t('individualEvaluationTitleShort')}
                                               </Button>
                                               {canFinalize && (
                                                 <Button
@@ -437,7 +439,7 @@ const StudentProjectsManagement = () => {
                                                   color="primary"
                                                   onClick={() => handleFinalize(project._id, member._id)}
                                                 >
-                                                  احتساب النهائي
+                                                  {t('calculateFinal')}
                                                 </Button>
                                               )}
                                             </Box>
@@ -456,7 +458,7 @@ const StudentProjectsManagement = () => {
                                                   size="small"
                                                   onClick={() => handleViewFinalEvaluation(project._id, member._id)}
                                                 >
-                                                  عرض
+                                                  {t('view')}
                                                 </Button>
                                                 {memberStatus.finalEval.status === 'failed' && (
                                                   <Button
@@ -465,13 +467,13 @@ const StudentProjectsManagement = () => {
                                                     color="warning"
                                                     onClick={() => handleAllowRetry(project._id, member._id)}
                                                   >
-                                                    سماح بإعادة المحاولة
+                                                    {t('allowRetry')}
                                                   </Button>
                                                 )}
                                               </Box>
                                             ) : (
                                               <Typography variant="caption" color="text.secondary">
-                                                لم يكتمل بعد
+                                                {t('notCompletedYet')}
                                               </Typography>
                                             )}
                                           </TableCell>
@@ -501,7 +503,7 @@ const StudentProjectsManagement = () => {
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>التقييم النهائي</DialogTitle>
+        <DialogTitle>{t('finalEvaluationTitle')}</DialogTitle>
         <DialogContent>
           {selectedFinalEval && (
             <FinalEvaluationSummary
@@ -516,7 +518,7 @@ const StudentProjectsManagement = () => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setFinalEvalDialogOpen(false)}>إغلاق</Button>
+          <Button onClick={() => setFinalEvalDialogOpen(false)}>{t('close')}</Button>
         </DialogActions>
       </Dialog>
     </Container>
