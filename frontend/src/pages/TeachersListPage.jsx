@@ -20,6 +20,7 @@ import {
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../services/api';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 /**
  * TeachersListPage Component
@@ -29,6 +30,7 @@ import api from '../services/api';
  */
 const TeachersListPage = () => {
   const navigate = useNavigate();
+  const { t } = useAppSettings();
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -43,7 +45,7 @@ const TeachersListPage = () => {
       setTeachers(response.data.data);
       setLoading(false);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'حدث خطأ في جلب المعلمين');
+      toast.error(err.response?.data?.message || t('teachersFetchError'));
       setLoading(false);
     }
   };
@@ -62,9 +64,9 @@ const TeachersListPage = () => {
   const getRoleLabel = (role) => {
     switch (role) {
       case 'admin':
-        return 'مدير';
+        return t('roleAdmin');
       case 'teacher':
-        return 'معلم';
+        return t('roleTeacher');
       default:
         return role;
     }
@@ -85,17 +87,17 @@ const TeachersListPage = () => {
           <SchoolIcon sx={{ fontSize: 40, color: 'primary.main' }} />
           <Box>
             <Typography variant="h4" fontWeight={700}>
-              المعلمين
+              {t('teachersTitle')}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              تواصل مع المعلمين والمشرفين
+              {t('teachersSubtitle')}
             </Typography>
           </Box>
         </Box>
       </Paper>
 
       {teachers.length === 0 ? (
-        <Alert severity="info">لا يوجد معلمين حالياً</Alert>
+        <Alert severity="info">{t('noTeachersAvailable')}</Alert>
       ) : (
         <Grid container spacing={3}>
           {teachers.map((teacher) => (

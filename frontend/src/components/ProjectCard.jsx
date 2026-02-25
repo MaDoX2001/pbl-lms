@@ -4,9 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import CodeIcon from '@mui/icons-material/Code';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PeopleIcon from '@mui/icons-material/People';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 const ProjectCard = ({ project }) => {
   const navigate = useNavigate();
+  const { t } = useAppSettings();
 
   const difficultyColor = {
     beginner: 'success',
@@ -15,9 +17,9 @@ const ProjectCard = ({ project }) => {
   };
 
   const difficultyLabel = {
-    beginner: 'مبتدئ',
-    intermediate: 'متوسط',
-    advanced: 'متقدم',
+    beginner: t('beginner'),
+    intermediate: t('intermediate'),
+    advanced: t('advanced'),
   };
 
   return (
@@ -64,7 +66,7 @@ const ProjectCard = ({ project }) => {
         <Box sx={{ display: 'flex', gap: 2, color: 'text.secondary', fontSize: '0.875rem' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <AccessTimeIcon fontSize="small" />
-            <span>{project.estimatedDuration} ساعة</span>
+            <span>{project.estimatedDuration} {t('hoursUnit')}</span>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <PeopleIcon fontSize="small" />
@@ -72,7 +74,7 @@ const ProjectCard = ({ project }) => {
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <CodeIcon fontSize="small" />
-            <span>{project.points} نقطة</span>
+            <span>{project.points} {t('pointsUnit')}</span>
           </Box>
         </Box>
       </CardContent>
@@ -84,7 +86,7 @@ const ProjectCard = ({ project }) => {
           fullWidth
           onClick={() => navigate(`/projects/${project._id}`)}
         >
-          عرض التفاصيل
+          {t('viewDetails')}
         </Button>
       </CardActions>
     </Card>

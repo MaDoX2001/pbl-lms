@@ -48,15 +48,15 @@ const ResourcesPage = () => {
   const [favorites, setFavorites] = useState([]);
 
   const categories = [
-    'all',
-    'الإلكترونيات',
-    'البرمجة',
-    'الدوائر الكهربائية',
-    'المحاكاة',
-    'الأنظمة الذكية',
-    'التعليمات والشروحات',
-    'مراجع عامة',
-    'أخرى'
+    { value: 'all', label: t('all') },
+    { value: t('catElectronicsValue'), label: t('catElectronics') },
+    { value: t('catProgrammingValue'), label: t('catProgramming') },
+    { value: t('catCircuitsValue'), label: t('catCircuits') },
+    { value: t('catSimulationValue'), label: t('catSimulation') },
+    { value: t('catSmartSystemsValue'), label: t('catSmartSystems') },
+    { value: t('catInstructionsValue'), label: t('catInstructions') },
+    { value: t('catReferencesValue'), label: t('catReferences') },
+    { value: t('catOtherValue'), label: t('catOther') }
   ];
 
   const resourceTypes = [
@@ -69,7 +69,12 @@ const ResourcesPage = () => {
     'other'
   ];
 
-  const difficulties = ['all', 'مبتدئ', 'متوسط', 'متقدم'];
+  const difficulties = [
+    { value: 'all', label: t('all') },
+    { value: t('difficultyBeginnerValue'), label: t('beginner') },
+    { value: t('difficultyIntermediateValue'), label: t('intermediate') },
+    { value: t('difficultyAdvancedValue'), label: t('advanced') }
+  ];
 
   // Load user role from Redux or localStorage
   useEffect(() => {
@@ -178,23 +183,23 @@ const ResourcesPage = () => {
 
   const getCategoryLabel = (category) => {
     const labels = {
-      'الإلكترونيات': t('catElectronics'),
-      'البرمجة': t('catProgramming'),
-      'الدوائر الكهربائية': t('catCircuits'),
-      'المحاكاة': t('catSimulation'),
-      'الأنظمة الذكية': t('catSmartSystems'),
-      'التعليمات والشروحات': t('catInstructions'),
-      'مراجع عامة': t('catReferences'),
-      'أخرى': t('catOther')
+      [t('catElectronicsValue')]: t('catElectronics'),
+      [t('catProgrammingValue')]: t('catProgramming'),
+      [t('catCircuitsValue')]: t('catCircuits'),
+      [t('catSimulationValue')]: t('catSimulation'),
+      [t('catSmartSystemsValue')]: t('catSmartSystems'),
+      [t('catInstructionsValue')]: t('catInstructions'),
+      [t('catReferencesValue')]: t('catReferences'),
+      [t('catOtherValue')]: t('catOther')
     };
     return labels[category] || category;
   };
 
   const getDifficultyLabel = (difficulty) => {
     const labels = {
-      'مبتدئ': t('beginner'),
-      'متوسط': t('intermediate'),
-      'متقدم': t('advanced')
+      [t('difficultyBeginnerValue')]: t('beginner'),
+      [t('difficultyIntermediateValue')]: t('intermediate'),
+      [t('difficultyAdvancedValue')]: t('advanced')
     };
     return labels[difficulty] || difficulty;
   };
@@ -258,8 +263,24 @@ const ResourcesPage = () => {
               size="small"
             >
               {categories.map(cat => (
-                <MenuItem key={cat} value={cat}>
-                  {cat === 'all' ? t('all') : getCategoryLabel(cat)}
+                <MenuItem key={cat.value} value={cat.value}>
+                  {cat.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField
+              fullWidth
+              select
+              label={t('difficultyLevel')}
+              value={filters.difficulty}
+              onChange={(e) => handleFilterChange('difficulty', e.target.value)}
+              size="small"
+            >
+              {difficulties.map(level => (
+                <MenuItem key={level.value} value={level.value}>
+                  {level.label}
                 </MenuItem>
               ))}
             </TextField>

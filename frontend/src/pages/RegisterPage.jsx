@@ -251,13 +251,13 @@ const RegisterPage = () => {
         <Paper elevation={3} sx={{ p: 4, maxWidth: 450, width: '100%' }}>
           <Alert severity="error" sx={{ mb: 2 }}>{invitationError}</Alert>
           <Typography variant="body2" sx={{ mt: 2 }} align="center">
-            للحصول على دعوة، يمكنك{' '}
+            {t('toGetInvitationYouCan')}{' '}
             <Link
               component="button"
               onClick={() => navigate('/register')}
               sx={{ cursor: 'pointer', fontWeight: 'bold' }}
             >
-              طلب دعوة جديدة
+              {t('requestNewInvitation')}
             </Link>
           </Typography>
         </Paper>
@@ -394,23 +394,23 @@ const RegisterPage = () => {
                   {requestData.password && (
                     <Box sx={{ mb: 2, p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
                       <Typography variant="caption" display="block" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        متطلبات كلمة المرور:
+                        {t('passwordRequirements')}
                       </Typography>
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                         <Typography variant="caption" sx={{ color: validatePasswordStrength(requestData.password).hasMinLength ? '#2e7d32' : '#d32f2f' }}>
-                          ✓ 8 أحرف على الأقل {validatePasswordStrength(requestData.password).hasMinLength ? '✓' : '✗'}
+                          ✓ {t('passwordReqMin8')} {validatePasswordStrength(requestData.password).hasMinLength ? '✓' : '✗'}
                         </Typography>
                         <Typography variant="caption" sx={{ color: validatePasswordStrength(requestData.password).hasUpperCase ? '#2e7d32' : '#d32f2f' }}>
-                          ✓ حروف كبيرة (A-Z) {validatePasswordStrength(requestData.password).hasUpperCase ? '✓' : '✗'}
+                          ✓ {t('passwordReqUpper')} {validatePasswordStrength(requestData.password).hasUpperCase ? '✓' : '✗'}
                         </Typography>
                         <Typography variant="caption" sx={{ color: validatePasswordStrength(requestData.password).hasLowerCase ? '#2e7d32' : '#d32f2f' }}>
-                          ✓ حروف صغيرة (a-z) {validatePasswordStrength(requestData.password).hasLowerCase ? '✓' : '✗'}
+                          ✓ {t('passwordReqLower')} {validatePasswordStrength(requestData.password).hasLowerCase ? '✓' : '✗'}
                         </Typography>
                         <Typography variant="caption" sx={{ color: validatePasswordStrength(requestData.password).hasNumbers ? '#2e7d32' : '#d32f2f' }}>
-                          ✓ أرقام (0-9) {validatePasswordStrength(requestData.password).hasNumbers ? '✓' : '✗'}
+                          ✓ {t('passwordReqNumbers')} {validatePasswordStrength(requestData.password).hasNumbers ? '✓' : '✗'}
                         </Typography>
                         <Typography variant="caption" sx={{ color: validatePasswordStrength(requestData.password).hasSpecialChar ? '#2e7d32' : '#d32f2f' }}>
-                          ✓ رموز خاصة (!@#$%^&* إلخ) {validatePasswordStrength(requestData.password).hasSpecialChar ? '✓' : '✗'}
+                          ✓ {t('passwordReqSpecial')} {validatePasswordStrength(requestData.password).hasSpecialChar ? '✓' : '✗'}
                         </Typography>
                       </Box>
                     </Box>
@@ -460,7 +460,7 @@ const RegisterPage = () => {
                   align="center"
                   sx={{ mt: 2, color: 'text.secondary' }}
                 >
-                  أو{' '}
+                  {t('or')}{' '}
                   <Link
                     component="button"
                     onClick={() => navigate('/login')}
@@ -479,11 +479,11 @@ const RegisterPage = () => {
                     {t('requestReceived')}
                   </Typography>
                   <Typography variant="body2" sx={{ mb: 2 }}>
-                    سيتم مراجعة طلبك من قبل المدير وسنرسل لك دعوة على البريد: <br />
+                    {t('requestReviewedInvitationToEmail')} <br />
                     <strong>{requestData.email}</strong>
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    تحقق من بريدك (والمجلد العشوائي أيضاً) خلال الساعات القادمة
+                    {t('checkEmailAndSpamSoon')}
                   </Typography>
 
                   <Box sx={{ mt: 3, display: 'flex', gap: 1 }}>
@@ -532,8 +532,8 @@ const RegisterPage = () => {
               <>
                 <Alert severity="info" sx={{ mb: 3 }}>
                   <Typography variant="body2">
-                    📧 <strong>البريد:</strong> {invitationData.email} <br />
-                    👤 <strong>الدور:</strong> {invitationData.role === 'student' ? 'طالب' : 'معلم'}
+                    📧 <strong>{t('emailLabel')}</strong> {invitationData.email} <br />
+                    👤 <strong>{t('roleLabel')}</strong> {invitationData.role === 'student' ? t('student') : t('teacher')}
                   </Typography>
                 </Alert>
 
@@ -623,23 +623,23 @@ const RegisterPage = () => {
                   {formData.password && (
                     <Box sx={{ mb: 2, p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
                       <Typography variant="caption" display="block" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        متطلبات كلمة المرور:
+                        {t('passwordRequirements')}
                       </Typography>
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                         <Typography variant="caption" sx={{ color: validatePasswordStrength(formData.password).hasMinLength ? '#2e7d32' : '#d32f2f' }}>
-                          ✓ 8 أحرف على الأقل {validatePasswordStrength(formData.password).hasMinLength ? '✓' : '✗'}
+                          ✓ {t('passwordReqMin8')} {validatePasswordStrength(formData.password).hasMinLength ? '✓' : '✗'}
                         </Typography>
                         <Typography variant="caption" sx={{ color: validatePasswordStrength(formData.password).hasUpperCase ? '#2e7d32' : '#d32f2f' }}>
-                          ✓ حروف كبيرة (A-Z) {validatePasswordStrength(formData.password).hasUpperCase ? '✓' : '✗'}
+                          ✓ {t('passwordReqUpper')} {validatePasswordStrength(formData.password).hasUpperCase ? '✓' : '✗'}
                         </Typography>
                         <Typography variant="caption" sx={{ color: validatePasswordStrength(formData.password).hasLowerCase ? '#2e7d32' : '#d32f2f' }}>
-                          ✓ حروف صغيرة (a-z) {validatePasswordStrength(formData.password).hasLowerCase ? '✓' : '✗'}
+                          ✓ {t('passwordReqLower')} {validatePasswordStrength(formData.password).hasLowerCase ? '✓' : '✗'}
                         </Typography>
                         <Typography variant="caption" sx={{ color: validatePasswordStrength(formData.password).hasNumbers ? '#2e7d32' : '#d32f2f' }}>
-                          ✓ أرقام (0-9) {validatePasswordStrength(formData.password).hasNumbers ? '✓' : '✗'}
+                          ✓ {t('passwordReqNumbers')} {validatePasswordStrength(formData.password).hasNumbers ? '✓' : '✗'}
                         </Typography>
                         <Typography variant="caption" sx={{ color: validatePasswordStrength(formData.password).hasSpecialChar ? '#2e7d32' : '#d32f2f' }}>
-                          ✓ رموز خاصة (!@#$%^&* إلخ) {validatePasswordStrength(formData.password).hasSpecialChar ? '✓' : '✗'}
+                          ✓ {t('passwordReqSpecial')} {validatePasswordStrength(formData.password).hasSpecialChar ? '✓' : '✗'}
                         </Typography>
                       </Box>
                     </Box>
@@ -690,13 +690,13 @@ const RegisterPage = () => {
                   <Card sx={{ backgroundColor: '#f5f5f5', mb: 3 }}>
                     <CardContent>
                       <Typography variant="body2" sx={{ mb: 1 }}>
-                        <strong>الاسم:</strong> {formData.name}
+                        <strong>{t('nameLabel')}</strong> {formData.name}
                       </Typography>
                       <Typography variant="body2" sx={{ mb: 1 }}>
-                        <strong>البريد:</strong> {formData.email}
+                        <strong>{t('emailLabel')}</strong> {formData.email}
                       </Typography>
                       <Typography variant="body2">
-                        <strong>الدور:</strong> {formData.role === 'student' ? 'طالب' : 'معلم'}
+                        <strong>{t('roleLabel')}</strong> {formData.role === 'student' ? t('student') : t('teacher')}
                       </Typography>
                     </CardContent>
                   </Card>
