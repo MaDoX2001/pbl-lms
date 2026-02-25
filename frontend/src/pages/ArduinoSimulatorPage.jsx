@@ -1,16 +1,19 @@
 import React from 'react';
 import { Box, Container, Typography, Paper } from '@mui/material';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 function ArduinoSimulatorPage() {
+  const { t } = useAppSettings();
+
   return (
     <Container maxWidth={false} sx={{ py: 4, px: 2, height: 'calc(100vh - 64px)' }}>
       <Paper elevation={3} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
           <Typography variant="h5" component="h1" gutterBottom>
-            محاكي Arduino
+            {t('arduinoSimulatorTitle')}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            محاكي Arduino عبر الإنترنت - يمكنك كتابة وتشغيل أكواد Arduino مباشرة في المتصفح
+            {t('arduinoSimulatorSubtitle')}
           </Typography>
         </Box>
         
