@@ -15,6 +15,7 @@ const Navbar = ({ onMenuToggle }) => {
   const dispatch = useDispatch();
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const { language, mode, direction, toggleLanguage, toggleMode, t } = useAppSettings();
+  const isArabic = language === 'ar';
   const [anchorEl, setAnchorEl] = React.useState(null);
 
   const handleMenu = (event) => {
@@ -79,7 +80,7 @@ const Navbar = ({ onMenuToggle }) => {
             color="inherit"
             onClick={toggleLanguage}
             aria-label="toggle language"
-            sx={{ borderRadius: 2 }}
+            sx={{ borderRadius: 2, order: isArabic ? 3 : 1 }}
           >
             <TranslateIcon />
             <Typography variant="caption" sx={{ ml: 0.5, fontWeight: 700, color: 'white' }}>
@@ -91,7 +92,7 @@ const Navbar = ({ onMenuToggle }) => {
             color="inherit"
             onClick={toggleMode}
             aria-label="toggle mode"
-            sx={{ borderRadius: 2 }}
+            sx={{ borderRadius: 2, order: 2 }}
           >
             {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
           </IconButton>
@@ -105,6 +106,7 @@ const Navbar = ({ onMenuToggle }) => {
                 aria-haspopup="true"
                 onClick={handleMenu}
                 color="inherit"
+                sx={{ order: isArabic ? 1 : 3 }}
               >
                 {user?.avatar ? (
                   <Avatar src={user.avatar} sx={{ width: 32, height: 32 }} />

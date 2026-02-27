@@ -96,7 +96,7 @@ const Sidebar = ({ open, onClose }) => {
       
       {/* Sidebar Drawer */}
       <Drawer
-        anchor={direction === 'rtl' ? 'right' : 'left'}
+        anchor="left"
         open={open}
         onClose={onClose}
         variant="temporary"
