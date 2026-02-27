@@ -33,16 +33,23 @@ const Navbar = ({ onMenuToggle }) => {
 
   return (
     <AppBar position="sticky" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, boxShadow: '0 1px 3px rgba(0,0,0,0.12)' }}>
-      <Toolbar sx={{ minHeight: '52px !important', py: 0.5, direction }}>
+      <Toolbar
+        sx={{
+          minHeight: '52px !important',
+          py: 0.5,
+          direction,
+          display: 'flex',
+          flexDirection: direction === 'rtl' ? 'row-reverse' : 'row'
+        }}
+      >
         <IconButton
           color="inherit"
           aria-label="toggle menu"
           onClick={onMenuToggle}
           edge="start"
           size="medium"
-          sx={{ 
-            mr: direction === 'rtl' ? 0 : 2,
-            ml: direction === 'rtl' ? 2 : 0,
+          sx={{
+            mx: 1,
             transition: 'background-color 0.2s ease',
             '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
           }}
@@ -110,12 +117,12 @@ const Navbar = ({ onMenuToggle }) => {
                 anchorEl={anchorEl}
                 anchorOrigin={{
                   vertical: 'top',
-                  horizontal: 'right',
+                  horizontal: direction === 'rtl' ? 'left' : 'right',
                 }}
                 keepMounted
                 transformOrigin={{
                   vertical: 'top',
-                  horizontal: 'right',
+                  horizontal: direction === 'rtl' ? 'left' : 'right',
                 }}
                 open={Boolean(anchorEl)}
                 onClose={handleClose}
