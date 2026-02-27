@@ -46,7 +46,7 @@ const Sidebar = ({ open, onClose }) => {
 
     const authenticatedItems = [
       { to: '/projects', icon: <FolderIcon />, label: t('projects') },
-      { to: '/arduino-simulator', icon: <CodeIcon />, label: 'Arduino Simulator' },
+      { to: '/arduino-simulator', icon: <CodeIcon />, label: t('arduinoSimulatorTitle') },
       { to: '/dashboard', icon: <DashboardIcon />, label: t('dashboard') },
       { to: '/chat', icon: <ChatIcon />, label: t('chats') },
       { to: '/resources', icon: <BookmarkIcon />, label: t('resources') },
@@ -61,8 +61,8 @@ const Sidebar = ({ open, onClose }) => {
     if (user?.role === 'teacher' || user?.role === 'admin') {
       authenticatedItems.push({ to: '/leaderboard', icon: <LeaderboardIcon />, label: t('leaderboard'), teacher: true });
       authenticatedItems.push({ to: '/create-project', icon: <AddBoxIcon />, label: t('createProject'), teacher: true });
-      authenticatedItems.push({ to: '/admin/student-projects', icon: <AssignmentIcon />, label: 'Student Projects', teacher: true });
-      authenticatedItems.push({ to: '/admin/teams', icon: <GroupsIcon />, label: 'Teams Management', teacher: true });
+      authenticatedItems.push({ to: '/admin/student-projects', icon: <AssignmentIcon />, label: t('studentProjectsMenu'), teacher: true });
+      authenticatedItems.push({ to: '/admin/teams', icon: <GroupsIcon />, label: t('teamsManagementTitle'), teacher: true });
       authenticatedItems.push({ to: '/users', icon: <PeopleIcon />, label: t('users'), teacher: true });
     }
 
@@ -172,7 +172,7 @@ const Sidebar = ({ open, onClose }) => {
                 transition: 'all 0.2s',
                 '&:hover': {
                   backgroundColor: 'rgba(25, 118, 210, 0.08)',
-                  transform: 'translateX(-4px)'
+                  transform: direction === 'rtl' ? 'translateX(4px)' : 'translateX(-4px)'
                 },
                 '&.active': {
                   backgroundColor: 'primary.main',
@@ -212,7 +212,7 @@ const Sidebar = ({ open, onClose }) => {
                     transition: 'all 0.2s',
                     '&:hover': {
                       backgroundColor: 'rgba(25, 118, 210, 0.08)',
-                      transform: 'translateX(-4px)'
+                      transform: direction === 'rtl' ? 'translateX(4px)' : 'translateX(-4px)'
                     },
                     '&.active': {
                       backgroundColor: 'primary.main',
@@ -254,7 +254,7 @@ const Sidebar = ({ open, onClose }) => {
                         transition: 'all 0.2s',
                         '&:hover': {
                           backgroundColor: 'rgba(25, 118, 210, 0.08)',
-                          transform: 'translateX(-4px)'
+                          transform: direction === 'rtl' ? 'translateX(4px)' : 'translateX(-4px)'
                         },
                         '&.active': {
                           backgroundColor: 'primary.main',

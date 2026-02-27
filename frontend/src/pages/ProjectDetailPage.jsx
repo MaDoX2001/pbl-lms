@@ -59,7 +59,7 @@ const ProjectDetailPage = () => {
   const dispatch = useDispatch();
   const { currentProject: project, loading } = useSelector((state) => state.projects);
   const { user, isAuthenticated } = useSelector((state) => state.auth);
-  const { t } = useAppSettings();
+  const { t, direction } = useAppSettings();
 
   const [materials, setMaterials] = useState([]);
   const [assignments, setAssignments] = useState([]);
@@ -400,7 +400,7 @@ const ProjectDetailPage = () => {
 
       <Grid container spacing={3}>
         {/* Main Content */}
-        <Grid item xs={12} md={8}>
+        <Grid item xs={12} md={8} sx={{ order: { xs: 2, md: direction === 'rtl' ? 2 : 1 } }}>
           {/* Description */}
           <Paper sx={{ p: 3, mb: 3 }}>
             <Typography variant="h5" gutterBottom fontWeight={600}>
@@ -485,7 +485,7 @@ const ProjectDetailPage = () => {
         </Grid>
 
         {/* Sidebar */}
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={4} sx={{ order: { xs: 1, md: direction === 'rtl' ? 1 : 2 } }}>
           {/* Enrollment Card */}
           <Paper sx={{ p: 3, mb: 3, position: 'sticky', top: 20 }}>
             {isAuthenticated ? (
