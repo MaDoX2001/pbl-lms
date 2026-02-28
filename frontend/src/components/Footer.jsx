@@ -7,14 +7,17 @@ import ChatIcon from '@mui/icons-material/Chat';
 import { useAppSettings } from '../context/AppSettingsContext';
 
 const Footer = () => {
-  const { t } = useAppSettings();
+  const { t, mode } = useAppSettings();
+  const isDark = mode === 'dark';
 
   return (
     <Box
       component="footer"
       sx={{
-        bgcolor: 'primary.main',
-        color: 'white',
+        bgcolor: isDark ? 'background.paper' : 'primary.main',
+        color: isDark ? 'text.primary' : 'white',
+        borderTop: isDark ? '1px solid' : 'none',
+        borderColor: 'divider',
         py: 4,
         mt: 'auto',
       }}
@@ -52,7 +55,7 @@ const Footer = () => {
           </Grid>
         </Grid>
 
-        <Box sx={{ mt: 4, pt: 2, borderTop: '1px solid rgba(255,255,255,0.2)' }}>
+        <Box sx={{ mt: 4, pt: 2, borderTop: '1px solid', borderColor: isDark ? 'divider' : 'rgba(255,255,255,0.2)' }}>
           <Typography variant="body2" align="center">
             {t('rights', { year: new Date().getFullYear() })}
           </Typography>
