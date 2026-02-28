@@ -63,13 +63,12 @@ const Navbar = ({ onMenuToggle }) => {
           component={Link}
           to="/"
           sx={{ 
-            flexGrow: 1,
+            flexGrow: direction === 'rtl' ? 0 : 1,
+            ml: direction === 'rtl' ? 'auto' : 0,
             textDecoration: 'none', 
             color: 'inherit',
             fontWeight: 700,
             fontSize: { xs: '0.95rem', sm: '1.2rem' },
-            direction,
-            textAlign: direction === 'rtl' ? 'right' : 'left'
           }}
         >
           {t('appName')}
