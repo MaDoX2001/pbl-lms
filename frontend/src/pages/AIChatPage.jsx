@@ -54,9 +54,10 @@ const AIChatPage = () => {
       const res = await api.post('/ai/chat', { message: userText, history });
       setMessages([...newMessages, { role: 'assistant', content: res.data.data.reply }]);
     } catch (err) {
+      const is429 = err.response?.status === 429;
       setMessages([...newMessages, {
         role: 'assistant',
-        content: t('aiError'),
+        content: is429 ? t('aiRateLimited') : t('aiError'),
         error: true,
       }]);
     } finally {
