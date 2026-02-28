@@ -2,11 +2,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// Use gemini-1.5-flash - confirmed free tier available
-const MODELS = [
-  'gemini-1.5-flash',
-  'gemini-1.5-pro',
-];
+const MODEL = 'gemini-2.0-flash';
 
 const SYSTEM_PROMPT = `أنت مساعد ذكاء اصطناعي متخصص في منصة التعلم بالمشاريع (PBL). 
 تساعد الطلاب في:
@@ -37,19 +33,18 @@ const chat = async (req, res) => {
       parts: [{ text: msg.content }],
     }));
 
-    let lastError = null;
+    const model = genAI.getGenerativeModel({
+      model: MODEL,
+      generationConfig: {
+        maxOutputTokens: 1024,
+        temperature: 0.7,
+      },
+    });
 
-    for (let i = 0; i < MODELS.length; i++) {
-      const modelName = MODELS[i];
+    // Retry up to 3 times with increasing delay for 429
+    const MAX_RETRIES = 3;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        const model = genAI.getGenerativeModel({
-          model: modelName,
-          generationConfig: {
-            maxOutputTokens: 1024, // keep low to save quota
-            temperature: 0.7,
-          },
-        });
-
         const chatSession = model.startChat({
           history: [
             { role: 'user', parts: [{ text: SYSTEM_PROMPT }] },
@@ -61,23 +56,21 @@ const chat = async (req, res) => {
         const result = await chatSession.sendMessage(message);
         const text = result.response.text();
 
-        console.log(`✅ AI response via ${modelName}`);
-        return res.json({ success: true, data: { reply: text, model: modelName } });
+        console.log(`✅ AI response via ${MODEL} (attempt ${attempt + 1})`);
+        return res.json({ success: true, data: { reply: text, model: MODEL } });
 
       } catch (err) {
-        lastError = err;
-        if (err.status === 429 || err.status === 404) {
-          console.warn(`⚠️ ${modelName} unavailable (${err.status}), trying next...`);
-          // Wait longer before trying next model to avoid burst rate limit
-          if (i < MODELS.length - 1) await sleep(2000);
+        if (err.status === 429 && attempt < MAX_RETRIES - 1) {
+          const waitTime = (attempt + 1) * 5000; // 5s, 10s
+          console.warn(`⚠️ ${MODEL} rate limited, retrying in ${waitTime / 1000}s...`);
+          await sleep(waitTime);
           continue;
         }
         throw err;
       }
     }
 
-    // All models exhausted
-    console.error('All models rate-limited');
+    // Should not reach here but just in case
     return res.status(429).json({
       success: false,
       message: 'الخدمة مشغولة حالياً، حاول بعد دقيقة.',
