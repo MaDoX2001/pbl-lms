@@ -2,13 +2,12 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// Fallback models in order - if one is rate-limited, try the next
+// Lightweight models only - ordered by speed/efficiency
 const MODELS = [
-  'gemini-2.5-pro-exp-03-25',
-  'gemini-2.0-flash',
-  'gemini-1.5-flash',
-  'gemini-1.5-flash-8b',
-  'gemini-1.0-pro',
+  'gemini-1.5-flash-8b',   // lightest - 1M tokens/day free
+  'gemini-1.5-flash',       // fast - 1M tokens/day free
+  'gemini-2.0-flash-lite',  // new lightweight flash
+  'gemini-2.0-flash',       // heavier fallback
 ];
 
 const SYSTEM_PROMPT = `أنت مساعد ذكاء اصطناعي متخصص في منصة التعلم بالمشاريع (PBL). 
@@ -21,6 +20,8 @@ const SYSTEM_PROMPT = `أنت مساعد ذكاء اصطناعي متخصص في
 
 أجب بشكل واضح ومختصر. إذا كان السؤال بالعربي أجب بالعربي، وإذا كان بالإنجليزي أجب بالإنجليزي.`;
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 // POST /api/ai/chat
 const chat = async (req, res) => {
   try {
@@ -30,17 +31,26 @@ const chat = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Message is required' });
     }
 
-    const chatHistory = history.map((msg) => ({
+    // Trim history to last 6 messages to reduce token usage
+    const trimmedHistory = history.slice(-6);
+
+    const chatHistory = trimmedHistory.map((msg) => ({
       role: msg.role === 'user' ? 'user' : 'model',
       parts: [{ text: msg.content }],
     }));
 
     let lastError = null;
 
-    // Try each model in order until one works
-    for (const modelName of MODELS) {
+    for (let i = 0; i < MODELS.length; i++) {
+      const modelName = MODELS[i];
       try {
-        const model = genAI.getGenerativeModel({ model: modelName });
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            maxOutputTokens: 1024, // keep low to save quota
+            temperature: 0.7,
+          },
+        });
 
         const chatSession = model.startChat({
           history: [
@@ -48,10 +58,6 @@ const chat = async (req, res) => {
             { role: 'model', parts: [{ text: 'فهمت. سأساعدك في كل ما يخص البرمجة والمشاريع التقنية.' }] },
             ...chatHistory,
           ],
-          generationConfig: {
-            maxOutputTokens: 2048,
-            temperature: 0.7,
-          },
         });
 
         const result = await chatSession.sendMessage(message);
@@ -62,28 +68,28 @@ const chat = async (req, res) => {
 
       } catch (err) {
         lastError = err;
-        // Only continue to next model if rate-limited (429) or model not found (404)
         if (err.status === 429 || err.status === 404) {
-          console.warn(`⚠️ Model ${modelName} unavailable (${err.status}), trying next...`);
+          console.warn(`⚠️ ${modelName} unavailable (${err.status}), trying next...`);
+          // Small delay before trying next model
+          if (i < MODELS.length - 1) await sleep(500);
           continue;
         }
-        // For other errors, fail immediately
         throw err;
       }
     }
 
     // All models exhausted
-    console.error('All Gemini models rate-limited:', lastError?.message);
+    console.error('All models rate-limited');
     return res.status(429).json({
       success: false,
       message: 'الخدمة مشغولة حالياً، حاول بعد دقيقة.',
     });
 
   } catch (error) {
-    console.error('Gemini AI error:', error);
+    console.error('Gemini AI error:', error.message);
     res.status(500).json({
       success: false,
-      message: error.message || 'AI service error',
+      message: 'حدثت مشكلة في الخدمة، حاول مرة أخرى.',
     });
   }
 };
