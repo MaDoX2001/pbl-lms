@@ -4,9 +4,10 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Fallback models in order - if one is rate-limited, try the next
 const MODELS = [
+  'gemini-2.5-pro-exp-03-25',
+  'gemini-2.0-flash',
   'gemini-1.5-flash',
   'gemini-1.5-flash-8b',
-  'gemini-2.0-flash',
   'gemini-1.0-pro',
 ];
 
