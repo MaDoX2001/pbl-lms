@@ -30,6 +30,7 @@ const preassessmentRoutes = require('./routes/preassessment.routes');
 const teamRoutes = require('./routes/team.routes');
 const teamProjectRoutes = require('./routes/teamProject.routes');
 const teamSubmissionRoutes = require('./routes/teamSubmission.routes');
+const aiRoutes = require('./routes/ai.routes');
 
 // Import services
 const cloudinaryService = require('./services/cloudinary.service');
@@ -109,6 +110,7 @@ app.use('/api/preassessment', preassessmentRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/team-projects', teamProjectRoutes);
 app.use('/api/team-submissions', teamSubmissionRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
