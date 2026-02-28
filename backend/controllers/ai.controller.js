@@ -4,10 +4,8 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Lightweight models only - ordered by speed/efficiency
 const MODELS = [
-  'gemini-2.0-flash-lite',   // lightest 2.0
-  'gemini-2.0-flash',        // standard 2.0
-  'gemini-1.5-flash',        // stable 1.5
-  'gemini-1.5-flash-8b',     // smallest 1.5
+  'gemini-2.0-flash-lite',
+  'gemini-2.0-flash',
 ];
 
 const SYSTEM_PROMPT = `أنت مساعد ذكاء اصطناعي متخصص في منصة التعلم بالمشاريع (PBL). 
@@ -70,8 +68,8 @@ const chat = async (req, res) => {
         lastError = err;
         if (err.status === 429 || err.status === 404) {
           console.warn(`⚠️ ${modelName} unavailable (${err.status}), trying next...`);
-          // Small delay before trying next model
-          if (i < MODELS.length - 1) await sleep(500);
+          // Wait longer before trying next model to avoid burst rate limit
+          if (i < MODELS.length - 1) await sleep(2000);
           continue;
         }
         throw err;
