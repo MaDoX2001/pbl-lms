@@ -4,10 +4,10 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Lightweight models only - ordered by speed/efficiency
 const MODELS = [
-  'gemini-1.5-flash-8b',   // lightest - 1M tokens/day free
-  'gemini-1.5-flash',       // fast - 1M tokens/day free
-  'gemini-2.0-flash-lite',  // new lightweight flash
-  'gemini-2.0-flash',       // heavier fallback
+  'gemini-2.0-flash-lite',   // lightest 2.0
+  'gemini-2.0-flash',        // standard 2.0
+  'gemini-1.5-flash',        // stable 1.5
+  'gemini-1.5-flash-8b',     // smallest 1.5
 ];
 
 const SYSTEM_PROMPT = `أنت مساعد ذكاء اصطناعي متخصص في منصة التعلم بالمشاريع (PBL). 
