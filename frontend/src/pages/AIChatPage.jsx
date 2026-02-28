@@ -1,20 +1,28 @@
 import React, { useState } from 'react';
-import { Box, Typography, Button, Paper, Alert, Divider, Chip } from '@mui/material';
+import { Box, Typography, Button, Paper, Divider, Chip, Alert } from '@mui/material';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { useAppSettings } from '../context/AppSettingsContext';
 
 const AIChatPage = () => {
   const { t, direction } = useAppSettings();
-  const [iframeError, setIframeError] = useState(false);
+  const [iframeBlocked, setIframeBlocked] = useState(false);
+
+  // ChatGPT blocks iframes - detect after short delay
+  React.useEffect(() => {
+    const timer = setTimeout(() => setIframeBlocked(true), 3000);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 900, mx: 'auto', direction }}>
+    <Box sx={{ p: { xs: 2, md: 3 }, direction, textAlign: direction === 'rtl' ? 'right' : 'left' }}>
+
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-        <SmartToyIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, flexDirection: direction === 'rtl' ? 'row-reverse' : 'row' }}>
+        <SmartToyIcon sx={{ fontSize: 36, color: 'primary.main' }} />
         <Box>
-          <Typography variant="h4" fontWeight={700}>
+          <Typography variant="h5" fontWeight={700}>
             {t('aiAssistantTitle')}
           </Typography>
           <Typography variant="body2" color="text.secondary">
@@ -23,39 +31,57 @@ const AIChatPage = () => {
         </Box>
       </Box>
 
-      <Divider sx={{ mb: 3 }} />
+      <Divider sx={{ mb: 2 }} />
 
-      {/* Open Button */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: 4,
-          textAlign: 'center',
-          border: '2px dashed',
-          borderColor: 'primary.main',
-          borderRadius: 3,
-          backgroundColor: 'action.hover',
-          mb: 3,
-        }}
-      >
-        <SmartToyIcon sx={{ fontSize: 64, color: 'primary.main', mb: 2, opacity: 0.8 }} />
-        <Typography variant="h6" fontWeight={600} gutterBottom>
-          {t('aiOpenChatGPT')}
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          {t('aiOpenChatGPTDesc')}
-        </Typography>
-        <Button
-          variant="contained"
-          size="large"
-          startIcon={<OpenInNewIcon />}
-          href="https://chat.openai.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          sx={{ borderRadius: 2, px: 4, py: 1.5, fontSize: '1rem' }}
-        >
-          {t('aiOpenButton')}
-        </Button>
+      {/* Iframe attempt */}
+      <Paper elevation={1} sx={{ borderRadius: 3, overflow: 'hidden', mb: 2, position: 'relative', minHeight: 520 }}>
+        {!iframeBlocked ? (
+          <iframe
+            src="https://chat.openai.com"
+            title="ChatGPT"
+            width="100%"
+            height="520"
+            style={{ border: 'none', display: 'block' }}
+          />
+        ) : (
+          /* Fallback when iframe is blocked */
+          <Box
+            sx={{
+              height: 520,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 2,
+              p: 4,
+              backgroundColor: 'action.hover',
+            }}
+          >
+            <SmartToyIcon sx={{ fontSize: 72, color: 'primary.main', opacity: 0.7 }} />
+            <Typography variant="h6" fontWeight={700} textAlign="center">
+              {t('aiOpenChatGPT')}
+            </Typography>
+            <Alert
+              severity="info"
+              icon={<InfoOutlinedIcon />}
+              sx={{ borderRadius: 2, maxWidth: 420, textAlign: direction === 'rtl' ? 'right' : 'left' }}
+            >
+              {t('aiIframeBlocked')}
+            </Alert>
+            <Button
+              variant="contained"
+              size="large"
+              endIcon={direction === 'rtl' ? null : <OpenInNewIcon />}
+              startIcon={direction === 'rtl' ? <OpenInNewIcon /> : null}
+              href="https://chat.openai.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{ borderRadius: 2, px: 5, py: 1.5, fontSize: '1rem', mt: 1 }}
+            >
+              {t('aiOpenButton')}
+            </Button>
+          </Box>
+        )}
       </Paper>
 
       {/* Tips */}
@@ -64,14 +90,17 @@ const AIChatPage = () => {
           {t('aiTipsTitle')}
         </Typography>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 1 }}>
-          {[
-            t('aiTip1'),
-            t('aiTip2'),
-            t('aiTip3'),
-            t('aiTip4'),
-          ].map((tip, i) => (
-            <Box key={i} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-              <Chip label={i + 1} size="small" color="primary" sx={{ minWidth: 28, height: 24, mt: 0.2 }} />
+          {[t('aiTip1'), t('aiTip2'), t('aiTip3'), t('aiTip4')].map((tip, i) => (
+            <Box
+              key={i}
+              sx={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 1.5,
+                flexDirection: direction === 'rtl' ? 'row-reverse' : 'row',
+              }}
+            >
+              <Chip label={i + 1} size="small" color="primary" sx={{ minWidth: 28, height: 24, mt: 0.2, flexShrink: 0 }} />
               <Typography variant="body2" color="text.secondary">{tip}</Typography>
             </Box>
           ))}
