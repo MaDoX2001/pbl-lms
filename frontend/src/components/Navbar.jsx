@@ -64,8 +64,6 @@ const Navbar = ({ onMenuToggle }) => {
           to="/"
           sx={{ 
             flexGrow: 1,
-            order: direction === 'rtl' ? 0 : 1,
-            marginInlineStart: direction === 'rtl' ? 0 : 1,
             textDecoration: 'none', 
             color: 'inherit',
             fontWeight: 700,
