@@ -9,6 +9,9 @@ yarn-error.log*
 .env.local
 .env.development
 .env.production
+backend/.env
+backend/.env.*
+!backend/.env.example
 
 # Google Cloud credentials
 *.json
