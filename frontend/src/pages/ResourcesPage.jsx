@@ -32,6 +32,7 @@ const ResourcesPage = () => {
   // Get user from Redux
   const reduxUser = useSelector(state => state.auth?.user);
   const { t, direction } = useAppSettings();
+  const isRtl = direction === 'rtl';
   
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -205,9 +206,9 @@ const ResourcesPage = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4, direction }}>
+    <Container maxWidth="lg" dir={direction} sx={{ py: 4, direction, textAlign: isRtl ? 'right' : 'left' }}>
       {/* Header */}
-      <Box sx={{ mb: 4, textAlign: direction === 'rtl' ? 'right' : 'left' }}>
+      <Box sx={{ mb: 4, textAlign: isRtl ? 'right' : 'left' }}>
         <Typography variant="h3" sx={{ mb: 2, fontWeight: 'bold', color: '#1976d2' }}>
           {t('resourcesTitle')}
         </Typography>
@@ -239,8 +240,8 @@ const ResourcesPage = () => {
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
       {/* Filters */}
-      <Card sx={{ mb: 4, p: 3, backgroundColor: '#f5f5f5' }}>
-        <Grid container spacing={2}>
+      <Card sx={{ mb: 4, p: 3, backgroundColor: '#f5f5f5', direction, textAlign: isRtl ? 'right' : 'left' }}>
+        <Grid container spacing={2} sx={{ direction }}>
           <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
@@ -250,7 +251,12 @@ const ResourcesPage = () => {
               value={filters.search}
               onChange={handleSearch}
               size="small"
-              InputProps={{ style: { textAlign: direction === 'rtl' ? 'right' : 'left' } }}
+              InputProps={{ style: { textAlign: isRtl ? 'right' : 'left' } }}
+              sx={{
+                '& .MuiInputBase-input': {
+                  textAlign: isRtl ? 'right' : 'left'
+                }
+              }}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
@@ -261,6 +267,11 @@ const ResourcesPage = () => {
               value={filters.category}
               onChange={(e) => handleFilterChange('category', e.target.value)}
               size="small"
+              sx={{
+                '& .MuiSelect-select': {
+                  textAlign: isRtl ? 'right' : 'left'
+                }
+              }}
             >
               {categories.map(cat => (
                 <MenuItem key={cat.value} value={cat.value}>
@@ -277,6 +288,11 @@ const ResourcesPage = () => {
               value={filters.difficulty}
               onChange={(e) => handleFilterChange('difficulty', e.target.value)}
               size="small"
+              sx={{
+                '& .MuiSelect-select': {
+                  textAlign: isRtl ? 'right' : 'left'
+                }
+              }}
             >
               {difficulties.map(level => (
                 <MenuItem key={level.value} value={level.value}>
@@ -293,6 +309,11 @@ const ResourcesPage = () => {
               value={filters.resourceType}
               onChange={(e) => handleFilterChange('resourceType', e.target.value)}
               size="small"
+              sx={{
+                '& .MuiSelect-select': {
+                  textAlign: isRtl ? 'right' : 'left'
+                }
+              }}
             >
               {resourceTypes.map(type => (
                 <MenuItem key={type} value={type}>
@@ -309,6 +330,11 @@ const ResourcesPage = () => {
               value={filters.sort}
               onChange={(e) => handleFilterChange('sort', e.target.value)}
               size="small"
+              sx={{
+                '& .MuiSelect-select': {
+                  textAlign: isRtl ? 'right' : 'left'
+                }
+              }}
             >
               <MenuItem value="newest">{t('newest')}</MenuItem>
               <MenuItem value="popular">{t('mostViewed')}</MenuItem>
@@ -370,7 +396,7 @@ const ResourcesPage = () => {
                   )}
                 </Box>
 
-                <CardContent sx={{ flexGrow: 1, textAlign: direction === 'rtl' ? 'right' : 'left' }}>
+                <CardContent sx={{ flexGrow: 1, textAlign: isRtl ? 'right' : 'left' }}>
                   <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold' }}>
                     {resource.title}
                   </Typography>
@@ -380,7 +406,7 @@ const ResourcesPage = () => {
                   </Typography>
 
                   {/* Type and Category Chips */}
-                  <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: direction === 'rtl' ? 'flex-start' : 'flex-end' }}>
+                  <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: isRtl ? 'flex-end' : 'flex-start' }}>
                     <Chip
                       size="small"
                       label={getTypeLabel(resource.resourceType)}
@@ -402,7 +428,7 @@ const ResourcesPage = () => {
 
                   {/* Rating and Stats */}
                   <Box sx={{ mb: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: direction === 'rtl' ? 'flex-start' : 'flex-end' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: isRtl ? 'flex-end' : 'flex-start' }}>
                       <Rating
                         value={resource.rating.average}
                         readOnly

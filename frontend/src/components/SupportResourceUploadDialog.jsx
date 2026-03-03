@@ -24,6 +24,7 @@ import { generateThumbnailBlob } from '../utils/thumbnail';
 
 const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
   const { t, direction } = useAppSettings();
+  const isRtl = direction === 'rtl';
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -211,11 +212,11 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ textAlign: direction === 'rtl' ? 'right' : 'left', fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>
+      <DialogTitle sx={{ textAlign: isRtl ? 'right' : 'left', fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>
         📚 {t('uploadNewResource')}
       </DialogTitle>
 
-      <DialogContent sx={{ direction, mt: 2 }}>
+      <DialogContent sx={{ direction, mt: 2, textAlign: isRtl ? 'right' : 'left' }}>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             <Typography variant="body2">{error}</Typography>
@@ -242,6 +243,7 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
             onChange={handleChange}
             placeholder={t('supportResourceTitlePlaceholder')}
             disabled={loading}
+            inputProps={{ style: { textAlign: isRtl ? 'right' : 'left' } }}
           />
 
           {/* Description */}
@@ -255,6 +257,7 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
             onChange={handleChange}
             placeholder={t('supportResourceDescriptionPlaceholder')}
             disabled={loading}
+            inputProps={{ style: { textAlign: isRtl ? 'right' : 'left' } }}
           />
 
           {/* File Upload */}
@@ -328,6 +331,7 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
             placeholder={t('supportResourceExternalUrlPlaceholder')}
             helperText="استخدم الرابط الخارجي فقط إذا لم ترفع ملفًا."
             disabled={loading}
+            inputProps={{ style: { textAlign: isRtl ? 'right' : 'left' } }}
           />
 
           {/* Resource Type */}
@@ -339,6 +343,11 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
               onChange={handleChange}
               label={t('resourceType')}
               disabled={loading || !!file}
+              sx={{
+                '& .MuiSelect-select': {
+                  textAlign: isRtl ? 'right' : 'left'
+                }
+              }}
             >
               {resourceTypes.map(type => (
                 <MenuItem key={type.value} value={type.value}>
@@ -356,6 +365,11 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
               value={formData.category}
               onChange={handleChange}
               label={t('category')}
+              sx={{
+                '& .MuiSelect-select': {
+                  textAlign: isRtl ? 'right' : 'left'
+                }
+              }}
             >
               {categories.map(cat => (
                 <MenuItem key={cat.value} value={cat.value}>
@@ -373,6 +387,11 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
               value={formData.difficulty}
               onChange={handleChange}
               label={t('difficultyLevel')}
+              sx={{
+                '& .MuiSelect-select': {
+                  textAlign: isRtl ? 'right' : 'left'
+                }
+              }}
             >
               {difficulties.map(diff => (
                 <MenuItem key={diff.value} value={diff.value}>
@@ -392,6 +411,7 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
             placeholder={t('supportResourceTagsPlaceholder')}
             helperText={t('supportResourceTagsHelper')}
             disabled={loading}
+            inputProps={{ style: { textAlign: isRtl ? 'right' : 'left' } }}
           />
         </Box>
       </DialogContent>
