@@ -2,6 +2,8 @@ const Submission = require('../models/Submission.model');
 const Project = require('../models/Project.model');
 const cloudinaryService = require('../services/cloudinary.service');
 
+const MIN_STUDENT_UPLOAD_LIMIT = 25 * 1024 * 1024; // 25MB
+
 // @desc    Submit homework (students only)
 // @route   POST /api/projects/:projectId/assignments/:assignmentId/submit
 // @access  Private (Student)
@@ -30,10 +32,13 @@ exports.submitHomework = async (req, res) => {
       return res.status(403).json({ message: 'يجب التسجيل في المشروع أولاً' });
     }
 
-    // Check file size
-    if (req.file.size > assignment.maxFileSize) {
+    // Check file size (enforce minimum global limit for all current and old assignments)
+    const assignmentLimit = Number(assignment.maxFileSize || 0);
+    const effectiveMaxFileSize = Math.max(assignmentLimit, MIN_STUDENT_UPLOAD_LIMIT);
+
+    if (req.file.size > effectiveMaxFileSize) {
       return res.status(400).json({
-        message: `حجم الملف يتجاوز الحد المسموح (${(assignment.maxFileSize / 1024 / 1024).toFixed(2)} MB)`
+        message: `حجم الملف يتجاوز الحد المسموح (${(effectiveMaxFileSize / 1024 / 1024).toFixed(2)} MB)`
       });
     }
 
