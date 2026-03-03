@@ -128,7 +128,10 @@ const ProjectsPage = () => {
         <Grid container spacing={3}>
           {projects.map((project) => (
             <Grid item xs={12} sm={6} md={4} key={project._id}>
-              <ProjectCard project={project} />
+              <ProjectCard
+                project={project}
+                onCoverUpdated={() => dispatch(fetchProjects(filters))}
+              />
             </Grid>
           ))}
         </Grid>

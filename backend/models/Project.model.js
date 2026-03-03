@@ -203,6 +203,10 @@ const projectSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  coverImageId: {
+    type: String,
+    default: null
+  },
   instructor: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

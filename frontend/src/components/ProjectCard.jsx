@@ -1,14 +1,48 @@
 import React from 'react';
-import { Card, CardContent, CardMedia, CardActions, Typography, Button, Chip, Box } from '@mui/material';
+import { useSelector } from 'react-redux';
+import { Card, CardContent, CardMedia, CardActions, Typography, Button, Chip, Box, IconButton, Tooltip, CircularProgress } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import CodeIcon from '@mui/icons-material/Code';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PeopleIcon from '@mui/icons-material/People';
+import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import { useAppSettings } from '../context/AppSettingsContext';
+import api from '../services/api';
 
-const ProjectCard = ({ project }) => {
+const ProjectCard = ({ project, onCoverUpdated }) => {
   const navigate = useNavigate();
   const { t } = useAppSettings();
+  const reduxUser = useSelector((state) => state.auth?.user);
+  const [updatingCover, setUpdatingCover] = React.useState(false);
+  const coverInputRef = React.useRef(null);
+
+  const canManage = reduxUser && (reduxUser.role === 'admin' ||
+    (reduxUser.role === 'teacher' && (
+      project.instructor?._id === reduxUser._id ||
+      project.instructor?._id === reduxUser.id ||
+      project.instructor === reduxUser._id ||
+      project.instructor === reduxUser.id
+    ))
+  );
+
+  const handleCoverChange = async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    setUpdatingCover(true);
+    try {
+      const formData = new FormData();
+      formData.append('cover', file);
+      await api.put(`/projects/${project._id}/cover`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (onCoverUpdated) onCoverUpdated();
+    } catch (err) {
+      console.error('Error updating cover:', err);
+    } finally {
+      setUpdatingCover(false);
+    }
+  };
   const materialFallbackImage = project.courseMaterials?.find(
     (material) => material.thumbnail || material.fileType === 'image'
   );
@@ -39,17 +73,43 @@ const ProjectCard = ({ project }) => {
         }
       }}
     >
-      <CardMedia
-        component="div"
-        sx={{
-          height: 180,
-          background: cardImage
-            ? `url(${cardImage})`
-            : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      />
+      {/* Cover image with optional update button overlay */}
+      <Box sx={{ position: 'relative' }}>
+        <CardMedia
+          component="div"
+          sx={{
+            height: 180,
+            background: cardImage
+              ? `url(${cardImage})`
+              : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        />
+        {canManage && (
+          <>
+            <Tooltip title={t('updateThumbnail') || 'تحديث صورة الغلاف'}>
+              <span style={{ position: 'absolute', top: 8, left: 8 }}>
+                <IconButton
+                  size="small"
+                  onClick={() => coverInputRef.current?.click()}
+                  disabled={updatingCover}
+                  sx={{ bgcolor: 'rgba(0,0,0,0.5)', color: '#fff', '&:hover': { bgcolor: 'rgba(0,0,0,0.75)' } }}
+                >
+                  {updatingCover ? <CircularProgress size={16} color="inherit" /> : <AddPhotoAlternateIcon fontSize="small" />}
+                </IconButton>
+              </span>
+            </Tooltip>
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handleCoverChange}
+            />
+          </>
+        )}
+      </Box>
       <CardContent sx={{ flexGrow: 1 }}>
         <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           <Chip 

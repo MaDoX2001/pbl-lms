@@ -1,6 +1,7 @@
 const Project = require('../models/Project.model');
 const User = require('../models/User.model');
 const Progress = require('../models/Progress.model');
+const cloudinaryService = require('../services/cloudinary.service');
 
 // @desc    Get all projects
 // @route   GET /api/projects
@@ -242,5 +243,46 @@ exports.enrollProject = async (req, res) => {
       message: 'خطأ في التسجيل في المشروع',
       error: error.message
     });
+  }
+};
+// @desc    Upload / update project cover image
+// @route   PUT /api/projects/:id/cover
+// @access  Private (Teacher who owns it / Admin)
+exports.updateProjectCover = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'المشروع غير موجود' });
+    }
+
+    const isOwner = project.instructor.toString() === req.user.id;
+    if (!isOwner && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'غير مصرح لك' });
+    }
+
+    const uploadedFile = req.files?.cover?.[0] || req.file;
+    if (!uploadedFile) {
+      return res.status(400).json({ success: false, message: 'لم يتم رفع صورة' });
+    }
+
+    // Delete old cover from R2 if stored there
+    if (project.coverImageId) {
+      try { await cloudinaryService.deleteFile(project.coverImageId); } catch (_) {}
+    }
+
+    const result = await cloudinaryService.uploadFile(
+      uploadedFile.buffer,
+      uploadedFile.originalname,
+      `pbl-lms/project-covers`
+    );
+
+    project.coverImage = result.url;
+    project.coverImageId = result.fileId;
+    await project.save();
+
+    res.json({ success: true, message: 'تم تحديث صورة الغلاف', coverImage: result.url });
+  } catch (error) {
+    console.error('Error updating project cover:', error);
+    res.status(500).json({ success: false, message: 'خطأ في رفع الصورة: ' + error.message });
   }
 };
