@@ -22,7 +22,8 @@ import {
   Delete as DeleteIcon,
   CloudUpload as CloudUploadIcon,
   Search as SearchIcon,
-  Visibility as VisibilityIcon
+  Visibility as VisibilityIcon,
+  AddPhotoAlternate as AddPhotoIcon
 } from '@mui/icons-material';
 import api from '../services/api';
 import SupportResourceUploadDialog from '../components/SupportResourceUploadDialog';
@@ -46,6 +47,10 @@ const ResourcesPage = () => {
     sort: 'newest'
   });
   const [favorites, setFavorites] = useState([]);
+  // id of the resource currently having its thumbnail updated (for loading state)
+  const [updatingThumbFor, setUpdatingThumbFor] = useState(null);
+  const thumbnailInputRef = React.useRef(null);
+  const targetResourceIdRef = React.useRef(null);
 
   const categories = [
     { value: 'all', label: t('all') },
@@ -155,6 +160,33 @@ const ResourcesPage = () => {
       fetchResources();
     } catch (err) {
       console.error('Error rating resource:', err);
+    }
+  };
+
+  const handleUpdateThumbnail = (resourceId) => {
+    targetResourceIdRef.current = resourceId;
+    thumbnailInputRef.current?.click();
+  };
+
+  const handleThumbnailFileChange = async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file || !targetResourceIdRef.current) return;
+
+    const resourceId = targetResourceIdRef.current;
+    setUpdatingThumbFor(resourceId);
+    try {
+      const formData = new FormData();
+      formData.append('thumbnail', file);
+      await api.put(`/resources/support/${resourceId}/thumbnail`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      fetchResources();
+    } catch (err) {
+      console.error('Error updating thumbnail:', err);
+      setError(t('deleteResourceError'));
+    } finally {
+      setUpdatingThumbFor(null);
     }
   };
 
@@ -460,11 +492,27 @@ const ResourcesPage = () => {
 
                       if (isOwner || isAdmin) {
                         return (
-                          <Tooltip title={t('delete')}>
-                            <IconButton size="small" color="error" onClick={() => handleDelete(resource._id)}>
-                              <DeleteIcon />
-                            </IconButton>
-                          </Tooltip>
+                          <>
+                            <Tooltip title={t('updateThumbnail') || 'تحديث الصورة المصغرة'}>
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color="secondary"
+                                  onClick={() => handleUpdateThumbnail(resource._id)}
+                                  disabled={updatingThumbFor === resource._id}
+                                >
+                                  {updatingThumbFor === resource._id
+                                    ? <CircularProgress size={16} />
+                                    : <AddPhotoIcon fontSize="small" />}
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                            <Tooltip title={t('delete')}>
+                              <IconButton size="small" color="error" onClick={() => handleDelete(resource._id)}>
+                                <DeleteIcon />
+                              </IconButton>
+                            </Tooltip>
+                          </>
                         );
                       }
                       return null;
@@ -489,6 +537,15 @@ const ResourcesPage = () => {
           setUploadDialogOpen(false);
           fetchResources();
         }}
+      />
+
+      {/* Hidden file input for thumbnail updates */}
+      <input
+        ref={thumbnailInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={handleThumbnailFileChange}
       />
     </Container>
   );

@@ -610,3 +610,56 @@ exports.downloadSupportResource = async (req, res) => {
   }
 };
 
+// @desc    Update thumbnail for existing support resource
+// @route   PUT /api/resources/support/:id/thumbnail
+// @access  Private (owner or admin)
+exports.updateSupportResourceThumbnail = async (req, res) => {
+  try {
+    const resource = await Resource.findById(req.params.id);
+
+    if (!resource) {
+      return res.status(404).json({ success: false, message: 'المصدر غير موجود' });
+    }
+
+    // Only owner or admin
+    const isOwner = resource.uploadedBy.toString() === req.user.id;
+    const isAdmin = req.user.role === 'admin';
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'غير مصرح لك بتعديل هذا المصدر' });
+    }
+
+    const uploadedThumbnail = req.files?.thumbnail?.[0] || req.file;
+    if (!uploadedThumbnail) {
+      return res.status(400).json({ success: false, message: 'لم يتم رفع صورة' });
+    }
+
+    // Delete old thumbnail from Cloudinary if exists
+    if (resource.thumbnailId) {
+      try {
+        await cloudinaryService.deleteFile(resource.thumbnailId);
+      } catch (e) {
+        console.warn('Could not delete old thumbnail:', e.message);
+      }
+    }
+
+    const uploadResult = await cloudinaryService.uploadFile(
+      uploadedThumbnail.buffer,
+      uploadedThumbnail.originalname,
+      'pbl-lms/support-resources/thumbnails'
+    );
+
+    resource.thumbnail = uploadResult.url;
+    resource.thumbnailId = uploadResult.fileId;
+    await resource.save();
+
+    res.json({
+      success: true,
+      message: 'تم تحديث الصورة المصغرة بنجاح',
+      thumbnail: uploadResult.url
+    });
+  } catch (error) {
+    console.error('Error updating thumbnail:', error);
+    res.status(500).json({ success: false, message: 'خطأ في تحديث الصورة: ' + error.message });
+  }
+};
+

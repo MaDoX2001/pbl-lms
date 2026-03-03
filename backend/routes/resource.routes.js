@@ -14,7 +14,8 @@ const {
   getSupportResource,
   deleteSupportResource,
   rateSupportResource,
-  downloadSupportResource
+  downloadSupportResource,
+  updateSupportResourceThumbnail
 } = require('../controllers/resource.controller');
 
 // Configure multer for memory storage
@@ -75,5 +76,14 @@ router.delete('/support/:id', protect, deleteSupportResource);
 
 // Rate a support resource
 router.put('/support/:id/rate', protect, rateSupportResource);
+
+// Update thumbnail of an existing support resource
+router.put(
+  '/support/:id/thumbnail',
+  protect,
+  authorize('teacher', 'admin'),
+  upload.fields([{ name: 'thumbnail', maxCount: 1 }]),
+  updateSupportResourceThumbnail
+);
 
 module.exports = router;
