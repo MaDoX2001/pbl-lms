@@ -26,7 +26,6 @@ import {
   Delete as DeleteIcon,
   CloudUpload as CloudUploadIcon,
   Search as SearchIcon,
-  Visibility as VisibilityIcon,
   AddPhotoAlternate as AddPhotoIcon,
   PlayCircle as PlayCircleIcon,
   Close as CloseIcon
@@ -520,12 +519,6 @@ const ResourcesPage = () => {
                       </Tooltip>
                     ) : null}
 
-                    <Tooltip title={t('view')}>
-                      <IconButton size="small" color="info" onClick={() => window.open(resource.fileUrl, '_blank')}>
-                        <VisibilityIcon />
-                      </IconButton>
-                    </Tooltip>
-
                     <Tooltip title={t('download')}>
                       <IconButton size="small" color="primary" onClick={() => handleDownload(resource)}>
                         <DownloadIcon />
@@ -670,15 +663,6 @@ const ResourcesPage = () => {
                 sx={{ color: '#fff', borderColor: '#555' }}
               >
                 {t('download')}
-              </Button>
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<VisibilityIcon />}
-                onClick={() => window.open(videoPlayer.resource.fileUrl, '_blank')}
-                sx={{ color: '#fff', borderColor: '#555' }}
-              >
-                {t('openInNewTab') || 'فتح في تبويب جديد'}
               </Button>
             </DialogActions>
           </>
