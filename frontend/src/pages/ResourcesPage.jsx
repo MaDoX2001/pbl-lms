@@ -213,11 +213,6 @@ const ResourcesPage = () => {
         py: 4,
         direction,
         textAlign: isRtl ? 'right' : 'left',
-        '& .MuiFormLabel-root': {
-          right: isRtl ? 14 : 'auto',
-          left: isRtl ? 'auto' : 14,
-          transformOrigin: isRtl ? 'top right' : 'top left'
-        },
         '& .MuiInputBase-input': {
           textAlign: isRtl ? 'right' : 'left'
         },
@@ -260,7 +255,7 @@ const ResourcesPage = () => {
 
       {/* Filters */}
       <Card sx={{ mb: 4, p: 3, backgroundColor: '#f5f5f5', direction, textAlign: isRtl ? 'right' : 'left' }}>
-        <Grid container spacing={2} sx={{ direction, flexDirection: isRtl ? 'row-reverse' : 'row' }}>
+        <Grid container spacing={2} direction={isRtl ? 'row-reverse' : 'row'} sx={{ direction }}>
           <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
