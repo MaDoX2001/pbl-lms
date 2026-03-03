@@ -206,7 +206,26 @@ const ResourcesPage = () => {
   };
 
   return (
-    <Container maxWidth="lg" dir={direction} sx={{ py: 4, direction, textAlign: isRtl ? 'right' : 'left' }}>
+    <Container
+      maxWidth="lg"
+      dir={direction}
+      sx={{
+        py: 4,
+        direction,
+        textAlign: isRtl ? 'right' : 'left',
+        '& .MuiFormLabel-root': {
+          right: isRtl ? 14 : 'auto',
+          left: isRtl ? 'auto' : 14,
+          transformOrigin: isRtl ? 'top right' : 'top left'
+        },
+        '& .MuiInputBase-input': {
+          textAlign: isRtl ? 'right' : 'left'
+        },
+        '& .MuiSelect-select': {
+          textAlign: isRtl ? 'right' : 'left'
+        }
+      }}
+    >
       {/* Header */}
       <Box sx={{ mb: 4, textAlign: isRtl ? 'right' : 'left' }}>
         <Typography variant="h3" sx={{ mb: 2, fontWeight: 'bold', color: '#1976d2' }}>
@@ -241,7 +260,7 @@ const ResourcesPage = () => {
 
       {/* Filters */}
       <Card sx={{ mb: 4, p: 3, backgroundColor: '#f5f5f5', direction, textAlign: isRtl ? 'right' : 'left' }}>
-        <Grid container spacing={2} sx={{ direction }}>
+        <Grid container spacing={2} sx={{ direction, flexDirection: isRtl ? 'row-reverse' : 'row' }}>
           <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
