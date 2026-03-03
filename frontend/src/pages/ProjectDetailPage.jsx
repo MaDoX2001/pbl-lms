@@ -328,7 +328,17 @@ const ProjectDetailPage = () => {
   return (
     <Box>
       {/* Header */}
-      <Paper sx={{ p: 4, mb: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+      <Paper
+        sx={{
+          p: 4, mb: 3,
+          background: project.coverImage
+            ? `linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url(${project.coverImage})`
+            : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          color: 'white'
+        }}
+      >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
           <Box sx={{ flex: 1 }}>
             <Typography variant="h3" component="h1" gutterBottom fontWeight={700}>
@@ -393,7 +403,7 @@ const ProjectDetailPage = () => {
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <CodeIcon />
-            <span>{project.points} {t('points')}</span>
+            <span>{project.points} {t('pointsUnit')}</span>
           </Box>
         </Box>
       </Paper>
@@ -628,11 +638,23 @@ const ProjectDetailPage = () => {
           <Grid container spacing={2}>
             {materials.map((material) => (
               <Grid item xs={12} sm={6} md={4} key={material._id}>
-                <Card>
-                  <CardContent>
+                <Card sx={{ position: 'relative', overflow: 'hidden' }}>
+                  {/* Thumbnail background */}
+                  {material.thumbnail && (
+                    <Box
+                      sx={{
+                        position: 'absolute', inset: 0,
+                        backgroundImage: `url(${material.thumbnail})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        zIndex: 0,
+                      }}
+                    />
+                  )}
+                  <CardContent sx={{ position: 'relative', zIndex: 1, bgcolor: material.thumbnail ? 'rgba(255,255,255,0.88)' : 'transparent', borderRadius: 1 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       {getFileIcon(material.fileType)}
-                      <Typography variant="subtitle1" noWrap>
+                      <Typography variant="subtitle1" noWrap fontWeight={600}>
                         {material.title}
                       </Typography>
                     </Box>
@@ -645,7 +667,7 @@ const ProjectDetailPage = () => {
                       {material.size ? `${(material.size / 1024 / 1024).toFixed(2)} MB` : ''}
                     </Typography>
                   </CardContent>
-                  <CardActions>
+                  <CardActions sx={{ position: 'relative', zIndex: 1, bgcolor: material.thumbnail ? 'rgba(255,255,255,0.88)' : 'transparent' }}>
                     <Button
                       size="small"
                       startIcon={<DownloadIcon />}
