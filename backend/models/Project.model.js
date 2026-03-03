@@ -163,7 +163,7 @@ const projectSchema = new mongoose.Schema({
     allowedFileTypes: [String], // e.g., ['pdf', 'zip', 'docx']
     maxFileSize: {
       type: Number,
-      default: 10485760 // 10MB in bytes
+      default: 26214400 // 25MB in bytes
     },
     allowLateSubmission: {
       type: Boolean,

@@ -149,7 +149,7 @@ exports.createAssignment = async (req, res) => {
       dueDate,
       maxScore: maxScore || 100,
       allowedFileTypes: allowedFileTypes || ['pdf', 'zip', 'docx', 'doc'],
-      maxFileSize: maxFileSize || 10485760, // 10MB
+      maxFileSize: maxFileSize || 26214400, // 25MB
       allowLateSubmission: allowLateSubmission || false,
       createdBy: req.user.id
     };
