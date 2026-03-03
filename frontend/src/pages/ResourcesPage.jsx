@@ -15,7 +15,11 @@ import {
   Rating,
   IconButton,
   Tooltip,
-  Alert
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import {
   Download as DownloadIcon,
@@ -23,7 +27,9 @@ import {
   CloudUpload as CloudUploadIcon,
   Search as SearchIcon,
   Visibility as VisibilityIcon,
-  AddPhotoAlternate as AddPhotoIcon
+  AddPhotoAlternate as AddPhotoIcon,
+  PlayCircle as PlayCircleIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import api from '../services/api';
 import SupportResourceUploadDialog from '../components/SupportResourceUploadDialog';
@@ -51,6 +57,8 @@ const ResourcesPage = () => {
   const [updatingThumbFor, setUpdatingThumbFor] = useState(null);
   const thumbnailInputRef = React.useRef(null);
   const targetResourceIdRef = React.useRef(null);
+  // video player popup
+  const [videoPlayer, setVideoPlayer] = useState({ open: false, resource: null });
 
   const categories = [
     { value: 'all', label: t('all') },
@@ -153,8 +161,42 @@ const ResourcesPage = () => {
     }
   };
 
-  const handleRate = async (resourceId, rating) => {
+  // ── Video player helpers ─────────────────────────────────────────────────
+  const getYouTubeEmbedUrl = (url) => {
     try {
+      const u = new URL(url);
+      // youtu.be/ID  or  youtube.com/watch?v=ID  or  youtube.com/embed/ID
+      let id = null;
+      if (u.hostname === 'youtu.be') id = u.pathname.slice(1);
+      else if (u.hostname.includes('youtube.com')) {
+        id = u.searchParams.get('v') || u.pathname.split('/').pop();
+      }
+      if (id) return `https://www.youtube.com/embed/${id}?autoplay=1`;
+    } catch (_) {}
+    return null;
+  };
+
+  const isEmbeddableLink = (url) =>
+    getYouTubeEmbedUrl(url) !== null ||
+    url.includes('vimeo.com') ||
+    url.includes('dailymotion.com');
+
+  const getEmbedUrl = (url) => {
+    const yt = getYouTubeEmbedUrl(url);
+    if (yt) return yt;
+    if (url.includes('vimeo.com')) {
+      const id = url.split('/').pop();
+      return `https://player.vimeo.com/video/${id}?autoplay=1`;
+    }
+    return url;
+  };
+
+  const canPlayInline = (resource) =>
+    resource.resourceType === 'video' ||
+    (resource.resourceType === 'link' && isEmbeddableLink(resource.fileUrl));
+  // ────────────────────────────────────────────────────────────────────────
+
+  const handleRate = async (resourceId, rating) => {    try {
       await api.put(`/resources/support/${resourceId}/rate`, { rating });
       // Refresh resources
       fetchResources();
@@ -465,6 +507,19 @@ const ResourcesPage = () => {
                   }}
                 >
                   <Box sx={{ display: 'flex', gap: 1 }}>
+                    {/* Play inline for videos / embeddable links */}
+                    {canPlayInline(resource) ? (
+                      <Tooltip title={t('play') || 'تشغيل'}>
+                        <IconButton
+                          size="small"
+                          color="success"
+                          onClick={() => setVideoPlayer({ open: true, resource })}
+                        >
+                          <PlayCircleIcon />
+                        </IconButton>
+                      </Tooltip>
+                    ) : null}
+
                     <Tooltip title={t('view')}>
                       <IconButton size="small" color="info" onClick={() => window.open(resource.fileUrl, '_blank')}>
                         <VisibilityIcon />
@@ -547,6 +602,88 @@ const ResourcesPage = () => {
         style={{ display: 'none' }}
         onChange={handleThumbnailFileChange}
       />
+
+      {/* ── Inline Video Player Dialog ────────────────────────────────────── */}
+      <Dialog
+        open={videoPlayer.open}
+        onClose={() => setVideoPlayer({ open: false, resource: null })}
+        maxWidth="md"
+        fullWidth
+        dir={direction}
+        PaperProps={{ sx: { bgcolor: '#000', borderRadius: 2, overflow: 'hidden' } }}
+      >
+        {videoPlayer.resource && (
+          <>
+            <DialogTitle
+              sx={{
+                color: '#fff',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                py: 1,
+                px: 2,
+                bgcolor: '#111'
+              }}
+            >
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#fff' }}>
+                {videoPlayer.resource.title}
+              </Typography>
+              <IconButton
+                size="small"
+                onClick={() => setVideoPlayer({ open: false, resource: null })}
+                sx={{ color: '#fff' }}
+              >
+                <CloseIcon />
+              </IconButton>
+            </DialogTitle>
+
+            <DialogContent sx={{ p: 0, bgcolor: '#000', aspectRatio: '16/9', display: 'flex', alignItems: 'center' }}>
+              {isEmbeddableLink(videoPlayer.resource.fileUrl) ? (
+                // YouTube / Vimeo etc.
+                <Box
+                  component="iframe"
+                  src={getEmbedUrl(videoPlayer.resource.fileUrl)}
+                  title={videoPlayer.resource.title}
+                  allow="autoplay; fullscreen; picture-in-picture"
+                  allowFullScreen
+                  sx={{ width: '100%', height: '100%', border: 'none', minHeight: 360 }}
+                />
+              ) : (
+                // Direct video file from R2
+                <Box
+                  component="video"
+                  src={videoPlayer.resource.fileUrl}
+                  controls
+                  autoPlay
+                  playsInline
+                  sx={{ width: '100%', maxHeight: '70vh', display: 'block' }}
+                />
+              )}
+            </DialogContent>
+
+            <DialogActions sx={{ bgcolor: '#111', py: 1, px: 2, gap: 1, justifyContent: 'flex-start' }}>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={() => handleDownload(videoPlayer.resource)}
+                sx={{ color: '#fff', borderColor: '#555' }}
+              >
+                {t('download')}
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<VisibilityIcon />}
+                onClick={() => window.open(videoPlayer.resource.fileUrl, '_blank')}
+                sx={{ color: '#fff', borderColor: '#555' }}
+              >
+                {t('openInNewTab') || 'فتح في تبويب جديد'}
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
     </Container>
   );
 };
