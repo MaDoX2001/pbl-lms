@@ -18,7 +18,7 @@ export const translations = {
     contentManagement: 'إدارة المحتوى',
     administration: 'الإدارة',
     systemAdmin: 'إدارة النظام',
-    heroTitle: 'تعلم البرمجة بأسلوب المشاريع',
+    heroTitle: 'تعلم البرمجة بأسلوب المشروعات',
     heroSubtitle: 'منصة تعليمية متكاملة تساعدك على إتقان البرمجة من خلال مشاريع عملية',
     whyPbl: 'لماذا التعلم بالمشروعات؟',
     ctaReady: 'هل أنت مستعد لبدء رحلتك في البرمجة؟',
