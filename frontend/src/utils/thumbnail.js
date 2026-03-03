@@ -51,18 +51,20 @@ const createVideoThumbnailDataUrl = (file) => new Promise((resolve, reject) => {
 });
 
 const createPdfThumbnailDataUrl = async (file) => {
-  let pdfjs;
-  try {
-    pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  } catch (error) {
-    pdfjs = await import('pdfjs-dist/build/pdf.mjs');
-  }
+  // pdfjs-dist v5 removed `disableWorker`. The correct way is to point
+  // GlobalWorkerOptions.workerSrc to the bundled worker file.
+  // Using the legacy build avoids OffscreenCanvas / worker issues in Vite.
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+
+  // Inline worker from the same package — Vite will bundle it as an asset URL
+  const workerUrl = new URL(
+    'pdfjs-dist/legacy/build/pdf.worker.mjs',
+    import.meta.url
+  ).href;
+  pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
   const data = await readFileAsArrayBuffer(file);
-  const documentProxy = await pdfjs.getDocument({
-    data,
-    disableWorker: true
-  }).promise;
+  const documentProxy = await pdfjs.getDocument({ data }).promise;
 
   const page = await documentProxy.getPage(1);
   const viewport = page.getViewport({ scale: 1.4 });
