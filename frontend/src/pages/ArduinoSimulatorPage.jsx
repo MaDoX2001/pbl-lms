@@ -6,13 +6,13 @@ function ArduinoSimulatorPage() {
   const { t } = useAppSettings();
 
   return (
-    <Container maxWidth={false} sx={{ py: 4, px: 2, height: 'calc(100vh - 64px)' }}>
+    <Container maxWidth={false} sx={{ py: 1, px: 2, height: 'calc(100vh - 64px)' }}>
       <Paper elevation={3} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-          <Typography variant="h5" component="h1" gutterBottom>
+        <Box sx={{ px: 2, py: 0.75, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="subtitle1" component="h1" fontWeight={700}>
             {t('arduinoSimulatorTitle')}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="caption" color="text.secondary">
             {t('arduinoSimulatorSubtitle')}
           </Typography>
         </Box>
