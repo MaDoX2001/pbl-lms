@@ -27,14 +27,14 @@ const upload = multer({
 });
 
 // Course materials routes
-router.post('/:projectId/materials', protect, upload.single('file'), uploadCourseMaterial);
+router.post('/:projectId/materials', protect, authorize('teacher', 'admin'), upload.single('file'), uploadCourseMaterial);
 router.get('/:projectId/materials', protect, getCourseMaterials);
-router.delete('/:projectId/materials/:materialId', protect, deleteCourseMaterial);
+router.delete('/:projectId/materials/:materialId', protect, authorize('teacher', 'admin'), deleteCourseMaterial);
 
 // Assignment routes
-router.post('/:projectId/assignments', protect, createAssignment);
+router.post('/:projectId/assignments', protect, authorize('teacher', 'admin'), createAssignment);
 router.get('/:projectId/assignments', protect, getAssignments);
-router.delete('/:projectId/assignments/:assignmentId', protect, deleteAssignment);
+router.delete('/:projectId/assignments/:assignmentId', protect, authorize('teacher', 'admin'), deleteAssignment);
 
 // ============================================================================
 // SUPPORT RESOURCES ROUTES (المصادر التعليمية العامة)
