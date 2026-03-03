@@ -2,17 +2,25 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-const AI_MODELS = (process.env.AI_MODELS || 'gemini-2.0-flash-lite')
+const DEFAULT_AI_MODELS = [
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+];
+
+const envModels = (process.env.AI_MODELS || '')
   .split(',')
   .map((item) => item.trim())
   .filter(Boolean);
 
+const AI_MODELS = [...new Set([...envModels, ...DEFAULT_AI_MODELS])];
+
 const MAX_INPUT_CHARS = Number(process.env.AI_MAX_INPUT_CHARS || 1200);
-const MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS || 256);
+const MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS || 220);
 const MAX_REQUESTS_PER_MINUTE = Number(process.env.AI_MAX_REQUESTS_PER_MINUTE || 3);
-const MAX_REQUESTS_PER_DAY = Number(process.env.AI_MAX_REQUESTS_PER_DAY || 20);
-const GLOBAL_MAX_REQUESTS_PER_MINUTE = Number(process.env.AI_GLOBAL_MAX_REQUESTS_PER_MINUTE || 8);
-const GLOBAL_MAX_REQUESTS_PER_DAY = Number(process.env.AI_GLOBAL_MAX_REQUESTS_PER_DAY || 400);
+const MAX_REQUESTS_PER_DAY = Number(process.env.AI_MAX_REQUESTS_PER_DAY || 15);
+const GLOBAL_MAX_REQUESTS_PER_MINUTE = Number(process.env.AI_GLOBAL_MAX_REQUESTS_PER_MINUTE || 6);
+const GLOBAL_MAX_REQUESTS_PER_DAY = Number(process.env.AI_GLOBAL_MAX_REQUESTS_PER_DAY || 250);
 
 function getDayKey() {
   return new Date().toISOString().slice(0, 10);
