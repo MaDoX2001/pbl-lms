@@ -61,6 +61,11 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
       }
       setFile(selectedFile);
       setError(null);
+      const detectedType = detectResourceType(selectedFile);
+      setFormData((prev) => ({
+        ...prev,
+        resourceType: detectedType
+      }));
 
       generateThumbnailBlob(selectedFile)
         .then((autoThumbnail) => {
@@ -255,7 +260,7 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
           {/* File Upload */}
           <Box>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              📦 {t('supportResourceFileOptionalLabel')}
+              📦 الملف (اختياري إذا كنت سترفع رابط خارجي)
             </Typography>
             <Button
               variant="outlined"
@@ -264,7 +269,7 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
               startIcon={<CloudUploadIcon />}
               disabled={loading}
             >
-              {file ? `✓ ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)` : t('supportResourceChooseFile')}
+              {file ? `✓ ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)` : 'اختر ملفًا للرفع'}
               <input
                 type="file"
                 hidden
@@ -278,6 +283,9 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
                 {t('supportResourceFileSize')}: {(file.size / (1024 * 1024)).toFixed(2)} MB
               </Typography>
             )}
+            <Typography variant="caption" sx={{ mt: 0.5, display: 'block', color: '#666' }}>
+              يتم تحديد نوع المصدر تلقائيًا من نوع الملف.
+            </Typography>
           </Box>
 
           <Box>
@@ -318,7 +326,7 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
             value={formData.externalUrl}
             onChange={handleChange}
             placeholder={t('supportResourceExternalUrlPlaceholder')}
-            helperText={t('supportResourceExternalUrlHelper')}
+            helperText="استخدم الرابط الخارجي فقط إذا لم ترفع ملفًا."
             disabled={loading}
           />
 
@@ -330,6 +338,7 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
               value={formData.resourceType}
               onChange={handleChange}
               label={t('resourceType')}
+              disabled={loading || !!file}
             >
               {resourceTypes.map(type => (
                 <MenuItem key={type.value} value={type.value}>
