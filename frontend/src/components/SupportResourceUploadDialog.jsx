@@ -20,6 +20,7 @@ import {
 import { CloudUpload as CloudUploadIcon } from '@mui/icons-material';
 import api from '../services/api';
 import { useAppSettings } from '../context/AppSettingsContext';
+import { generateThumbnailBlob } from '../utils/thumbnail';
 
 const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
   const { t } = useAppSettings();
@@ -33,6 +34,8 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
     tags: ''
   });
   const [file, setFile] = useState(null);
+  const [thumbnailFile, setThumbnailFile] = useState(null);
+  const [isAutoThumbnail, setIsAutoThumbnail] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -48,8 +51,7 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
-      // Cloudinary free tier max is 10MB
-      const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+      const MAX_FILE_SIZE = 10 * 1024 * 1024 * 1024; // 10GB
       
       if (selectedFile.size > MAX_FILE_SIZE) {
         const sizeMB = (selectedFile.size / (1024 * 1024)).toFixed(2);
@@ -59,7 +61,32 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
       }
       setFile(selectedFile);
       setError(null);
+
+      generateThumbnailBlob(selectedFile)
+        .then((autoThumbnail) => {
+          if (autoThumbnail) {
+            setThumbnailFile(autoThumbnail);
+            setIsAutoThumbnail(true);
+          }
+        })
+        .catch(() => {
+          setIsAutoThumbnail(false);
+        });
     }
+  };
+
+  const handleThumbnailChange = (e) => {
+    const selectedThumbnail = e.target.files[0];
+    if (!selectedThumbnail) return;
+
+    if (!selectedThumbnail.type.startsWith('image/')) {
+      setError(t('typeImage'));
+      return;
+    }
+
+    setThumbnailFile(selectedThumbnail);
+    setIsAutoThumbnail(false);
+    setError(null);
   };
 
   const detectResourceType = (file) => {
@@ -109,6 +136,10 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
         uploadFormData.append('fileUrl', formData.externalUrl.trim());
       }
 
+      if (thumbnailFile) {
+        uploadFormData.append('thumbnail', thumbnailFile);
+      }
+
       const config = {
         headers: {
           'Content-Type': 'multipart/form-data'
@@ -133,6 +164,8 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
         tags: ''
       });
       setFile(null);
+      setThumbnailFile(null);
+      setIsAutoThumbnail(false);
       setUploadProgress(0);
       onSuccess?.();
     } catch (err) {
@@ -244,6 +277,36 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
               <Typography variant="caption" sx={{ mt: 1, display: 'block', color: '#666' }}>
                 {t('supportResourceFileSize')}: {(file.size / (1024 * 1024)).toFixed(2)} MB
               </Typography>
+            )}
+          </Box>
+
+          <Box>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              🖼️ صورة الغلاف (اختيارية)
+            </Typography>
+            <Button
+              variant="outlined"
+              component="label"
+              fullWidth
+              disabled={loading}
+            >
+              {thumbnailFile ? `✓ ${thumbnailFile.name}` : 'اختر صورة يدوية أو اتركها للتوليد التلقائي'}
+              <input
+                type="file"
+                hidden
+                accept="image/*"
+                onChange={handleThumbnailChange}
+                disabled={loading}
+              />
+            </Button>
+            {thumbnailFile && (
+              <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Chip
+                  size="small"
+                  color={isAutoThumbnail ? 'info' : 'success'}
+                  label={isAutoThumbnail ? 'تم توليدها تلقائيًا' : 'تم اختيارها يدويًا'}
+                />
+              </Box>
             )}
           </Box>
 

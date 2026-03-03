@@ -24,6 +24,7 @@ import {
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import { useAppSettings } from '../context/AppSettingsContext';
+import { generateThumbnailBlob } from '../utils/thumbnail';
 
 const ResourceUploadDialog = ({ open, onClose, projectId, onSuccess }) => {
   const { t } = useAppSettings();
@@ -31,6 +32,8 @@ const ResourceUploadDialog = ({ open, onClose, projectId, onSuccess }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [fileType, setFileType] = useState('');
+  const [thumbnailFile, setThumbnailFile] = useState(null);
+  const [isAutoThumbnail, setIsAutoThumbnail] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
@@ -46,6 +49,17 @@ const ResourceUploadDialog = ({ open, onClose, projectId, onSuccess }) => {
       setFile(selectedFile);
       setTitle(selectedFile.name);
       setError('');
+
+      generateThumbnailBlob(selectedFile)
+        .then((autoThumbnail) => {
+          if (autoThumbnail) {
+            setThumbnailFile(autoThumbnail);
+            setIsAutoThumbnail(true);
+          }
+        })
+        .catch(() => {
+          setIsAutoThumbnail(false);
+        });
       
       // Auto-detect file type
       const ext = selectedFile.name.split('.').pop().toLowerCase();
@@ -56,6 +70,20 @@ const ResourceUploadDialog = ({ open, onClose, projectId, onSuccess }) => {
       else if (['zip', 'rar'].includes(ext)) setFileType('zip');
       else setFileType('other');
     }
+  };
+
+  const handleThumbnailChange = (event) => {
+    const selectedThumbnail = event.target.files[0];
+    if (!selectedThumbnail) return;
+
+    if (!selectedThumbnail.type.startsWith('image/')) {
+      setError(t('typeImage'));
+      return;
+    }
+
+    setThumbnailFile(selectedThumbnail);
+    setIsAutoThumbnail(false);
+    setError('');
   };
 
   const handleSubmit = async () => {
@@ -78,6 +106,9 @@ const ResourceUploadDialog = ({ open, onClose, projectId, onSuccess }) => {
       formData.append('title', title);
       formData.append('description', description);
       formData.append('fileType', fileType);
+      if (thumbnailFile) {
+        formData.append('thumbnail', thumbnailFile);
+      }
 
       const response = await api.post(
         `/resources/${projectId}/materials`,
@@ -114,6 +145,8 @@ const ResourceUploadDialog = ({ open, onClose, projectId, onSuccess }) => {
       setTitle('');
       setDescription('');
       setFileType('');
+      setThumbnailFile(null);
+      setIsAutoThumbnail(false);
       setError('');
       setUploadProgress(0);
       onClose();
@@ -183,6 +216,32 @@ const ResourceUploadDialog = ({ open, onClose, projectId, onSuccess }) => {
               </Box>
             </Box>
           )}
+
+          <Box sx={{ mb: 2 }}>
+            <input
+              accept="image/*"
+              style={{ display: 'none' }}
+              id="thumbnail-upload"
+              type="file"
+              onChange={handleThumbnailChange}
+              disabled={uploading}
+            />
+            <label htmlFor="thumbnail-upload">
+              <Button
+                variant="outlined"
+                component="span"
+                fullWidth
+                disabled={uploading}
+              >
+                {thumbnailFile ? 'تغيير صورة الغلاف' : 'إضافة صورة غلاف (اختياري)'}
+              </Button>
+            </label>
+            {thumbnailFile && (
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                {isAutoThumbnail ? 'تم توليد الغلاف تلقائيًا (يمكنك تغييره)' : 'تم اختيار الغلاف يدويًا'}
+              </Typography>
+            )}
+          </Box>
 
           <TextField
             fullWidth

@@ -9,6 +9,10 @@ import { useAppSettings } from '../context/AppSettingsContext';
 const ProjectCard = ({ project }) => {
   const navigate = useNavigate();
   const { t } = useAppSettings();
+  const materialFallbackImage = project.courseMaterials?.find(
+    (material) => material.thumbnail || material.fileType === 'image'
+  );
+  const cardImage = project.coverImage || materialFallbackImage?.thumbnail || (materialFallbackImage?.fileType === 'image' ? materialFallbackImage.fileUrl : null);
 
   const difficultyColor = {
     beginner: 'success',
@@ -39,8 +43,8 @@ const ProjectCard = ({ project }) => {
         component="div"
         sx={{
           height: 180,
-          background: project.coverImage 
-            ? `url(${project.coverImage})` 
+          background: cardImage
+            ? `url(${cardImage})`
             : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',

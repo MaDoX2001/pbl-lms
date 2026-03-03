@@ -342,7 +342,7 @@ const ResourcesPage = () => {
                   }
                 }}
               >
-                {/* Header with Icon */}
+                {/* Header with Thumbnail */}
                 <Box
                   sx={{
                     height: 120,
@@ -350,10 +350,24 @@ const ResourcesPage = () => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '48px'
+                    fontSize: '48px',
+                    overflow: 'hidden'
                   }}
                 >
-                  {getResourceIcon(resource.resourceType)}
+                  {resource.thumbnail || (resource.resourceType === 'image' ? resource.fileUrl : null) ? (
+                    <Box
+                      component="img"
+                      src={resource.thumbnail || resource.fileUrl}
+                      alt={resource.title}
+                      sx={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                      }}
+                    />
+                  ) : (
+                    getResourceIcon(resource.resourceType)
+                  )}
                 </Box>
 
                 <CardContent sx={{ flexGrow: 1, textAlign: 'right' }}>

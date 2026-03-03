@@ -37,6 +37,10 @@ const resourceSchema = new mongoose.Schema({
     type: String, // Thumbnail URL for videos/documents
     default: null
   },
+  thumbnailId: {
+    type: String,
+    default: null
+  },
   tags: [{
     type: String,
     trim: true

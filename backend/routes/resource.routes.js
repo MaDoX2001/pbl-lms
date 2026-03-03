@@ -27,7 +27,16 @@ const upload = multer({
 });
 
 // Course materials routes
-router.post('/:projectId/materials', protect, authorize('teacher', 'admin'), upload.single('file'), uploadCourseMaterial);
+router.post(
+  '/:projectId/materials',
+  protect,
+  authorize('teacher', 'admin'),
+  upload.fields([
+    { name: 'file', maxCount: 1 },
+    { name: 'thumbnail', maxCount: 1 }
+  ]),
+  uploadCourseMaterial
+);
 router.get('/:projectId/materials', protect, getCourseMaterials);
 router.delete('/:projectId/materials/:materialId', protect, authorize('teacher', 'admin'), deleteCourseMaterial);
 
@@ -41,7 +50,16 @@ router.delete('/:projectId/assignments/:assignmentId', protect, authorize('teach
 // ============================================================================
 
 // Upload support resource - teachers and admins only
-router.post('/support/upload', protect, authorize('teacher', 'admin'), upload.single('file'), uploadSupportResource);
+router.post(
+  '/support/upload',
+  protect,
+  authorize('teacher', 'admin'),
+  upload.fields([
+    { name: 'file', maxCount: 1 },
+    { name: 'thumbnail', maxCount: 1 }
+  ]),
+  uploadSupportResource
+);
 
 // Get all support resources - public access
 router.get('/support', getSupportResources);

@@ -133,6 +133,14 @@ const projectSchema = new mongoose.Schema({
       type: String,
       required: true
     },
+    thumbnail: {
+      type: String,
+      default: null
+    },
+    thumbnailId: {
+      type: String,
+      default: null
+    },
     resourceType: {
       type: String,
       enum: ['image', 'video', 'raw'],

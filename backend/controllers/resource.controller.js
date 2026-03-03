@@ -9,8 +9,10 @@ exports.uploadCourseMaterial = async (req, res) => {
   try {
     const { projectId } = req.params;
     const { title, description, fileType } = req.body;
+    const uploadedFile = req.files?.file?.[0] || req.file;
+    const uploadedThumbnail = req.files?.thumbnail?.[0];
 
-    if (!req.file) {
+    if (!uploadedFile) {
       return res.status(400).json({ message: 'لم يتم تحميل ملف' });
     }
 
@@ -28,10 +30,23 @@ exports.uploadCourseMaterial = async (req, res) => {
     // Upload file to Cloudinary
     const folder = `pbl-lms/course-materials/project-${projectId}`;
     const uploadResult = await cloudinaryService.uploadFile(
-      req.file.buffer,
-      req.file.originalname,
+      uploadedFile.buffer,
+      uploadedFile.originalname,
       folder
     );
+
+    let thumbnail = null;
+    let thumbnailId = null;
+
+    if (uploadedThumbnail) {
+      const thumbnailUploadResult = await cloudinaryService.uploadFile(
+        uploadedThumbnail.buffer,
+        uploadedThumbnail.originalname,
+        `${folder}/thumbnails`
+      );
+      thumbnail = thumbnailUploadResult.url;
+      thumbnailId = thumbnailUploadResult.fileId;
+    }
 
     console.log('📋 Upload result:', {
       fileId: uploadResult.fileId,
@@ -41,16 +56,25 @@ exports.uploadCourseMaterial = async (req, res) => {
 
     // Add material to project
     const material = {
-      title: title || req.file.originalname,
+      title: title || uploadedFile.originalname,
       description: description || '',
-      fileType: fileType || getFileTypeFromMime(req.file.mimetype),
+      fileType: fileType || getFileTypeFromMime(uploadedFile.mimetype),
       cloudinaryId: uploadResult.fileId,
       fileUrl: uploadResult.url,
+      thumbnail: thumbnail || (uploadResult.resourceType === 'image' ? uploadResult.url : null),
+      thumbnailId,
       size: uploadResult.size,
       uploadedBy: req.user.id
     };
 
     project.courseMaterials.push(material);
+
+    if (uploadedThumbnail && material.thumbnail) {
+      project.coverImage = material.thumbnail;
+    } else if (!project.coverImage && material.thumbnail) {
+      project.coverImage = material.thumbnail;
+    }
+
     await project.save();
 
     res.status(201).json({
@@ -113,6 +137,9 @@ exports.deleteCourseMaterial = async (req, res) => {
 
     // Delete from Cloudinary
     await cloudinaryService.deleteFile(material.cloudinaryId, material.resourceType || 'raw');
+    if (material.thumbnailId) {
+      await cloudinaryService.deleteFile(material.thumbnailId, 'image');
+    }
 
     // Remove from project
     project.courseMaterials.pull(materialId);
@@ -238,7 +265,10 @@ exports.uploadSupportResource = async (req, res) => {
     console.log('=== UPLOAD RESOURCE DEBUG ===');
     console.log('User:', req.user);
     console.log('Body:', req.body);
-    console.log('File:', req.file ? { originalname: req.file.originalname, size: req.file.size, mimetype: req.file.mimetype } : 'No file');
+    const uploadedFile = req.files?.file?.[0] || req.file;
+    const uploadedThumbnail = req.files?.thumbnail?.[0];
+
+    console.log('File:', uploadedFile ? { originalname: uploadedFile.originalname, size: uploadedFile.size, mimetype: uploadedFile.mimetype } : 'No file');
     
     const { title, description, resourceType, category, difficulty, tags } = req.body;
 
@@ -255,24 +285,43 @@ exports.uploadSupportResource = async (req, res) => {
     let cloudinaryId = req.body.cloudinaryId;
     let fileSize = req.body.fileSize;
     let fileType = req.body.fileType;
+    let thumbnail = null;
+    let thumbnailId = null;
 
-    if (req.file) {
-      console.log('Uploading file to Cloudinary:', req.file.originalname);
+    if (uploadedFile) {
+      console.log('Uploading file to Cloudinary:', uploadedFile.originalname);
       const folder = 'pbl-lms/support-resources';
       try {
         const uploadResult = await cloudinaryService.uploadFile(
-          req.file.buffer,
-          req.file.originalname,
+          uploadedFile.buffer,
+          uploadedFile.originalname,
           folder
         );
         console.log('Cloudinary upload success:', uploadResult);
         fileUrl = uploadResult.url;
         cloudinaryId = uploadResult.fileId;
         fileSize = uploadResult.size;
-        fileType = req.file.mimetype;
+        fileType = uploadedFile.mimetype;
+        if (uploadResult.resourceType === 'image') {
+          thumbnail = uploadResult.url;
+        }
       } catch (cloudError) {
         console.error('Cloudinary upload error:', cloudError);
         throw cloudError;
+      }
+    }
+
+    if (uploadedThumbnail) {
+      try {
+        const thumbnailUploadResult = await cloudinaryService.uploadFile(
+          uploadedThumbnail.buffer,
+          uploadedThumbnail.originalname,
+          'pbl-lms/support-resources/thumbnails'
+        );
+        thumbnail = thumbnailUploadResult.url;
+        thumbnailId = thumbnailUploadResult.fileId;
+      } catch (thumbnailError) {
+        console.error('Cloudinary thumbnail upload error:', thumbnailError);
       }
     }
 
@@ -303,6 +352,8 @@ exports.uploadSupportResource = async (req, res) => {
       cloudinaryId,
       fileSize,
       fileType,
+      thumbnail,
+      thumbnailId,
       tags: tags ? (Array.isArray(tags) ? tags : tags.split(',').map(t => t.trim())) : [],
       uploadedBy: req.user.id,
       isApproved: req.user.role === 'admin' ? true : false
@@ -454,6 +505,14 @@ exports.deleteSupportResource = async (req, res) => {
         await cloudinaryService.deleteFile(resource.cloudinaryId);
       } catch (err) {
         console.error('Error deleting from Cloudinary:', err);
+      }
+    }
+
+    if (resource.thumbnailId) {
+      try {
+        await cloudinaryService.deleteFile(resource.thumbnailId, 'image');
+      } catch (err) {
+        console.error('Error deleting thumbnail from Cloudinary:', err);
       }
     }
 
