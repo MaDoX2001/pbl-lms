@@ -23,7 +23,7 @@ import { useAppSettings } from '../context/AppSettingsContext';
 import { generateThumbnailBlob } from '../utils/thumbnail';
 
 const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
-  const { t } = useAppSettings();
+  const { t, direction } = useAppSettings();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -211,11 +211,11 @@ const SupportResourceUploadDialog = ({ open, onClose, onSuccess }) => {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ textAlign: 'right', fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>
+      <DialogTitle sx={{ textAlign: direction === 'rtl' ? 'right' : 'left', fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>
         📚 {t('uploadNewResource')}
       </DialogTitle>
 
-      <DialogContent sx={{ direction: 'rtl', mt: 2 }}>
+      <DialogContent sx={{ direction, mt: 2 }}>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             <Typography variant="body2">{error}</Typography>

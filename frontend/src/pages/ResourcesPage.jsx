@@ -250,7 +250,7 @@ const ResourcesPage = () => {
               value={filters.search}
               onChange={handleSearch}
               size="small"
-              InputProps={{ style: { textAlign: 'right' } }}
+              InputProps={{ style: { textAlign: direction === 'rtl' ? 'right' : 'left' } }}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
@@ -370,7 +370,7 @@ const ResourcesPage = () => {
                   )}
                 </Box>
 
-                <CardContent sx={{ flexGrow: 1, textAlign: 'right' }}>
+                <CardContent sx={{ flexGrow: 1, textAlign: direction === 'rtl' ? 'right' : 'left' }}>
                   <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold' }}>
                     {resource.title}
                   </Typography>
@@ -380,7 +380,7 @@ const ResourcesPage = () => {
                   </Typography>
 
                   {/* Type and Category Chips */}
-                  <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: direction === 'rtl' ? 'flex-start' : 'flex-end' }}>
                     <Chip
                       size="small"
                       label={getTypeLabel(resource.resourceType)}
@@ -402,7 +402,7 @@ const ResourcesPage = () => {
 
                   {/* Rating and Stats */}
                   <Box sx={{ mb: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: direction === 'rtl' ? 'flex-start' : 'flex-end' }}>
                       <Rating
                         value={resource.rating.average}
                         readOnly

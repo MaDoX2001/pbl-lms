@@ -9,7 +9,7 @@ const LoginPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { loading, error } = useSelector((state) => state.auth);
-  const { t } = useAppSettings();
+  const { t, direction } = useAppSettings();
 
   const [formData, setFormData] = useState({
     email: '',
@@ -113,7 +113,7 @@ const LoginPage = () => {
             sx={{ mb: 2 }}
           />
           
-          <Box sx={{ mb: 2, textAlign: 'right' }}>
+          <Box sx={{ mb: 2, textAlign: direction === 'rtl' ? 'right' : 'left' }}>
             <Link component={RouterLink} to="/forgot-password" underline="hover" variant="body2">
               {t('forgotPassword')}
             </Link>
