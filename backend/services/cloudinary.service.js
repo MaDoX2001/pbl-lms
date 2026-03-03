@@ -1,66 +1,152 @@
-const cloudinary = require('cloudinary').v2;
+const { S3Client, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 class CloudinaryService {
   constructor() {
     this.initialized = false;
+    this.client = null;
+    this.bucketName = '';
+    this.publicBaseUrl = '';
   }
 
   async initialize() {
     if (this.initialized) {
-      console.log('⚠️  Cloudinary service already initialized');
+      console.log('⚠️  Storage service already initialized');
       return true;
     }
 
     try {
-      // Log environment variables (masked)
-      console.log('🔑 Cloudinary credentials check:');
-      console.log('  CLOUD_NAME:', process.env.CLOUDINARY_CLOUD_NAME ? '✓' : '✗');
-      console.log('  API_KEY:', process.env.CLOUDINARY_API_KEY ? '✓' : '✗');
-      console.log('  API_SECRET:', process.env.CLOUDINARY_API_SECRET ? '✓' : '✗');
+      const accountId = process.env.R2_ACCOUNT_ID;
+      const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+      const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+      const bucketName = process.env.R2_BUCKET_NAME;
+      const endpoint = process.env.R2_ENDPOINT || `https://${accountId}.r2.cloudflarestorage.com`;
 
-      // Configure Cloudinary with environment variables
-      cloudinary.config({
-        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-        api_key: process.env.CLOUDINARY_API_KEY,
-        api_secret: process.env.CLOUDINARY_API_SECRET,
-        secure: true
-      });
+      console.log('🔑 Cloudflare R2 credentials check:');
+      console.log('  R2_ACCOUNT_ID:', accountId ? '✓' : '✗');
+      console.log('  R2_ACCESS_KEY_ID:', accessKeyId ? '✓' : '✗');
+      console.log('  R2_SECRET_ACCESS_KEY:', secretAccessKey ? '✓' : '✗');
+      console.log('  R2_BUCKET_NAME:', bucketName ? '✓' : '✗');
 
-      // Verify credentials by checking config
-      const config = cloudinary.config();
-      if (!config.cloud_name || !config.api_key || !config.api_secret) {
-        throw new Error('Missing Cloudinary credentials in environment variables');
+      if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
+        throw new Error('Missing required R2 environment variables');
       }
 
-      // Test connection by fetching usage stats
-      console.log('🔍 Testing Cloudinary API connection...');
-      await cloudinary.api.usage();
+      this.client = new S3Client({
+        region: 'auto',
+        endpoint,
+        forcePathStyle: true,
+        credentials: {
+          accessKeyId,
+          secretAccessKey,
+        },
+      });
+
+      this.bucketName = bucketName;
+      this.publicBaseUrl = this._getPublicBaseUrl(accountId, bucketName);
 
       this.initialized = true;
-      console.log('✅ Cloudinary service initialized successfully');
-      console.log(`📁 Cloud: ${config.cloud_name}`);
+      console.log('✅ Cloudflare R2 service initialized successfully');
+      console.log(`🪣 Bucket: ${bucketName}`);
       return true;
     } catch (error) {
-      console.error('❌ Failed to initialize Cloudinary service');
+      console.error('❌ Failed to initialize Cloudflare R2 service');
       console.error('Error message:', error.message || 'undefined');
-      console.error('Error code:', error.http_code || 'N/A');
+      console.error('Error code:', error.code || 'N/A');
       console.error('Full error:', JSON.stringify(error, null, 2));
-      console.warn('⚠️  Cloudinary service will not be available, but server will continue');
+      console.warn('⚠️  R2 service will not be available, but server will continue');
       return false;
     }
   }
 
   _ensureInitialized() {
     if (!this.initialized) {
-      throw new Error('Cloudinary service not initialized. Call initialize() first.');
+      throw new Error('Storage service not initialized. Call initialize() first.');
     }
   }
 
+  _getPublicBaseUrl(accountId, bucketName) {
+    if (process.env.R2_PUBLIC_URL) {
+      return process.env.R2_PUBLIC_URL.replace(/\/+$/, '');
+    }
+
+    return `https://${bucketName}.${accountId}.r2.cloudflarestorage.com`;
+  }
+
+  _sanitizeFileName(fileName) {
+    return fileName
+      .replace(/\s+/g, '-')
+      .replace(/[^a-zA-Z0-9._-]/g, '');
+  }
+
+  _detectResourceType(fileName) {
+    const extension = fileName.split('.').pop().toLowerCase();
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'];
+    const videoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'];
+
+    if (imageExtensions.includes(extension)) {
+      return 'image';
+    }
+
+    if (videoExtensions.includes(extension)) {
+      return 'video';
+    }
+
+    return 'raw';
+  }
+
+  _guessContentType(fileName, resourceType) {
+    const extension = fileName.split('.').pop().toLowerCase();
+
+    const contentTypeMap = {
+      pdf: 'application/pdf',
+      doc: 'application/msword',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      xls: 'application/vnd.ms-excel',
+      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ppt: 'application/vnd.ms-powerpoint',
+      pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      txt: 'text/plain',
+      zip: 'application/zip',
+      rar: 'application/vnd.rar',
+      csv: 'text/csv',
+      json: 'application/json',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      gif: 'image/gif',
+      webp: 'image/webp',
+      svg: 'image/svg+xml',
+      mp4: 'video/mp4',
+      mov: 'video/quicktime',
+      avi: 'video/x-msvideo',
+      mkv: 'video/x-matroska',
+    };
+
+    if (contentTypeMap[extension]) {
+      return contentTypeMap[extension];
+    }
+
+    if (resourceType === 'image') {
+      return 'image/*';
+    }
+
+    if (resourceType === 'video') {
+      return 'video/*';
+    }
+
+    return 'application/octet-stream';
+  }
+
+  _buildPublicUrl(objectKey) {
+    return `${this.publicBaseUrl}/${objectKey}`;
+  }
+
   /**
-   * Upload file to Cloudinary
+   * Upload file to R2
    * @param {Buffer} fileBuffer - File buffer
    * @param {string} fileName - Original filename
-   * @param {string} folder - Cloudinary folder path (e.g., 'course-materials/project-123')
+   * @param {string} folder - Folder path (e.g., 'course-materials/project-123')
    * @returns {Promise<Object>} Upload result with URL and metadata
    */
   async uploadFile(fileBuffer, fileName, folder) {
@@ -77,7 +163,7 @@ class CloudinaryService {
       throw new Error('Upload failed: Folder path is required');
     }
 
-    // File size limit (10GB) - Cloudinary free tier supports up to 100MB per file
+    // File size limit (10GB)
     const MAX_FILE_SIZE = 10 * 1024 * 1024 * 1024; // 10GB
     if (fileBuffer.length > MAX_FILE_SIZE) {
       throw new Error(
@@ -86,69 +172,39 @@ class CloudinaryService {
     }
 
     try {
-      // Get file extension for resource_type detection
-      const extension = fileName.split('.').pop().toLowerCase();
-      const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'];
-      const videoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'];
-      
-      // Treat all documents (pdf, docx, doc, xlsx, pptx, txt, etc.) as 'raw'
-      let resourceType = 'raw'; // Default for all documents including PDF and DOCX
-      if (imageExtensions.includes(extension)) {
-        resourceType = 'image';
-      } else if (videoExtensions.includes(extension)) {
-        resourceType = 'video';
-      }
-      // Everything else (pdf, docx, zip, etc.) stays as 'raw'
+      const resourceType = this._detectResourceType(fileName);
+      const safeFileName = this._sanitizeFileName(fileName);
+      const normalizedFolder = folder.replace(/^\/+|\/+$/g, '');
+      const objectKey = `${normalizedFolder}/${safeFileName}`;
+      const contentType = this._guessContentType(fileName, resourceType);
 
-      // Upload using upload_stream (supports all file types)
-      const result = await new Promise((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          {
-            folder: folder, // Don't add pbl-lms prefix, it's already in folder param
-            resource_type: resourceType,
-            public_id: fileName, // Keep full filename with extension
-            use_filename: true,
-            unique_filename: false, // Don't add random suffix
-            overwrite: true // Allow replacing files with same name
-          },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        );
-        uploadStream.end(fileBuffer);
-      });
+      await this.client.send(
+        new PutObjectCommand({
+          Bucket: this.bucketName,
+          Key: objectKey,
+          Body: fileBuffer,
+          ContentType: contentType,
+          ContentDisposition: resourceType === 'raw' ? `attachment; filename="${safeFileName}"` : undefined,
+        })
+      );
 
-      console.log(`📤 Uploaded: ${fileName} (${result.public_id}) - ${(result.bytes / 1024).toFixed(2)} KB`);
-
-      // Generate downloadable URL - treat all 'raw' files the same (PDF, DOCX, etc.)
-      let downloadUrl = result.secure_url;
-      if (resourceType === 'raw') {
-        // Add fl_attachment flag to force download with correct filename for ALL documents
-        downloadUrl = cloudinary.url(result.public_id, {
-          resource_type: 'raw',
-          flags: 'attachment',
-          secure: true
-        });
-      }
+      console.log(`📤 Uploaded to R2: ${fileName} (${objectKey}) - ${(fileBuffer.length / 1024).toFixed(2)} KB`);
 
       return {
-        fileId: result.public_id,
+        fileId: objectKey,
         fileName: fileName,
-        url: downloadUrl, // Use download URL for raw files
-        format: result.format,
-        resourceType: result.resource_type,
-        size: result.bytes
+        url: this._buildPublicUrl(objectKey),
+        format: fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : '',
+        resourceType,
+        size: fileBuffer.length
       };
     } catch (error) {
       const enrichedError = new Error(`Upload failed for "${fileName}": ${error.message}`);
-      enrichedError.code = error.http_code;
+      enrichedError.code = error.code;
       enrichedError.fileName = fileName;
 
-      if (error.http_code === 403) {
+      if (error?.$metadata?.httpStatusCode === 403) {
         console.error(`⚠️  403 Forbidden: Cannot upload "${fileName}"`);
-      } else if (error.http_code === 429) {
-        console.error(`⚠️  429 Rate Limit: Quota exceeded`);
       }
 
       console.error('Upload error:', enrichedError.message);
@@ -157,45 +213,28 @@ class CloudinaryService {
   }
 
   /**
-   * Delete file from Cloudinary
-   * @param {string} publicId - Cloudinary public ID (with extension)
+   * Delete file from R2
+   * @param {string} publicId - R2 object key
    * @param {string} resourceType - Resource type (image, video, raw)
    * @returns {Promise<boolean>} Success status
    */
-  async deleteFile(publicId, resourceType) {
+  async deleteFile(publicId) {
     this._ensureInitialized();
 
     if (!publicId) {
       throw new Error('Delete failed: Public ID is required');
     }
 
-    // Auto-detect resource type if not provided
-    if (!resourceType) {
-      const extension = publicId.split('.').pop().toLowerCase();
-      const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'];
-      const videoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'];
-      
-      if (imageExtensions.includes(extension)) {
-        resourceType = 'image';
-      } else if (videoExtensions.includes(extension)) {
-        resourceType = 'video';
-      } else {
-        resourceType = 'raw';
-      }
-    }
-
     try {
-      const result = await cloudinary.uploader.destroy(publicId, {
-        resource_type: resourceType,
-        invalidate: true
-      });
+      await this.client.send(
+        new DeleteObjectCommand({
+          Bucket: this.bucketName,
+          Key: publicId,
+        })
+      );
 
-      if (result.result === 'ok' || result.result === 'not found') {
-        console.log(`🗑️  Deleted: ${publicId}`);
-        return true; // Idempotent
-      }
-
-      throw new Error(`Unexpected result: ${result.result}`);
+      console.log(`🗑️  Deleted from R2: ${publicId}`);
+      return true;
     } catch (error) {
       console.error(`Delete failed for ${publicId}:`, error.message);
       throw new Error(`Delete failed: ${error.message}`);
@@ -203,28 +242,31 @@ class CloudinaryService {
   }
 
   /**
-   * Get file details from Cloudinary
-   * @param {string} publicId - Cloudinary public ID
+   * Get file details from R2
+   * @param {string} publicId - R2 object key
    * @param {string} resourceType - Resource type (image, video, raw)
    * @returns {Promise<Object>} File metadata
    */
-  async getFile(publicId, resourceType = 'raw') {
+  async getFile(publicId) {
     this._ensureInitialized();
 
     try {
-      const result = await cloudinary.api.resource(publicId, {
-        resource_type: resourceType
-      });
+      const result = await this.client.send(
+        new HeadObjectCommand({
+          Bucket: this.bucketName,
+          Key: publicId,
+        })
+      );
 
       return {
-        fileId: result.public_id,
-        url: result.secure_url,
-        format: result.format,
-        size: result.bytes,
-        createdAt: result.created_at
+        fileId: publicId,
+        url: this._buildPublicUrl(publicId),
+        format: publicId.includes('.') ? publicId.split('.').pop().toLowerCase() : '',
+        size: result.ContentLength,
+        createdAt: result.LastModified
       };
     } catch (error) {
-      if (error.http_code === 404) {
+      if (error?.$metadata?.httpStatusCode === 404) {
         throw new Error(`File ${publicId} not found`);
       }
       throw new Error(`Failed to get file ${publicId}: ${error.message}`);
@@ -233,18 +275,23 @@ class CloudinaryService {
 
   /**
    * Generate a temporary download URL (useful for private resources)
-   * @param {string} publicId - Cloudinary public ID
+   * @param {string} publicId - R2 object key
    * @param {string} resourceType - Resource type
    * @returns {string} Download URL
    */
-  getDownloadUrl(publicId, resourceType = 'raw') {
+  async getDownloadUrl(publicId) {
     this._ensureInitialized();
 
-    return cloudinary.url(publicId, {
-      resource_type: resourceType,
-      secure: true,
-      flags: 'attachment'
-    });
+    const expiresIn = Number(process.env.R2_SIGNED_URL_EXPIRES || 900);
+
+    return getSignedUrl(
+      this.client,
+      new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: publicId,
+      }),
+      { expiresIn }
+    );
   }
 }
 

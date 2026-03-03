@@ -264,7 +264,7 @@ exports.downloadSubmission = async (req, res) => {
     }
 
     // Redirect to Cloudinary download URL
-    const downloadUrl = cloudinaryService.getDownloadUrl(submission.cloudinaryId, submission.resourceType || 'raw');
+    const downloadUrl = await cloudinaryService.getDownloadUrl(submission.cloudinaryId);
     res.redirect(downloadUrl);
   } catch (error) {
     console.error('Error downloading submission:', error);

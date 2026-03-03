@@ -72,16 +72,16 @@ app.use('/api/auth/register', authLimiter); // Strict auth rate limit
 mongoose.connect(process.env.MONGODB_URI)
 .then(async () => {
   console.log('✅ MongoDB متصل بنجاح');
-  // Initialize Cloudinary service - non-blocking
+  // Initialize storage service (Cloudflare R2) - non-blocking
   try {
     const initialized = await cloudinaryService.initialize();
     if (initialized) {
-      console.log('✅ Cloudinary service ready for use');
+      console.log('✅ Storage service ready for use');
     } else {
-      console.warn('⚠️  Cloudinary service not available - file uploads will fail');
+      console.warn('⚠️  Storage service not available - file uploads will fail');
     }
   } catch (error) {
-    console.error('⚠️  Failed to initialize Cloudinary service');
+    console.error('⚠️  Failed to initialize storage service');
     console.error('Error:', error.message);
     console.warn('⚠️  Server will continue, but file uploads will not work');
   }
