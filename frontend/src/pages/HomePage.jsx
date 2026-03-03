@@ -63,7 +63,7 @@ const HomePage = () => {
         }}
       >
         <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1 }}>
-          <Typography variant="h2" component="h1" gutterBottom fontWeight={700} align="center" sx={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+          <Typography variant="h2" component="h1" gutterBottom fontWeight={700} align="center" noWrap sx={{ textShadow: '2px 2px 4px rgba(0,0,0,0.5)', fontSize: { xs: '1.6rem', sm: '2.2rem', md: '2.8rem', lg: '3.2rem' } }}>
             {t('heroTitle')}
           </Typography>
           <Typography variant="h5" gutterBottom align="center" sx={{ mb: 4, textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}>
