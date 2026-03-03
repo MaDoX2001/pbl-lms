@@ -205,21 +205,59 @@ const ResourcesPage = () => {
     return labels[difficulty] || difficulty;
   };
 
+  // ─── Local RTL helpers (no global theme/cache required) ──────────────────────
+  // MUI v5 does NOT auto-flip CSS without the Emotion RTL cache, so we supply
+  // all directional overrides explicitly via sx on each component.
+
+  // Applied to every plain TextField (text input, not select)
+  const rtlTextFieldSx = {
+    // Move the floating label to the right edge
+    '& .MuiInputLabel-root': {
+      right: isRtl ? 0 : 'auto',
+      left: isRtl ? 'auto' : 0,
+      transformOrigin: isRtl ? 'top right' : 'top left',
+      // Shrunk state also needs the same origin
+      '&.MuiInputLabel-shrink': {
+        transformOrigin: isRtl ? 'top right' : 'top left',
+      },
+    },
+    // The notched outline legend (cut-out for the label) must align with the label
+    '& .MuiOutlinedInput-notchedOutline legend': {
+      textAlign: isRtl ? 'right' : 'left',
+    },
+    // Input text itself
+    '& .MuiInputBase-input': {
+      textAlign: isRtl ? 'right' : 'left',
+      direction,
+    },
+  };
+
+  // Applied to every Select-backed TextField
+  const rtlSelectSx = {
+    ...rtlTextFieldSx,
+    // MUI hard-codes padding-right:32px for the dropdown arrow; swap sides in RTL
+    '& .MuiSelect-select': {
+      paddingRight: isRtl ? '14px !important' : '32px !important',
+      paddingLeft: isRtl ? '32px !important' : '14px !important',
+      textAlign: isRtl ? 'right' : 'left',
+    },
+    // Move the dropdown chevron icon to the left in RTL
+    '& .MuiSelect-icon': {
+      right: isRtl ? 'auto' : '7px',
+      left: isRtl ? '7px' : 'auto',
+    },
+  };
+  // ─────────────────────────────────────────────────────────────────────────────
+
   return (
+    // dir={direction} sets the HTML directionality for the whole subtree.
+    // This makes browser text rendering, logical CSS properties (inline-start/end)
+    // and MUI's own dir-aware utilities work correctly — locally, without a global
+    // theme change.
     <Container
       maxWidth="lg"
       dir={direction}
-      sx={{
-        py: 4,
-        direction,
-        textAlign: isRtl ? 'right' : 'left',
-        '& .MuiInputBase-input': {
-          textAlign: isRtl ? 'right' : 'left'
-        },
-        '& .MuiSelect-select': {
-          textAlign: isRtl ? 'right' : 'left'
-        }
-      }}
+      sx={{ py: 4 }}
     >
       {/* Header */}
       <Box sx={{ mb: 4, textAlign: isRtl ? 'right' : 'left' }}>
@@ -229,13 +267,13 @@ const ResourcesPage = () => {
         <Typography variant="body1" sx={{ color: '#666', mb: 3 }}>
           {t('resourcesSubtitle')}
         </Typography>
-        
+
         {userRole && (userRole === 'teacher' || userRole === 'admin') && (
           <Button
             variant="contained"
             startIcon={<CloudUploadIcon />}
             onClick={() => setUploadDialogOpen(true)}
-            sx={{ 
+            sx={{
               backgroundColor: '#4caf50',
               color: 'white',
               fontWeight: 'bold',
@@ -254,25 +292,37 @@ const ResourcesPage = () => {
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
       {/* Filters */}
-      <Card sx={{ mb: 4, p: 3, backgroundColor: '#f5f5f5', direction, textAlign: isRtl ? 'right' : 'left' }}>
-        <Grid container spacing={2} direction={isRtl ? 'row-reverse' : 'row'} sx={{ direction }}>
+      <Card sx={{ mb: 4, p: 3, backgroundColor: '#f5f5f5' }}>
+        {/*
+          Fix: use flexDirection (CSS) instead of the MUI Grid `direction` prop.
+          The MUI Grid `direction` prop only changes flex-direction on the Grid
+          wrapper but does NOT fix internal MUI field layout. Using flex-direction
+          directly on the container row is the correct local technique.
+        */}
+        <Grid container spacing={2} sx={{ flexDirection: isRtl ? 'row-reverse' : 'row' }}>
+          {/* Search */}
           <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
               label={t('search')}
               variant="outlined"
-              startAdornment={<SearchIcon sx={{ mr: 1 }} />}
               value={filters.search}
               onChange={handleSearch}
               size="small"
-              InputProps={{ style: { textAlign: isRtl ? 'right' : 'left' } }}
-              sx={{
-                '& .MuiInputBase-input': {
-                  textAlign: isRtl ? 'right' : 'left'
-                }
+              // Fix: adornment must be inside InputProps, not a direct prop.
+              // Swap to endAdornment in RTL so the icon appears on the right
+              // (the visual "start" in RTL) without needing the global RTL cache.
+              InputProps={{
+                ...(isRtl
+                  ? { endAdornment: <SearchIcon sx={{ ml: 1, color: 'action.active' }} /> }
+                  : { startAdornment: <SearchIcon sx={{ mr: 1, color: 'action.active' }} /> }
+                ),
               }}
+              sx={rtlTextFieldSx}
             />
           </Grid>
+
+          {/* Category */}
           <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
@@ -281,11 +331,7 @@ const ResourcesPage = () => {
               value={filters.category}
               onChange={(e) => handleFilterChange('category', e.target.value)}
               size="small"
-              sx={{
-                '& .MuiSelect-select': {
-                  textAlign: isRtl ? 'right' : 'left'
-                }
-              }}
+              sx={rtlSelectSx}
             >
               {categories.map(cat => (
                 <MenuItem key={cat.value} value={cat.value}>
@@ -294,6 +340,8 @@ const ResourcesPage = () => {
               ))}
             </TextField>
           </Grid>
+
+          {/* Difficulty */}
           <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
@@ -302,11 +350,7 @@ const ResourcesPage = () => {
               value={filters.difficulty}
               onChange={(e) => handleFilterChange('difficulty', e.target.value)}
               size="small"
-              sx={{
-                '& .MuiSelect-select': {
-                  textAlign: isRtl ? 'right' : 'left'
-                }
-              }}
+              sx={rtlSelectSx}
             >
               {difficulties.map(level => (
                 <MenuItem key={level.value} value={level.value}>
@@ -315,6 +359,8 @@ const ResourcesPage = () => {
               ))}
             </TextField>
           </Grid>
+
+          {/* Resource type */}
           <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
@@ -323,11 +369,7 @@ const ResourcesPage = () => {
               value={filters.resourceType}
               onChange={(e) => handleFilterChange('resourceType', e.target.value)}
               size="small"
-              sx={{
-                '& .MuiSelect-select': {
-                  textAlign: isRtl ? 'right' : 'left'
-                }
-              }}
+              sx={rtlSelectSx}
             >
               {resourceTypes.map(type => (
                 <MenuItem key={type} value={type}>
@@ -336,6 +378,8 @@ const ResourcesPage = () => {
               ))}
             </TextField>
           </Grid>
+
+          {/* Sort */}
           <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
@@ -344,11 +388,7 @@ const ResourcesPage = () => {
               value={filters.sort}
               onChange={(e) => handleFilterChange('sort', e.target.value)}
               size="small"
-              sx={{
-                '& .MuiSelect-select': {
-                  textAlign: isRtl ? 'right' : 'left'
-                }
-              }}
+              sx={rtlSelectSx}
             >
               <MenuItem value="newest">{t('newest')}</MenuItem>
               <MenuItem value="popular">{t('mostViewed')}</MenuItem>
@@ -382,7 +422,7 @@ const ResourcesPage = () => {
                   }
                 }}
               >
-                {/* Header with Thumbnail */}
+                {/* Thumbnail / icon header */}
                 <Box
                   sx={{
                     height: 120,
@@ -399,11 +439,7 @@ const ResourcesPage = () => {
                       component="img"
                       src={resource.thumbnail || resource.fileUrl}
                       alt={resource.title}
-                      sx={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover'
-                      }}
+                      sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
                   ) : (
                     getResourceIcon(resource.resourceType)
@@ -419,35 +455,32 @@ const ResourcesPage = () => {
                     {resource.description}
                   </Typography>
 
-                  {/* Type and Category Chips */}
-                  <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: isRtl ? 'flex-end' : 'flex-start' }}>
-                    <Chip
-                      size="small"
-                      label={getTypeLabel(resource.resourceType)}
-                      variant="outlined"
-                      color="primary"
-                    />
-                    <Chip
-                      size="small"
-                      label={getCategoryLabel(resource.category)}
-                      variant="outlined"
-                      color="secondary"
-                    />
-                    <Chip
-                      size="small"
-                      label={getDifficultyLabel(resource.difficulty)}
-                      variant="outlined"
-                    />
+                  {/* Type / Category / Difficulty chips — wrap from inline-end */}
+                  <Box
+                    sx={{
+                      mb: 2,
+                      display: 'flex',
+                      gap: 1,
+                      flexWrap: 'wrap',
+                      flexDirection: isRtl ? 'row-reverse' : 'row',
+                    }}
+                  >
+                    <Chip size="small" label={getTypeLabel(resource.resourceType)} variant="outlined" color="primary" />
+                    <Chip size="small" label={getCategoryLabel(resource.category)} variant="outlined" color="secondary" />
+                    <Chip size="small" label={getDifficultyLabel(resource.difficulty)} variant="outlined" />
                   </Box>
 
-                  {/* Rating and Stats */}
+                  {/* Rating and stats */}
                   <Box sx={{ mb: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: isRtl ? 'flex-end' : 'flex-start' }}>
-                      <Rating
-                        value={resource.rating.average}
-                        readOnly
-                        size="small"
-                      />
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        flexDirection: isRtl ? 'row-reverse' : 'row',
+                      }}
+                    >
+                      <Rating value={resource.rating.average} readOnly size="small" />
                       <Typography variant="caption" color="textSecondary">
                         ({resource.rating.count})
                       </Typography>
@@ -463,53 +496,50 @@ const ResourcesPage = () => {
                   </Typography>
                 </CardContent>
 
-                {/* Action Buttons */}
-                <Box sx={{ p: 2, borderTop: '1px solid #eee', display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    {/* View Button */}
+                {/* Action buttons */}
+                <Box
+                  sx={{
+                    p: 2,
+                    borderTop: '1px solid #eee',
+                    display: 'flex',
+                    gap: 1,
+                    flexWrap: 'wrap',
+                    // In RTL: reverse the row so the icon group sits on the right
+                    flexDirection: isRtl ? 'row-reverse' : 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', gap: 1, flexDirection: isRtl ? 'row-reverse' : 'row' }}>
                     <Tooltip title={t('view')}>
-                      <IconButton
-                        size="small"
-                        color="info"
-                        onClick={() => window.open(resource.fileUrl, '_blank')}
-                      >
+                      <IconButton size="small" color="info" onClick={() => window.open(resource.fileUrl, '_blank')}>
                         <VisibilityIcon />
                       </IconButton>
                     </Tooltip>
 
-                    {/* Download Button */}
                     <Tooltip title={t('download')}>
-                      <IconButton
-                        size="small"
-                        color="primary"
-                        onClick={() => handleDownload(resource)}
-                      >
+                      <IconButton size="small" color="primary" onClick={() => handleDownload(resource)}>
                         <DownloadIcon />
                       </IconButton>
                     </Tooltip>
 
-                    {/* Delete Button - Only for owner or admin */}
                     {(() => {
                       const reduxUserId = reduxUser?.id;
                       const localUser = JSON.parse(localStorage.getItem('user') || '{}');
                       const localUserId = localUser?.id;
                       const userId = reduxUserId || localUserId;
                       const userRole = reduxUser?.role || localUser?.role;
-                      
+
                       const isOwner = userId && resource?.uploadedBy && (
-                        userId === resource.uploadedBy._id || 
+                        userId === resource.uploadedBy._id ||
                         userId === resource.uploadedBy
                       );
                       const isAdmin = userRole === 'admin';
-                      
+
                       if (isOwner || isAdmin) {
                         return (
                           <Tooltip title={t('delete')}>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleDelete(resource._id)}
-                            >
+                            <IconButton size="small" color="error" onClick={() => handleDelete(resource._id)}>
                               <DeleteIcon />
                             </IconButton>
                           </Tooltip>
@@ -519,12 +549,8 @@ const ResourcesPage = () => {
                     })()}
                   </Box>
 
-                  {/* Rating */}
                   <Tooltip title={t('rate')}>
-                    <Rating
-                      size="small"
-                      onChange={(_, value) => handleRate(resource._id, value)}
-                    />
+                    <Rating size="small" onChange={(_, value) => handleRate(resource._id, value)} />
                   </Tooltip>
                 </Box>
               </Card>
