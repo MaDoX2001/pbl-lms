@@ -32,7 +32,6 @@ const ResourcesPage = () => {
   // Get user from Redux
   const reduxUser = useSelector(state => state.auth?.user);
   const { t, direction } = useAppSettings();
-  const isRtl = direction === 'rtl';
   
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -205,62 +204,19 @@ const ResourcesPage = () => {
     return labels[difficulty] || difficulty;
   };
 
-  // ─── Local RTL helpers (no global theme/cache required) ──────────────────────
-  // MUI v5 does NOT auto-flip CSS without the Emotion RTL cache, so we supply
-  // all directional overrides explicitly via sx on each component.
-
-  // Applied to every plain TextField (text input, not select)
-  const rtlTextFieldSx = {
-    // Move the floating label to the right edge
-    '& .MuiInputLabel-root': {
-      right: isRtl ? 0 : 'auto',
-      left: isRtl ? 'auto' : 0,
-      transformOrigin: isRtl ? 'top right' : 'top left',
-      // Shrunk state also needs the same origin
-      '&.MuiInputLabel-shrink': {
-        transformOrigin: isRtl ? 'top right' : 'top left',
-      },
-    },
-    // The notched outline legend (cut-out for the label) must align with the label
-    '& .MuiOutlinedInput-notchedOutline legend': {
-      textAlign: isRtl ? 'right' : 'left',
-    },
-    // Input text itself
-    '& .MuiInputBase-input': {
-      textAlign: isRtl ? 'right' : 'left',
-      direction,
-    },
-  };
-
-  // Applied to every Select-backed TextField
-  const rtlSelectSx = {
-    ...rtlTextFieldSx,
-    // MUI hard-codes padding-right:32px for the dropdown arrow; swap sides in RTL
-    '& .MuiSelect-select': {
-      paddingRight: isRtl ? '14px !important' : '32px !important',
-      paddingLeft: isRtl ? '32px !important' : '14px !important',
-      textAlign: isRtl ? 'right' : 'left',
-    },
-    // Move the dropdown chevron icon to the left in RTL
-    '& .MuiSelect-icon': {
-      right: isRtl ? 'auto' : '7px',
-      left: isRtl ? '7px' : 'auto',
-    },
-  };
-  // ─────────────────────────────────────────────────────────────────────────────
-
   return (
-    // dir={direction} sets the HTML directionality for the whole subtree.
-    // This makes browser text rendering, logical CSS properties (inline-start/end)
-    // and MUI's own dir-aware utilities work correctly — locally, without a global
-    // theme change.
+    // dir={direction} mirrors what AppSettingsContext already sets on <html>.
+    // It is kept here as a safeguard for any MUI portal children that do not
+    // inherit the root dir attribute. The actual CSS flipping (padding, margin,
+    // borders, icons) is handled globally by stylis-plugin-rtl via the Emotion
+    // RTL cache configured in main.jsx — no local overrides needed.
     <Container
       maxWidth="lg"
       dir={direction}
       sx={{ py: 4 }}
     >
       {/* Header */}
-      <Box sx={{ mb: 4, textAlign: isRtl ? 'right' : 'left' }}>
+      <Box sx={{ mb: 4 }}>
         <Typography variant="h3" sx={{ mb: 2, fontWeight: 'bold', color: '#1976d2' }}>
           {t('resourcesTitle')}
         </Typography>
@@ -293,13 +249,7 @@ const ResourcesPage = () => {
 
       {/* Filters */}
       <Card sx={{ mb: 4, p: 3, backgroundColor: '#f5f5f5' }}>
-        {/*
-          Fix: use flexDirection (CSS) instead of the MUI Grid `direction` prop.
-          The MUI Grid `direction` prop only changes flex-direction on the Grid
-          wrapper but does NOT fix internal MUI field layout. Using flex-direction
-          directly on the container row is the correct local technique.
-        */}
-        <Grid container spacing={2} sx={{ flexDirection: isRtl ? 'row-reverse' : 'row' }}>
+        <Grid container spacing={2}>
           {/* Search */}
           <Grid item xs={12} sm={6} md={3}>
             <TextField
@@ -309,16 +259,9 @@ const ResourcesPage = () => {
               value={filters.search}
               onChange={handleSearch}
               size="small"
-              // Fix: adornment must be inside InputProps, not a direct prop.
-              // Swap to endAdornment in RTL so the icon appears on the right
-              // (the visual "start" in RTL) without needing the global RTL cache.
               InputProps={{
-                ...(isRtl
-                  ? { endAdornment: <SearchIcon sx={{ ml: 1, color: 'action.active' }} /> }
-                  : { startAdornment: <SearchIcon sx={{ mr: 1, color: 'action.active' }} /> }
-                ),
+                startAdornment: <SearchIcon sx={{ mr: 1, color: 'action.active' }} />,
               }}
-              sx={rtlTextFieldSx}
             />
           </Grid>
 
@@ -331,7 +274,6 @@ const ResourcesPage = () => {
               value={filters.category}
               onChange={(e) => handleFilterChange('category', e.target.value)}
               size="small"
-              sx={rtlSelectSx}
             >
               {categories.map(cat => (
                 <MenuItem key={cat.value} value={cat.value}>
@@ -350,7 +292,6 @@ const ResourcesPage = () => {
               value={filters.difficulty}
               onChange={(e) => handleFilterChange('difficulty', e.target.value)}
               size="small"
-              sx={rtlSelectSx}
             >
               {difficulties.map(level => (
                 <MenuItem key={level.value} value={level.value}>
@@ -369,7 +310,6 @@ const ResourcesPage = () => {
               value={filters.resourceType}
               onChange={(e) => handleFilterChange('resourceType', e.target.value)}
               size="small"
-              sx={rtlSelectSx}
             >
               {resourceTypes.map(type => (
                 <MenuItem key={type} value={type}>
@@ -388,7 +328,6 @@ const ResourcesPage = () => {
               value={filters.sort}
               onChange={(e) => handleFilterChange('sort', e.target.value)}
               size="small"
-              sx={rtlSelectSx}
             >
               <MenuItem value="newest">{t('newest')}</MenuItem>
               <MenuItem value="popular">{t('mostViewed')}</MenuItem>
@@ -446,7 +385,7 @@ const ResourcesPage = () => {
                   )}
                 </Box>
 
-                <CardContent sx={{ flexGrow: 1, textAlign: isRtl ? 'right' : 'left' }}>
+                <CardContent sx={{ flexGrow: 1 }}>
                   <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold' }}>
                     {resource.title}
                   </Typography>
@@ -455,16 +394,8 @@ const ResourcesPage = () => {
                     {resource.description}
                   </Typography>
 
-                  {/* Type / Category / Difficulty chips — wrap from inline-end */}
-                  <Box
-                    sx={{
-                      mb: 2,
-                      display: 'flex',
-                      gap: 1,
-                      flexWrap: 'wrap',
-                      flexDirection: isRtl ? 'row-reverse' : 'row',
-                    }}
-                  >
+                  {/* Type / Category / Difficulty chips */}
+                  <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                     <Chip size="small" label={getTypeLabel(resource.resourceType)} variant="outlined" color="primary" />
                     <Chip size="small" label={getCategoryLabel(resource.category)} variant="outlined" color="secondary" />
                     <Chip size="small" label={getDifficultyLabel(resource.difficulty)} variant="outlined" />
@@ -472,14 +403,7 @@ const ResourcesPage = () => {
 
                   {/* Rating and stats */}
                   <Box sx={{ mb: 2 }}>
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                        flexDirection: isRtl ? 'row-reverse' : 'row',
-                      }}
-                    >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Rating value={resource.rating.average} readOnly size="small" />
                       <Typography variant="caption" color="textSecondary">
                         ({resource.rating.count})
@@ -504,13 +428,11 @@ const ResourcesPage = () => {
                     display: 'flex',
                     gap: 1,
                     flexWrap: 'wrap',
-                    // In RTL: reverse the row so the icon group sits on the right
-                    flexDirection: isRtl ? 'row-reverse' : 'row',
                     justifyContent: 'space-between',
                     alignItems: 'center',
                   }}
                 >
-                  <Box sx={{ display: 'flex', gap: 1, flexDirection: isRtl ? 'row-reverse' : 'row' }}>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
                     <Tooltip title={t('view')}>
                       <IconButton size="small" color="info" onClick={() => window.open(resource.fileUrl, '_blank')}>
                         <VisibilityIcon />
