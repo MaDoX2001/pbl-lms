@@ -187,7 +187,7 @@ const ProfilePage = () => {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f8f9fa', py: 4 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', py: 4 }}>
       {/* Header Section */}
       <Paper 
         elevation={0}
@@ -293,7 +293,7 @@ const ProfilePage = () => {
         {user?.role === 'student' && (
           <>
             <Grid item xs={12} sm={6} md={3}>
-              <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid #e0e0e0' }}>
+              <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
                 <CardContent sx={{ textAlign: 'center', py: 3 }}>
                   <Assignment sx={{ fontSize: 48, color: '#667eea', mb: 1 }} />
                   <Typography variant="h3" fontWeight={700} color="text.primary">
@@ -306,7 +306,7 @@ const ProfilePage = () => {
               </Card>
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
-              <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid #e0e0e0' }}>
+              <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
                 <CardContent sx={{ textAlign: 'center', py: 3 }}>
                   <TrendingUp sx={{ fontSize: 48, color: '#f59e0b', mb: 1 }} />
                   <Typography variant="h3" fontWeight={700} color="text.primary">
@@ -319,7 +319,7 @@ const ProfilePage = () => {
               </Card>
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
-              <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid #e0e0e0' }}>
+              <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
                 <CardContent sx={{ textAlign: 'center', py: 3 }}>
                   <EmojiEvents sx={{ fontSize: 48, color: '#10b981', mb: 1 }} />
                   <Typography variant="h3" fontWeight={700} color="text.primary">
@@ -332,7 +332,7 @@ const ProfilePage = () => {
               </Card>
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
-              <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid #e0e0e0' }}>
+              <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
                 <CardContent sx={{ textAlign: 'center', py: 3 }}>
                   <School sx={{ fontSize: 48, color: '#ef4444', mb: 1 }} />
                   <Typography variant="h3" fontWeight={700} color="text.primary">
@@ -350,7 +350,7 @@ const ProfilePage = () => {
         {/* Badges Section with BadgeCollection Component */}
         {user?.role === 'student' && (
           <Grid item xs={12}>
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #e0e0e0' }}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
               <Typography variant="h5" fontWeight={700} mb={3} color="text.primary">
                 {t('achievements')}
               </Typography>
@@ -361,7 +361,7 @@ const ProfilePage = () => {
 
         {/* Personal Information */}
         <Grid item xs={12} md={6}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #e0e0e0', height: '100%' }}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
             <Typography variant="h5" fontWeight={700} mb={3} color="text.primary">
               {t('personalInfo')}
             </Typography>
@@ -415,7 +415,7 @@ const ProfilePage = () => {
 
         {/* Security & Settings */}
         <Grid item xs={12} md={6}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #e0e0e0', height: '100%' }}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
             <Typography variant="h5" fontWeight={700} mb={3} color="text.primary">
               {t('securityAndSettings')}
             </Typography>
