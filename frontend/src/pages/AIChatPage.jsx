@@ -1,39 +1,136 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Box, Typography, TextField, IconButton, Paper, Avatar,
-  CircularProgress, Divider, Chip
+  CircularProgress, Divider, Chip, Tooltip, Snackbar,
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import PersonIcon from '@mui/icons-material/Person';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CheckIcon from '@mui/icons-material/Check';
 import { useAppSettings } from '../context/AppSettingsContext';
+import { useSelector } from 'react-redux';
 import api from '../services/api';
 
-const SUGGESTIONS_AR = [
+const STORAGE_KEY = 'ai_chat_messages';
+
+const SUGGESTIONS_AR_STUDENT = [
   'اشرح لي كيفية استخدام LED مع Arduino',
   'ما الفرق بين analogRead و digitalRead؟',
   'كيف أربط sensor الحرارة DHT11؟',
-  'اشرح لي مفهوم الـ loop في Arduino',
+  'ما هي خطوتي التالية في المنصة؟',
 ];
-
-const SUGGESTIONS_EN = [
+const SUGGESTIONS_EN_STUDENT = [
   'Explain how to use LED with Arduino',
   'What is the difference between analogRead and digitalRead?',
   'How to connect DHT11 temperature sensor?',
-  'Explain the loop concept in Arduino',
+  'What is my next step on the platform?',
 ];
+const SUGGESTIONS_AR_TEACHER = [
+  'ساعدني في كتابة معايير تقييم لمشروع Arduino',
+  'اقترح أسئلة للتقييم الشفهي',
+  'كيف أصمم مشروع PBL للمبتدئين؟',
+  'اقترح طرق مساعدة طالب متعثر',
+];
+const SUGGESTIONS_EN_TEACHER = [
+  'Help me write evaluation criteria for an Arduino project',
+  'Suggest oral assessment questions',
+  'How to design a PBL project for beginners?',
+  'Suggest ways to help a struggling student',
+];
+
+// Render message content: parse ```code``` blocks
+const MessageContent = ({ content, isUser }) => {
+  const [copied, setCopied] = useState(null);
+
+  const copyCode = useCallback((code, index) => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied(index);
+      setTimeout(() => setCopied(null), 2000);
+    });
+  }, []);
+
+  const parts = content.split(/(```[\s\S]*?```)/g);
+
+  return (
+    <Box>
+      {parts.map((part, i) => {
+        if (part.startsWith('```')) {
+          const withoutFences = part.replace(/^```\w*\n?/, '').replace(/\n?```$/, '');
+          return (
+            <Box key={i} sx={{ position: 'relative', my: 1 }}>
+              <Box
+                component="pre"
+                sx={{
+                  bgcolor: '#1e1e1e',
+                  color: '#d4d4d4',
+                  p: 1.5,
+                  pr: 5,
+                  borderRadius: 1,
+                  fontFamily: 'Consolas, Monaco, monospace',
+                  fontSize: '0.78rem',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  overflowX: 'auto',
+                  m: 0,
+                }}
+              >
+                {withoutFences}
+              </Box>
+              <Tooltip title={copied === i ? 'Copied!' : 'Copy code'}>
+                <IconButton
+                  size="small"
+                  onClick={() => copyCode(withoutFences, i)}
+                  sx={{
+                    position: 'absolute', top: 4, right: 4,
+                    color: copied === i ? 'success.main' : 'grey.400',
+                    bgcolor: 'rgba(255,255,255,0.05)',
+                    '&:hover': { bgcolor: 'rgba(255,255,255,0.15)' },
+                  }}
+                >
+                  {copied === i ? <CheckIcon sx={{ fontSize: 14 }} /> : <ContentCopyIcon sx={{ fontSize: 14 }} />}
+                </IconButton>
+              </Tooltip>
+            </Box>
+          );
+        }
+        return (
+          <Typography key={i} variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.8 }}>
+            {part}
+          </Typography>
+        );
+      })}
+    </Box>
+  );
+};
 
 const AIChatPage = () => {
   const { t, direction, language } = useAppSettings();
+  const { user } = useSelector((state) => state.auth);
   const isRTL = direction === 'rtl';
-  const [messages, setMessages] = useState([]);
+  const isTeacher = user?.role === 'teacher' || user?.role === 'admin';
+
+  const [messages, setMessages] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [copySnack, setCopySnack] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  const suggestions = language === 'ar' ? SUGGESTIONS_AR : SUGGESTIONS_EN;
+  const suggestions = isTeacher
+    ? (language === 'ar' ? SUGGESTIONS_AR_TEACHER : SUGGESTIONS_EN_TEACHER)
+    : (language === 'ar' ? SUGGESTIONS_AR_STUDENT : SUGGESTIONS_EN_STUDENT);
+
+  // Persist chat to localStorage
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(messages)); } catch {}
+  }, [messages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -50,16 +147,21 @@ const AIChatPage = () => {
     setLoading(true);
 
     try {
-      const history = newMessages.slice(0, -1); // exclude current msg
+      const history = newMessages.slice(0, -1);
       const res = await api.post('/ai/chat', { message: userText, history });
       setMessages([...newMessages, { role: 'assistant', content: res.data.data.reply }]);
     } catch (err) {
-      const is429 = err.response?.status === 429;
-      setMessages([...newMessages, {
-        role: 'assistant',
-        content: is429 ? t('aiRateLimited') : t('aiError'),
-        error: true,
-      }]);
+      // Silent retry once on 500
+      if (err.response?.status === 500 || !err.response) {
+        try {
+          const history = newMessages.slice(0, -1);
+          const res = await api.post('/ai/chat', { message: userText, history });
+          setMessages([...newMessages, { role: 'assistant', content: res.data.data.reply }]);
+          return;
+        } catch {}
+      }
+      const msg = err.response?.data?.message || (err.response?.status === 429 ? t('aiRateLimited') : t('aiError'));
+      setMessages([...newMessages, { role: 'assistant', content: msg, error: true }]);
     } finally {
       setLoading(false);
       inputRef.current?.focus();
@@ -73,7 +175,14 @@ const AIChatPage = () => {
     }
   };
 
-  const clearChat = () => setMessages([]);
+  const clearChat = () => {
+    setMessages([]);
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+  };
+
+  const copyMessage = (content) => {
+    navigator.clipboard.writeText(content).then(() => setCopySnack(true));
+  };
 
   return (
     <Box sx={{ height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column', direction }}>
@@ -100,7 +209,6 @@ const AIChatPage = () => {
       {/* Messages */}
       <Box sx={{ flex: 1, overflowY: 'auto', px: { xs: 1.5, md: 3 }, py: 2 }}>
         {messages.length === 0 ? (
-          /* Empty state with suggestions */
           <Box sx={{ textAlign: 'center', mt: 6 }}>
             <SmartToyIcon sx={{ fontSize: 64, color: 'primary.main', opacity: 0.5, mb: 2 }} />
             <Typography variant="h6" fontWeight={600} gutterBottom>{t('aiWelcome')}</Typography>
@@ -138,23 +246,44 @@ const AIChatPage = () => {
               }}>
                 {msg.role === 'user' ? <PersonIcon fontSize="small" /> : <SmartToyIcon fontSize="small" />}
               </Avatar>
-              <Paper
-                elevation={0}
-                sx={{
-                  px: 2, py: 1.5,
-                  maxWidth: '75%',
-                  bgcolor: msg.role === 'user' ? 'primary.main' : (msg.error ? 'error.light' : 'action.hover'),
-                  color: msg.role === 'user' ? 'white' : 'text.primary',
-                  borderRadius: msg.role === 'user'
-                    ? (isRTL ? '16px 4px 16px 16px' : '4px 16px 16px 16px')
-                    : (isRTL ? '4px 16px 16px 16px' : '16px 4px 16px 16px'),
-                  textAlign: isRTL ? 'right' : 'left',
-                }}
-              >
-                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
-                  {msg.content}
-                </Typography>
-              </Paper>
+              <Box sx={{ maxWidth: '75%', position: 'relative' }}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    px: 2, py: 1.5,
+                    bgcolor: msg.role === 'user' ? 'primary.main' : (msg.error ? 'error.light' : 'action.hover'),
+                    color: msg.role === 'user' ? 'white' : 'text.primary',
+                    borderRadius: msg.role === 'user'
+                      ? (isRTL ? '16px 4px 16px 16px' : '4px 16px 16px 16px')
+                      : (isRTL ? '4px 16px 16px 16px' : '16px 4px 16px 16px'),
+                    textAlign: isRTL ? 'right' : 'left',
+                  }}
+                >
+                  {msg.role === 'user' ? (
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
+                      {msg.content}
+                    </Typography>
+                  ) : (
+                    <MessageContent content={msg.content} />
+                  )}
+                </Paper>
+                {msg.role === 'assistant' && !msg.error && (
+                  <Tooltip title={language === 'ar' ? 'نسخ' : 'Copy'}>
+                    <IconButton
+                      size="small"
+                      onClick={() => copyMessage(msg.content)}
+                      sx={{
+                        mt: 0.5,
+                        color: 'text.disabled',
+                        '&:hover': { color: 'text.secondary' },
+                        ...(isRTL ? { mr: 0.5 } : { ml: 0.5 }),
+                      }}
+                    >
+                      <ContentCopyIcon sx={{ fontSize: 14 }} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
             </Box>
           ))
         )}
@@ -208,6 +337,14 @@ const AIChatPage = () => {
           <SendIcon />
         </IconButton>
       </Box>
+
+      <Snackbar
+        open={copySnack}
+        autoHideDuration={2000}
+        onClose={() => setCopySnack(false)}
+        message={language === 'ar' ? 'تم النسخ' : 'Copied'}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Box>
   );
 };

@@ -1,4 +1,7 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Progress = require('../models/Progress.model');
+const StudentLevel = require('../models/StudentLevel.model');
+const Team = require('../models/Team.model');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -18,34 +21,112 @@ const AI_MODELS = envModels.length > 0 ? envModels : DEFAULT_AI_MODELS;
 const MAX_INPUT_CHARS = Number(process.env.AI_MAX_INPUT_CHARS || 4000);
 const MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS || 600);
 
-const SYSTEM_PROMPT = `أنت مساعد ذكي داخل منصة التعلم بالمشروعات (PBL LMS) وهدفك: الإرشاد داخل المنصة + دعم التعلم التقني العملي.
+const STUDENT_SYSTEM_PROMPT = `أنت مساعد ذكي داخل منصة التعلم بالمشروعات (PBL LMS). هدفك: الإرشاد داخل المنصة + دعم التعلم التقني العملي.
 
 مهامك الأساسية:
 1) الإرشاد داخل المنصة:
-- ساعد الطالب يفهم يعمل إيه خطوة بخطوة داخل المنصة (المشروعات، التقييم، التقدم، الفرق، التسليمات).
-- لو السؤال عام، اقترح له المسار التالي العملي داخل المنصة بدل الكلام النظري فقط.
+- ساعد الطالب خطوة بخطوة (المشروعات، التقييم، التقدم، الفرق، التسليمات).
+- استخدم بيانات الطالب المتوفرة لتقديم مساعدة مخصصة وليس عامة.
+- إذا كان في المشروع الحالي خطوة ناقصة، اذكرها بالاسم.
 
 2) دعم البرمجة وتصحيح الأخطاء:
-- مع أي خطأ برمجي: اعرض تشخيص سريع ثم خطوات إصلاح مرتبة.
-- اطلب المعلومات الناقصة المهمة فقط (رسالة الخطأ، الكود المتعلق، نوع اللوحة/المكتبات).
-- قدّم نسخة كود مصححة عند الحاجة، واشرح لماذا الخطأ حصل وكيف يتجنب تكراره.
+- مع أي خطأ برمجي: تشخيص سريع ثم خطوات إصلاح.
+- قدّم كود مصحح عند الحاجة مع شرح سبب الخطأ.
+- اطلب رسالة الخطأ الكاملة ونوع اللوحة/المكتبات إذا لم تُذكر.
 
 3) دعم Arduino والإلكترونيات:
-- اشرح القطع الإلكترونية (الحساسات، المحركات، الـ LEDs، المقاومات...) بطريقة بسيطة ثم عملية.
-- اربط بين: التوصيل الكهربائي + الكود + النتيجة المتوقعة + طريقة الاختبار.
-- عند الشك في التوصيل، أعطِ checklist سريعة للتحقق قبل تعديل الكود.
+- اشرح القطع الإلكترونية بطريقة بسيطة.
+- اربط بين: التوصيل الكهربائي + الكود + النتيجة المتوقعة.
+- أعطِ checklist للتحقق من التوصيل قبل تعديل الكود.
+
+4) شرح الدرجات والتقييم:
+- إذا سأل الطالب عن درجاته أو تقييمه، اشرح له بناءً على بيانات المشاريع المتوفرة.
+- إذا كان في مشروع مكتمل بدرجة منخفضة، اقترح ما يمكن تحسينه.
 
 أسلوب الرد:
-- واضح، عملي، ومختصر قدر الإمكان.
+- واضح، عملي، ومختصر.
 - إذا كان السؤال بالعربي أجب بالعربي، وإذا كان بالإنجليزي أجب بالإنجليزي.
-- استخدم تنسيق نص عادي فقط بدون Markdown.
-- ممنوع استخدام الرموز التالية في بداية السطور: # ، * ، - ، أو صيغة كود.
-- رتّب الرد بهذا الشكل دائمًا عند الشرح:
-  1) فكرة سريعة
-  2) خطوات عملية
-  3) مثال قصير (عند الحاجة)
-  4) ماذا تفعل بعد ذلك
-- اجعل الجمل قصيرة وواضحة، وتجنب خلط عربي/إنجليزي إلا للمصطلحات التقنية الضرورية.`;
+- استخدم code blocks (\`\`\`language ... \`\`\`) للكود البرمجي فقط.
+- للنص العادي: لا تستخدم * أو # في بداية السطور.
+- رتب الرد: فكرة سريعة ← خطوات عملية ← مثال (عند الحاجة) ← الخطوة التالية.`;
+
+const TEACHER_SYSTEM_PROMPT = `أنت مساعد ذكي للمعلمين داخل منصة التعلم بالمشروعات (PBL LMS).
+
+مهامك الأساسية:
+1) مساعدة في التقييم:
+- ساعد في كتابة معايير تقييم واضحة وعادلة.
+- اقترح أوصاف واضحة لبطاقات الملاحظة.
+- ساعد في صياغة أسئلة التقييم الشفهي.
+
+2) إدارة المشاريع:
+- اقترح أوصاف مشاريع PBL مناسبة لمستوى الطلاب.
+- ساعد في تقسيم المشروع إلى مراحل ومهام واضحة.
+- اقترح موارد تعليمية مناسبة.
+
+3) دعم الطلاب:
+- ساعد في تحليل تقدم الطلاب وتحديد من يحتاج دعمًا.
+- اقترح طرق تدخل لمساعدة الطلاب المتعثرين.
+
+أسلوب الرد:
+- مهني، منظم، ومختصر.
+- استخدم code blocks للكود البرمجي فقط.
+- للنص العادي: لا تستخدم * أو # في بداية السطور.
+- أجب بنفس لغة السؤال.`;
+
+// Build dynamic context from user's real data
+const buildUserContext = async (user) => {
+  if (!user) return '';
+
+  const levelMap = { beginner: 'مبتدئ', intermediate: 'متوسط', advanced: 'متقدم', expert: 'خبير' };
+  let context = `\n--- بيانات المستخدم ---\nالاسم: ${user.name}\nالدور: ${user.role === 'student' ? 'طالب' : user.role === 'teacher' ? 'معلم' : 'مدير'}\n`;
+
+  if (user.role === 'student') {
+    try {
+      const [progressList, levelData, team] = await Promise.all([
+        Progress.find({ student: user._id }).populate('project', 'title level').lean(),
+        StudentLevel.findOne({ student: user._id }).lean(),
+        Team.findOne({ members: user._id }).populate('members', 'name').lean(),
+      ]);
+
+      const active = progressList.filter(p => p.status !== 'completed');
+      const completed = progressList.filter(p => p.status === 'completed');
+
+      if (active.length > 0) {
+        context += `\nالمشاريع الحالية (قيد التنفيذ):\n`;
+        active.forEach(p => {
+          const statusMap = { 'not-started': 'لم يبدأ', 'in-progress': 'جاري', 'submitted': 'مسلّم', 'reviewed': 'مراجع' };
+          context += `- ${p.project?.title || 'مشروع'} (${statusMap[p.status] || p.status})\n`;
+        });
+      }
+
+      if (completed.length > 0) {
+        context += `\nالمشاريع المكتملة:\n`;
+        completed.forEach(p => {
+          const score = p.feedback?.score;
+          context += `- ${p.project?.title || 'مشروع'}${score !== undefined ? ` — الدرجة: ${score}%` : ''}\n`;
+        });
+      }
+
+      if (!active.length && !completed.length) {
+        context += `\nلم يلتحق بأي مشروع بعد.\n`;
+      }
+
+      if (levelData) {
+        context += `\nالمستوى الحالي: ${levelMap[levelData.currentLevel] || levelData.currentLevel}\n`;
+      }
+
+      if (team) {
+        const memberNames = team.members.map(m => m.name).filter(Boolean).join('، ');
+        context += `\nالفريق: ${team.name}\nأعضاء الفريق: ${memberNames}\n`;
+      }
+    } catch (err) {
+      console.warn('Could not build user context:', err.message);
+    }
+  }
+
+  context += `--- نهاية البيانات ---\n`;
+  return context;
+};
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -53,6 +134,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const chat = async (req, res) => {
   try {
     const { message, history = [] } = req.body;
+    const user = req.user;
 
     if (!process.env.GEMINI_API_KEY) {
       return res.status(500).json({
@@ -71,6 +153,14 @@ const chat = async (req, res) => {
         message: `الرسالة طويلة جدًا. الحد الأقصى ${MAX_INPUT_CHARS} حرف.`,
       });
     }
+
+    // Pick system prompt based on role
+    const isTeacher = user?.role === 'teacher' || user?.role === 'admin';
+    const basePrompt = isTeacher ? TEACHER_SYSTEM_PROMPT : STUDENT_SYSTEM_PROMPT;
+
+    // Build personalized context from DB
+    const userContext = await buildUserContext(user);
+    const fullSystemPrompt = basePrompt + (userContext ? `\n${userContext}` : '');
 
     // Trim history to last 6 messages to reduce token usage
     const trimmedHistory = history.slice(-6);
@@ -96,8 +186,8 @@ const chat = async (req, res) => {
         try {
           const chatSession = model.startChat({
             history: [
-              { role: 'user', parts: [{ text: SYSTEM_PROMPT }] },
-              { role: 'model', parts: [{ text: 'فهمت. سأساعدك في كل ما يخص البرمجة والمشاريع التقنية.' }] },
+              { role: 'user', parts: [{ text: fullSystemPrompt }] },
+              { role: 'model', parts: [{ text: 'فهمت. سأساعدك بناءً على بياناتك ومشاريعك.' }] },
               ...chatHistory,
             ],
           });
