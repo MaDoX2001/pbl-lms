@@ -231,35 +231,42 @@ const buildUserContext = async (user) => {
           block += `\nLearning objectives: ${proj.objectives.slice(0, 3).join(' | ')}`;
         }
 
-        // Milestones: show completed vs pending
-        if (proj.milestones?.length > 0 && currentProgress.milestoneProgress?.length > 0) {
-          const completedMilestones = currentProgress.milestoneProgress
-            .filter(m => m.completed)
-            .map(m => {
-              const found = proj.milestones.find(pm => String(pm._id) === String(m.milestoneId));
-              return found?.title;
-            })
-            .filter(Boolean);
+        // Milestones: sort by order field, then split into completed vs pending
+        if (proj.milestones?.length > 0) {
+          const sortedMilestones = [...proj.milestones].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-          const pendingMilestones = proj.milestones
-            .filter(pm => !currentProgress.milestoneProgress.find(
-              m => String(m.milestoneId) === String(pm._id) && m.completed
-            ))
+          const completedIds = new Set(
+            (currentProgress.milestoneProgress || [])
+              .filter(m => m.completed)
+              .map(m => String(m.milestoneId))
+          );
+
+          const completedMilestones = sortedMilestones
+            .filter(pm => completedIds.has(String(pm._id)))
             .map(pm => pm.title)
-            .slice(0, 3);
+            .filter(Boolean)
+            .slice(-3); // keep last 3 completed (most recent progress)
+
+          const pendingMilestones = sortedMilestones
+            .filter(pm => !completedIds.has(String(pm._id)))
+            .map(pm => pm.title)
+            .filter(Boolean)
+            .slice(0, 4); // next 4 upcoming milestones
 
           if (completedMilestones.length > 0) {
-            block += `\nCompleted stages: ${completedMilestones.join(', ')}.`;
+            block += `\n\nCompleted milestones:\n${completedMilestones.map(t => `• ${t}`).join('\n')}`;
+          } else {
+            block += `\n\nCompleted milestones: None yet.`;
           }
+
           if (pendingMilestones.length > 0) {
-            block += `\nNext pending stages: ${pendingMilestones.join(', ')}.`;
+            block += `\n\nNext milestones:\n${pendingMilestones.map(t => `• ${t}`).join('\n')}`;
+          } else {
+            block += `\n\nNext milestones: All milestones completed.`;
           }
-        } else if (proj.milestones?.length > 0) {
-          const nextMilestone = proj.milestones.sort((a, b) => a.order - b.order)[0];
-          if (nextMilestone) block += `\nFirst stage to complete: ${nextMilestone.title}.`;
         }
 
-        block += `\n\nUse this project context to guide the student toward the next logical step whenever their question relates to the project.`;
+        block += `\n\nUse this milestone information to guide the student toward the next pending milestone. Suggest small incremental steps rather than full solutions. Connect explanations to the current project whenever possible.`;
         block += `\n--- END OF PROJECT CONTEXT ---`;
 
         currentProjectContext = block;
