@@ -98,12 +98,14 @@ When helping with projects:
 - Explain why that step is important.
 - Provide small code examples if needed.
 - Avoid giving a full large project solution unless the student specifically asks for it.
+- When a question clearly relates to the project, end your answer with a short "Next step in your project:" section (1-2 sentences) based on the next pending milestone from the CURRENT PROJECT CONTEXT block.
 
 EXPLANATION STRUCTURE
 When answering technical questions, prefer this structure:
 1. Short explanation
-2. Example (if needed)
-3. Practical advice or next step
+2. Example code (if relevant, using a ```cpp block)
+3. Why the code works (brief)
+4. Optional: "Next step in your project:" — 1-2 sentences, only when the question clearly relates to the student's current project and pending milestones
 
 LANGUAGE ADAPTATION
 Always respond in the same language used by the student.
@@ -281,6 +283,39 @@ const buildUserContext = async (user) => {
   return { context, currentProjectContext };
 };
 
+// Parallel suggestion generator — fires independently from the main AI call
+// Uses only user message + project context (no AI reply needed) so it can run upfront
+const generateSuggestions = async (message, projectContext) => {
+  const suggestPrompt = `A student learning Arduino programming just asked: "${message.slice(0, 200)}"
+${projectContext ? `Student's current project context:\n${projectContext.slice(0, 300)}` : ''}
+
+Generate exactly 3 short follow-up questions the student might want to ask next.
+Questions must relate to Arduino programming or the student's project.
+Return ONLY a valid JSON array of 3 strings. No explanation, no markdown, just the array.
+Example: ["How do I wire the sensor?","What does digitalRead return?","What should I do next?"]`;
+
+  for (const modelName of AI_MODELS) {
+    try {
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: { maxOutputTokens: 120, temperature: 0.7 },
+      });
+      const result = await model.generateContent(suggestPrompt);
+      const raw = result.response.text().trim();
+      const match = raw.match(/\[[\s\S]*\]/);
+      if (match) {
+        const parsed = JSON.parse(match[0]);
+        if (Array.isArray(parsed)) return parsed.slice(0, 3).map(String);
+      }
+      return [];
+    } catch (err) {
+      if (err.status === 404 || err.status === 429) continue;
+      return []; // silent fail — never blocks main response
+    }
+  }
+  return [];
+};
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // POST /api/ai/chat
@@ -361,6 +396,9 @@ const chat = async (req, res) => {
       parts: [{ text: msg.content }],
     }));
 
+    // Fire suggestion generation in parallel with the main Gemini call
+    const suggestionPromise = generateSuggestions(message, currentProjectContext).catch(() => []);
+
     for (let modelIndex = 0; modelIndex < AI_MODELS.length; modelIndex++) {
       const modelName = AI_MODELS[modelIndex];
 
@@ -378,7 +416,7 @@ const chat = async (req, res) => {
           const chatSession = model.startChat({
             history: [
               { role: 'user', parts: [{ text: fullSystemPrompt }] },
-              { role: 'model', parts: [{ text: 'فهمت. سأساعدك بناءً على بياناتك ومشاريعك.' }] },
+              { role: 'model', parts: [{ text: 'Understood.' }] },
               ...chatHistory,
             ],
           });
@@ -388,34 +426,8 @@ const chat = async (req, res) => {
 
           console.log(`✅ AI response via ${modelName} (attempt ${attempt + 1})`);
 
-          // --- SUGGESTION ENGINE ---
-          // Generate 2-3 short follow-up questions in the background (fast, low tokens)
-          let suggestions = [];
-          try {
-            const suggestPrompt = `You are helping a student learning Arduino programming.
-The student just asked: "${message.slice(0, 200)}"
-The AI replied: "${text.slice(0, 300)}"
-${currentProjectContext ? `Student's current project info: ${currentProjectContext.slice(0, 200)}` : ''}
-
-Generate exactly 3 short follow-up questions the student might want to ask next.
-Questions must relate to Arduino programming or the student's project.
-Return ONLY a valid JSON array of 3 strings. No explanation, no markdown, just the array.
-Example: ["How do I wire the sensor?","What does digitalRead return?","Show me an example"]`;
-
-            const suggestModel = genAI.getGenerativeModel({
-              model: modelName,
-              generationConfig: { maxOutputTokens: 120, temperature: 0.7 },
-            });
-            const suggestResult = await suggestModel.generateContent(suggestPrompt);
-            const suggestText = suggestResult.response.text().trim();
-            const match = suggestText.match(/\[[\s\S]*\]/);
-            if (match) {
-              const parsed = JSON.parse(match[0]);
-              if (Array.isArray(parsed)) suggestions = parsed.slice(0, 3).map(String);
-            }
-          } catch (suggestErr) {
-            console.warn('Suggestion generation failed (non-critical):', suggestErr.message);
-          }
+          // Collect suggestions — already running in parallel since before the model loop
+          const suggestions = await suggestionPromise;
 
           // Save messages to DB for admin users only
           if (user?.role === 'admin') {
@@ -526,8 +538,8 @@ const summarize = async (req, res) => {
       .join('\n');
 
     const prompt = previousSummary && previousSummary.trim()
-      ? `Previous summary:\n${previousSummary}\n\nNew conversation:\n${conversationText}\n\nMerge the previous summary with the new conversation into one concise updated summary (maximum 150 words). Preserve the following if present: the student's current Arduino project name, the specific task or circuit they are working on, any bugs or errors encountered, the student's current progress stage, and key concepts already explained. Omit greetings and filler.`
-      : `Summarize the following Arduino tutoring conversation in one concise paragraph (maximum 120 words). Preserve: the student's project or task, any code problems or bugs discussed, the student's progress, and key concepts explained. Omit greetings and filler.\n\n${conversationText}`;
+      ? `Previous summary:\n${previousSummary}\n\nNew conversation:\n${conversationText}\n\nMerge the previous summary with the new conversation into one concise updated summary (maximum 150 words). Preserve: the student's current Arduino project name, the specific task or circuit they are working on, any bugs or errors encountered, the student's current progress stage, and a brief list of concepts already explained to the student (so the AI can avoid re-explaining them and build progressively). Omit greetings and filler.`
+      : `Summarize the following Arduino tutoring conversation in one concise paragraph (maximum 120 words). Preserve: the student's project or task, any code problems or bugs discussed, the student's progress, and a brief list of concepts already explained to the student. Omit greetings and filler.\n\n${conversationText}`;
 
     for (const modelName of AI_MODELS) {
       try {
@@ -537,8 +549,10 @@ const summarize = async (req, res) => {
         });
         const result = await model.generateContent(prompt);
         const newSummary = result.response.text().trim();
-        console.log(`✅ Summarized via ${modelName}`);
-        return res.json({ success: true, data: { summary: newSummary } });
+        // Quality guard: if summary too short, keep previous to avoid losing context
+        const finalSummary = newSummary.length >= 30 ? newSummary : (previousSummary || newSummary);
+        console.log(`✅ Summarized via ${modelName}${newSummary.length < 30 ? ' (kept previous — new was too short)' : ''}`);
+        return res.json({ success: true, data: { summary: finalSummary } });
       } catch (err) {
         if (err.status === 404 || err.status === 429) continue;
         throw err;

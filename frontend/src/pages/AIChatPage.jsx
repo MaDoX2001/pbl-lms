@@ -134,6 +134,7 @@ const AIChatPage = () => {
   const [replyTo, setReplyTo] = useState(null); // { role, content }
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const isSendingRef = useRef(false); // deduplication guard — prevents double-send on rapid clicks
 
   const suggestions = isTeacher
     ? (language === 'ar' ? SUGGESTIONS_AR_TEACHER : SUGGESTIONS_EN_TEACHER)
@@ -188,7 +189,8 @@ const AIChatPage = () => {
 
   const sendMessage = async (text) => {
     const userText = (text || input).trim();
-    if (!userText || loading) return;
+    if (!userText || loading || isSendingRef.current) return;
+    isSendingRef.current = true;
 
     // Prepend quoted message so AI sees the reply context
     const fullText = replyTo
@@ -240,6 +242,7 @@ ${userText}`
       setMessages([...newMessages, { role: 'assistant', content: msg, error: true }]);
     } finally {
       setLoading(false);
+      isSendingRef.current = false;
       inputRef.current?.focus();
     }
   };
