@@ -2,6 +2,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Progress = require('../models/Progress.model');
 const StudentLevel = require('../models/StudentLevel.model');
 const Team = require('../models/Team.model');
+const AIChatHistory = require('../models/AIChatHistory.model');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -196,6 +197,29 @@ const chat = async (req, res) => {
           const text = result.response.text();
 
           console.log(`✅ AI response via ${modelName} (attempt ${attempt + 1})`);
+
+          // Save to DB for admin users only
+          if (user?.role === 'admin') {
+            try {
+              await AIChatHistory.findOneAndUpdate(
+                { user: user._id },
+                {
+                  $push: {
+                    messages: {
+                      $each: [
+                        { role: 'user', content: message },
+                        { role: 'assistant', content: text },
+                      ],
+                    },
+                  },
+                },
+                { upsert: true, new: true }
+              );
+            } catch (saveErr) {
+              console.warn('Could not save admin chat history:', saveErr.message);
+            }
+          }
+
           return res.json({ success: true, data: { reply: text, model: modelName } });
 
         } catch (err) {
@@ -233,4 +257,36 @@ const chat = async (req, res) => {
   }
 };
 
-module.exports = { chat };
+// GET /api/ai/history - admin only
+const getHistory = async (req, res) => {
+  try {
+    const user = req.user;
+    if (user?.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Admin only' });
+    }
+    const record = await AIChatHistory.findOne({ user: user._id }).lean();
+    res.json({ success: true, data: record?.messages || [] });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// DELETE /api/ai/history - admin only
+const clearHistory = async (req, res) => {
+  try {
+    const user = req.user;
+    if (user?.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Admin only' });
+    }
+    await AIChatHistory.findOneAndUpdate(
+      { user: user._id },
+      { $set: { messages: [] } },
+      { upsert: true }
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+module.exports = { chat, getHistory, clearHistory };

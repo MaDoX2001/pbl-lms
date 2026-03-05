@@ -113,12 +113,14 @@ const AIChatPage = () => {
 
   const [messages, setMessages] = useState(() => {
     try {
+      if (user?.role === 'admin') return []; // will load from DB
       const saved = localStorage.getItem(STORAGE_KEY);
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [copySnack, setCopySnack] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -127,10 +129,21 @@ const AIChatPage = () => {
     ? (language === 'ar' ? SUGGESTIONS_AR_TEACHER : SUGGESTIONS_EN_TEACHER)
     : (language === 'ar' ? SUGGESTIONS_AR_STUDENT : SUGGESTIONS_EN_STUDENT);
 
-  // Persist chat to localStorage
+  // Admin: load history from DB on mount
   useEffect(() => {
+    if (user?.role !== 'admin') return;
+    setHistoryLoading(true);
+    api.get('/ai/history')
+      .then(res => setMessages(res.data.data || []))
+      .catch(() => {})
+      .finally(() => setHistoryLoading(false));
+  }, [user?.role]);
+
+  // Non-admin: persist to localStorage
+  useEffect(() => {
+    if (user?.role === 'admin') return;
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(messages)); } catch {}
-  }, [messages]);
+  }, [messages, user?.role]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -177,7 +190,11 @@ const AIChatPage = () => {
 
   const clearChat = () => {
     setMessages([]);
-    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    if (user?.role === 'admin') {
+      api.delete('/ai/history').catch(() => {});
+    } else {
+      try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    }
   };
 
   const copyMessage = (content) => {
@@ -208,7 +225,11 @@ const AIChatPage = () => {
 
       {/* Messages */}
       <Box sx={{ flex: 1, overflowY: 'auto', px: { xs: 1.5, md: 3 }, py: 2 }}>
-        {messages.length === 0 ? (
+        {historyLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
+            <CircularProgress />
+          </Box>
+        ) : messages.length === 0 ? (
           <Box sx={{ textAlign: 'center', mt: 6 }}>
             <SmartToyIcon sx={{ fontSize: 64, color: 'primary.main', opacity: 0.5, mb: 2 }} />
             <Typography variant="h6" fontWeight={600} gutterBottom>{t('aiWelcome')}</Typography>
