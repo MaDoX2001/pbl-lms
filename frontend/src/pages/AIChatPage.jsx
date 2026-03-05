@@ -44,7 +44,7 @@ const SUGGESTIONS_EN_TEACHER = [
 ];
 
 // Render message content: parse ```code``` blocks
-const MessageContent = ({ content, isUser }) => {
+const MessageContent = ({ content, isUser, streaming = false }) => {
   const [copied, setCopied] = useState(null);
 
   const copyCode = useCallback((code, index) => {
@@ -104,6 +104,21 @@ const MessageContent = ({ content, isUser }) => {
           </Typography>
         );
       })}
+      {streaming && (
+        <Box
+          component="span"
+          sx={{
+            display: 'inline-block',
+            width: '2px',
+            height: '0.85em',
+            bgcolor: 'text.primary',
+            ml: 0.25,
+            verticalAlign: 'middle',
+            animation: 'cursorBlink 1s step-end infinite',
+            '@keyframes cursorBlink': { '50%': { opacity: 0 } },
+          }}
+        />
+      )}
     </Box>
   );
 };
@@ -139,6 +154,17 @@ const AIChatPage = () => {
   const suggestions = isTeacher
     ? (language === 'ar' ? SUGGESTIONS_AR_TEACHER : SUGGESTIONS_EN_TEACHER)
     : (language === 'ar' ? SUGGESTIONS_AR_STUDENT : SUGGESTIONS_EN_STUDENT);
+
+  // Non-admin: load summary from DB on mount so context survives browser/localStorage clears
+  useEffect(() => {
+    if (user?.role === 'admin') return;
+    api.get('/ai/summary')
+      .then(res => {
+        const dbSummary = res.data.data?.summary || '';
+        if (dbSummary) setSummary(dbSummary); // DB wins over localStorage
+      })
+      .catch(() => {}); // silent fail — localStorage value stays as fallback
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Admin: load history + summary from DB on mount
   useEffect(() => {
@@ -179,13 +205,12 @@ const AIChatPage = () => {
       const res = await api.post('/ai/summarize', { previousSummary: prevSummary, messages: batch });
       const newSummary = res.data.data.summary;
       setSummary(newSummary);
-      if (user?.role === 'admin') {
-        api.post('/ai/summary/save', { summary: newSummary }).catch(() => {});
-      }
+      // Persist summary to DB for ALL roles — students/teachers resume context across sessions
+      api.post('/ai/summary/save', { summary: newSummary }).catch(() => {});
     } catch (err) {
       console.warn('Background summarize failed silently:', err.message);
     }
-  }, [user?.role]);
+  }, []);
 
   const sendMessage = async (text) => {
     const userText = (text || input).trim();
@@ -321,6 +346,8 @@ ${userText}`
         localStorage.removeItem(STORAGE_KEY);
         localStorage.removeItem(SUMMARY_KEY);
       } catch {}
+      // Clear DB summary too so next session starts fresh
+      api.post('/ai/summary/save', { summary: '' }).catch(() => {});
     }
   };
 
@@ -439,7 +466,7 @@ ${userText}`
                       {msg.content}
                     </Typography>
                   ) : (
-                    <MessageContent content={msg.content} />
+                    <MessageContent content={msg.content} streaming={!!msg.streaming} />
                   )}
                 </Paper>
                 {/* Action buttons row */}

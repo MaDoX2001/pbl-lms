@@ -378,27 +378,34 @@ const chat = async (req, res) => {
       + (userContext ? `\n${userContext}` : '')
       + currentProjectContext;
 
-    // Estimate tokens: total characters / 4 (standard approximation)
+    // Estimate tokens with language-aware heuristic:
+    // Arabic chars tokenise at ~1 per 2.5 chars; Latin at ~1 per 4 chars
     const TOKEN_SAFE_LIMIT = 6500;
     const estimateTokens = (sumText, histCount) => {
       const histText = history.slice(-histCount).map(m => m.content).join('');
-      const sumLen = sumText && sumText.trim() ? sumText.length + 80 : 0;
-      return Math.ceil((baseSystemPart.length + sumLen + histText.length + message.length) / 4);
+      const totalText = baseSystemPart + (sumText || '') + histText + message;
+      const arabicChars = (totalText.match(/[\u0600-\u06FF]/g) || []).length;
+      const latinChars = totalText.length - arabicChars;
+      return Math.ceil(arabicChars / 2.5 + latinChars / 4);
     };
 
     let workingSummary = summary;
     let workingHistoryCount = 6;
+    let guardTriggered = false;
 
     if (estimateTokens(workingSummary, workingHistoryCount) > TOKEN_SAFE_LIMIT) {
-      workingSummary = summary.slice(-800); // Step 1: trim summary to last 800 chars
+      workingSummary = summary.slice(-800);
+      guardTriggered = true;
       console.warn('⚠ Token guard: trimmed summary to 800 chars');
     }
     if (estimateTokens(workingSummary, workingHistoryCount) > TOKEN_SAFE_LIMIT) {
-      workingHistoryCount = 4; // Step 2: reduce history to 4 messages
+      workingHistoryCount = 4;
+      guardTriggered = true;
       console.warn('⚠ Token guard: reduced history to 4 messages');
     }
     if (estimateTokens(workingSummary, workingHistoryCount) > TOKEN_SAFE_LIMIT) {
-      workingHistoryCount = 2; // Step 3: reduce history to 2 messages
+      workingHistoryCount = 2;
+      guardTriggered = true;
       console.warn('⚠ Token guard: reduced history to 2 messages');
     }
 
@@ -414,8 +421,12 @@ const chat = async (req, res) => {
       parts: [{ text: msg.content }],
     }));
 
-    // Fire suggestion generation in parallel with the main Gemini call
-    const suggestionPromise = generateSuggestions(message, currentProjectContext).catch(() => []);
+    // Fire suggestions only for question-like messages — saves a Gemini call for code pastes / statements
+    const QUESTION_RE = /[?\u061F]|^(\u0643\u064A\u0641|\u0645\u0627 |\u0647\u0644 |\u0644\u0645\u0627\u0630\u0627|\u0645\u062A\u0649|\u0623\u064A\u0646|how |what |why |when |where |is |are |can |could |should |do |does )/i;
+    const isQuestion = QUESTION_RE.test(message.slice(0, 100));
+    const suggestionPromise = isQuestion
+      ? generateSuggestions(message, currentProjectContext).catch(() => [])
+      : Promise.resolve([]);
 
     // SSE headers — tell the client to expect a real-time event stream
     res.setHeader('Content-Type', 'text/event-stream');
@@ -435,6 +446,7 @@ const chat = async (req, res) => {
       });
 
       const MAX_RETRIES = 2;
+      let totalWaitMs = 0; // cap total backoff across all retries for this model
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         // Track whether any SSE chunk was written — affects retry/fallback logic
         let streamStarted = false;
@@ -486,8 +498,10 @@ const chat = async (req, res) => {
             }
           }
 
-          // Signal stream end with metadata
-          res.write(`data: ${JSON.stringify({ type: 'done', model: modelName, suggestions })}\n\n`);
+          // Signal stream end with metadata (guardTriggered useful for client-side debugging)
+          const tokenEst = estimateTokens(workingSummary, workingHistoryCount);
+          if (guardTriggered) console.info(`ℹ️ Token guard fired — estimated tokens: ${tokenEst}, model: ${modelName}`);
+          res.write(`data: ${JSON.stringify({ type: 'done', model: modelName, suggestions, guardTriggered })}\n\n`);
           res.end();
           return;
 
@@ -504,6 +518,8 @@ const chat = async (req, res) => {
           const isRetriable429 = err.status === 429 && attempt < MAX_RETRIES - 1;
           if (isRetriable429) {
             const waitTime = (attempt + 1) * 3000;
+            if (totalWaitMs + waitTime > 9000) throw err; // cap total backoff at 9s across both models
+            totalWaitMs += waitTime;
             console.warn(`⚠️ ${modelName} rate limited, retrying in ${waitTime / 1000}s...`);
             await sleep(waitTime);
             continue;
@@ -621,7 +637,7 @@ const summarize = async (req, res) => {
   }
 };
 
-// POST /api/ai/summary/save - saves cumulative summary to DB (admin)
+// POST /api/ai/summary/save - saves cumulative summary to DB (all authenticated roles)
 const saveSummary = async (req, res) => {
   try {
     const { summary = '' } = req.body;
@@ -636,4 +652,15 @@ const saveSummary = async (req, res) => {
   }
 };
 
-module.exports = { chat, getHistory, clearHistory, summarize, saveSummary };
+// GET /api/ai/summary - returns only the summary for any authenticated user
+// Used by students/teachers on mount to restore conversation context across sessions
+const getSummary = async (req, res) => {
+  try {
+    const record = await AIChatHistory.findOne({ user: req.user._id }, 'summary').lean();
+    res.json({ success: true, data: { summary: record?.summary || '' } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+module.exports = { chat, getHistory, clearHistory, summarize, saveSummary, getSummary };
