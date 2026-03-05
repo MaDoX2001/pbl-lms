@@ -20,7 +20,31 @@ const envModels = (process.env.AI_MODELS || '')
 const AI_MODELS = envModels.length > 0 ? envModels : DEFAULT_AI_MODELS;
 
 const MAX_INPUT_CHARS = Number(process.env.AI_MAX_INPUT_CHARS || 4000);
-const MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS || 600);
+const MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS || 1400);
+
+// Detect if a message contains Arduino code patterns
+const ARDUINO_CODE_PATTERNS = [
+  /void\s+setup\s*\(/,
+  /void\s+loop\s*\(/,
+  /pinMode\s*\(/,
+  /digitalWrite\s*\(/,
+  /digitalRead\s*\(/,
+  /Serial\.begin\s*\(/,
+  /#include\s*[<"]/,
+  /analogRead\s*\(/,
+  /analogWrite\s*\(/,
+  /delay\s*\(\d/,
+];
+
+const containsArduinoCode = (text) =>
+  ARDUINO_CODE_PATTERNS.some((pattern) => pattern.test(text));
+
+// Wrap raw Arduino code in a structured message for better AI analysis
+const wrapArduinoCode = (message) => {
+  // If the message is already wrapped (has ``` markers), don't double-wrap
+  if (message.includes('```')) return message;
+  return `The student sent Arduino code. Analyze it carefully.\n\n\`\`\`cpp\n${message}\n\`\`\``;
+};
 
 const STUDENT_SYSTEM_PROMPT = `You are an AI tutor and project mentor inside a project-based learning (PBL) educational platform for teaching Arduino programming.
 
@@ -230,6 +254,11 @@ const chat = async (req, res) => {
       parts: [{ text: msg.content }],
     }));
 
+    // Auto-wrap Arduino code in the message for better AI analysis
+    const processedMessage = containsArduinoCode(message)
+      ? wrapArduinoCode(message)
+      : message;
+
     for (let modelIndex = 0; modelIndex < AI_MODELS.length; modelIndex++) {
       const modelName = AI_MODELS[modelIndex];
 
@@ -252,7 +281,7 @@ const chat = async (req, res) => {
             ],
           });
 
-          const result = await chatSession.sendMessage(message);
+          const result = await chatSession.sendMessage(processedMessage);
           const text = result.response.text();
 
           console.log(`✅ AI response via ${modelName} (attempt ${attempt + 1})`);
@@ -366,14 +395,14 @@ const summarize = async (req, res) => {
       .join('\n');
 
     const prompt = previousSummary && previousSummary.trim()
-      ? `الملخص السابق:\n${previousSummary}\n\nالمحادثة الجديدة:\n${conversationText}\n\nادمج الملخص السابق مع المحادثة الجديدة في ملخص واحد موجز (150 كلمة كحد أقصى). احتفظ بالمعلومات المهمة فقط (الأسئلة الرئيسية، الإجابات، المواضيع، القرارات).`
-      : `لخّص المحادثة التالية في فقرة موجزة (100 كلمة كحد أقصى). احتفظ بالمعلومات المهمة فقط:\n\n${conversationText}`;
+      ? `Previous summary:\n${previousSummary}\n\nNew conversation:\n${conversationText}\n\nMerge the previous summary with the new conversation into one concise updated summary (maximum 150 words). Preserve the following if present: the student's current Arduino project name, the specific task or circuit they are working on, any bugs or errors encountered, the student's current progress stage, and key concepts already explained. Omit greetings and filler.`
+      : `Summarize the following Arduino tutoring conversation in one concise paragraph (maximum 120 words). Preserve: the student's project or task, any code problems or bugs discussed, the student's progress, and key concepts explained. Omit greetings and filler.\n\n${conversationText}`;
 
     for (const modelName of AI_MODELS) {
       try {
         const model = genAI.getGenerativeModel({
           model: modelName,
-          generationConfig: { maxOutputTokens: 300, temperature: 0.2 },
+          generationConfig: { maxOutputTokens: 400, temperature: 0.2 },
         });
         const result = await model.generateContent(prompt);
         const newSummary = result.response.text().trim();
