@@ -1,10 +1,24 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const { chat, getHistory, clearHistory, summarize, saveSummary, getSummary } = require('../controllers/ai.controller');
 const { protect } = require('../middleware/auth.middleware');
 
-// POST /api/ai/chat - authenticated users
-router.post('/chat', protect, chat);
+// Per-user rate limiter: max 10 chat requests per minute per authenticated user.
+// Keyed by user._id so one user can't exhaust the Gemini quota for everyone else.
+// protect must run first so req.user is available for keyGenerator.
+const aiChatLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+  message: { success: false, message: 'طلبات كثيرة جداً، انتظر دقيقة ثم حاول.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
+});
+
+// POST /api/ai/chat - authenticated users (per-user rate limited)
+router.post('/chat', protect, aiChatLimiter, chat);
 
 // POST /api/ai/summarize - all authenticated users (background summarization)
 router.post('/summarize', protect, summarize);

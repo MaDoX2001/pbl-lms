@@ -422,8 +422,9 @@ const chat = async (req, res) => {
     }));
 
     // Fire suggestions only for question-like messages — saves a Gemini call for code pastes / statements
-    const QUESTION_RE = /[?\u061F]|^(\u0643\u064A\u0641|\u0645\u0627 |\u0647\u0644 |\u0644\u0645\u0627\u0630\u0627|\u0645\u062A\u0649|\u0623\u064A\u0646|how |what |why |when |where |is |are |can |could |should |do |does )/i;
-    const isQuestion = QUESTION_RE.test(message.slice(0, 100));
+    // Also covers short messages (<80 chars) since those are almost always questions or simple requests
+    const QUESTION_RE = /[?\u061F]|^(\u0643\u064A\u0641|\u0645\u0627 |\u0647\u0644 |\u0644\u0645\u0627\u0630\u0627|\u0645\u062A\u0649|\u0623\u064A\u0646|\u0627\u0634\u0631\u062D|\u0648\u0636\u062D|\u0628\u064A\u0646 |how |what |why |when |where |is |are |can |could |should |do |does |explain|show |tell )/i;
+    const isQuestion = QUESTION_RE.test(message.slice(0, 100)) || message.trim().length < 80;
     const suggestionPromise = isQuestion
       ? generateSuggestions(message, currentProjectContext).catch(() => [])
       : Promise.resolve([]);
@@ -476,26 +477,25 @@ const chat = async (req, res) => {
           // Collect suggestions — already running in parallel since before the model loop
           const suggestions = await suggestionPromise;
 
-          // Save full text to DB for admin users only
-          if (user?.role === 'admin') {
-            try {
-              await AIChatHistory.findOneAndUpdate(
-                { user: user._id },
-                {
-                  $push: {
-                    messages: {
-                      $each: [
-                        { role: 'user', content: message },
-                        { role: 'assistant', content: fullText },
-                      ],
-                    },
+          // Save messages to DB for ALL roles — capped at 20 entries so the collection stays lean
+          try {
+            await AIChatHistory.findOneAndUpdate(
+              { user: user._id },
+              {
+                $push: {
+                  messages: {
+                    $each: [
+                      { role: 'user', content: message },
+                      { role: 'assistant', content: fullText },
+                    ],
+                    $slice: -20, // keep only the 20 most recent messages
                   },
                 },
-                { upsert: true, new: true }
-              );
-            } catch (saveErr) {
-              console.warn('Could not save admin chat history:', saveErr.message);
-            }
+              },
+              { upsert: true, new: true }
+            );
+          } catch (saveErr) {
+            console.warn('Could not save chat history:', saveErr.message);
           }
 
           // Signal stream end with metadata (guardTriggered useful for client-side debugging)
@@ -559,14 +559,10 @@ const chat = async (req, res) => {
   }
 };
 
-// GET /api/ai/history - admin only
+// GET /api/ai/history - all authenticated roles
 const getHistory = async (req, res) => {
   try {
-    const user = req.user;
-    if (user?.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Admin only' });
-    }
-    const record = await AIChatHistory.findOne({ user: user._id }).lean();
+    const record = await AIChatHistory.findOne({ user: req.user._id }).lean();
     res.json({
       success: true,
       data: { messages: record?.messages || [], summary: record?.summary || '' },
@@ -576,15 +572,11 @@ const getHistory = async (req, res) => {
   }
 };
 
-// DELETE /api/ai/history - admin only (clears messages + summary)
+// DELETE /api/ai/history - all authenticated roles (clears messages + summary)
 const clearHistory = async (req, res) => {
   try {
-    const user = req.user;
-    if (user?.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Admin only' });
-    }
     await AIChatHistory.findOneAndUpdate(
-      { user: user._id },
+      { user: req.user._id },
       { $set: { messages: [], summary: '' } },
       { upsert: true }
     );

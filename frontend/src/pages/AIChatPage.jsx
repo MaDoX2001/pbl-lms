@@ -146,24 +146,32 @@ const AIChatPage = () => {
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [copySnack, setCopySnack] = useState(false);
+  const [rateSnack, setRateSnack] = useState(false); // shown when sending too fast
   const [replyTo, setReplyTo] = useState(null); // { role, content }
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
-  const isSendingRef = useRef(false); // deduplication guard — prevents double-send on rapid clicks
+  const isSendingRef = useRef(false);       // deduplication guard — prevents double-send on rapid clicks
+  const lastSendTimeRef = useRef(0);        // client-side rate guard (2s minimum between manual sends)
+  const summarySaveTimerRef = useRef(null); // debounces POST /ai/summary/save DB writes
 
   const suggestions = isTeacher
     ? (language === 'ar' ? SUGGESTIONS_AR_TEACHER : SUGGESTIONS_EN_TEACHER)
     : (language === 'ar' ? SUGGESTIONS_AR_STUDENT : SUGGESTIONS_EN_STUDENT);
 
-  // Non-admin: load summary from DB on mount so context survives browser/localStorage clears
+  // All roles: load messages + summary from DB on mount.
+  // DB is the source of truth — wins over localStorage for summary.
+  // For non-admin, localStorage messages are used as initial state (fast); DB may
+  // contain more recent messages from other devices which will replace localStorage ones.
   useEffect(() => {
-    if (user?.role === 'admin') return;
-    api.get('/ai/summary')
+    setHistoryLoading(true);
+    api.get('/ai/history')
       .then(res => {
-        const dbSummary = res.data.data?.summary || '';
-        if (dbSummary) setSummary(dbSummary); // DB wins over localStorage
+        const data = res.data.data || {};
+        if (data.messages?.length > 0) setMessages(data.messages);
+        if (data.summary) setSummary(data.summary); // DB wins over localStorage
       })
-      .catch(() => {}); // silent fail — localStorage value stays as fallback
+      .catch(() => {}) // silent fail — localStorage values remain as fallback
+      .finally(() => setHistoryLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Admin: load history + summary from DB on mount
@@ -205,8 +213,11 @@ const AIChatPage = () => {
       const res = await api.post('/ai/summarize', { previousSummary: prevSummary, messages: batch });
       const newSummary = res.data.data.summary;
       setSummary(newSummary);
-      // Persist summary to DB for ALL roles — students/teachers resume context across sessions
-      api.post('/ai/summary/save', { summary: newSummary }).catch(() => {});
+      // Debounced DB write: if two summarisations fire close together, only the last one writes
+      clearTimeout(summarySaveTimerRef.current);
+      summarySaveTimerRef.current = setTimeout(() => {
+        api.post('/ai/summary/save', { summary: newSummary }).catch(() => {});
+      }, 2000);
     } catch (err) {
       console.warn('Background summarize failed silently:', err.message);
     }
@@ -215,6 +226,13 @@ const AIChatPage = () => {
   const sendMessage = async (text) => {
     const userText = (text || input).trim();
     if (!userText || loading || isSendingRef.current) return;
+    // 2-second client-side rate guard — only applies to manual keyboard/button sends,
+    // not to suggestion-chip clicks (those pass `text` explicitly)
+    if (!text) {
+      const now = Date.now();
+      if (now - lastSendTimeRef.current < 2000) { setRateSnack(true); return; }
+      lastSendTimeRef.current = now;
+    }
     isSendingRef.current = true;
 
     // Prepend quoted message so AI sees the reply context
@@ -254,6 +272,7 @@ ${userText}`
       const decoder = new TextDecoder();
       let buf = '';
       let finalSuggestions = [];
+      let finalGuardTriggered = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -278,14 +297,15 @@ ${userText}`
             });
           } else if (event.type === 'done') {
             finalSuggestions = event.suggestions || [];
+            finalGuardTriggered = !!event.guardTriggered;
           } else if (event.type === 'error') {
             throw new Error(event.message || 'Stream error');
           }
         }
       }
 
-      // Finalize: strip streaming flag, attach suggestions
-      const finalMsg = { role: 'assistant', content: streamedText, suggestions: finalSuggestions };
+      // Finalize: strip streaming flag, attach suggestions and context-guard info
+      const finalMsg = { role: 'assistant', content: streamedText, suggestions: finalSuggestions, guardTriggered: finalGuardTriggered };
       const updatedMessages = [...newMessages, finalMsg];
       setMessages(updatedMessages);
       if (updatedMessages.length >= 12 && updatedMessages.length % 6 === 0) {
@@ -339,16 +359,13 @@ ${userText}`
   const clearChat = () => {
     setMessages([]);
     setSummary('');
-    if (user?.role === 'admin') {
-      api.delete('/ai/history').catch(() => {});
-    } else {
-      try {
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.removeItem(SUMMARY_KEY);
-      } catch {}
-      // Clear DB summary too so next session starts fresh
-      api.post('/ai/summary/save', { summary: '' }).catch(() => {});
-    }
+    // Clear DB (messages + summary) for all roles — getHistory/clearHistory now open to all
+    api.delete('/ai/history').catch(() => {});
+    // Also clear localStorage for non-admin
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(SUMMARY_KEY);
+    } catch {}
   };
 
   const copyMessage = (content) => {
@@ -493,7 +510,20 @@ ${userText}`
                     </Tooltip>
                   )}
                 </Box>
-                {/* Suggestion chips below assistant messages */}
+                {/* Context-trimmed badge — shown when the token guard fired on this response */}
+                {msg.role === 'assistant' && msg.guardTriggered && (
+                  <Chip
+                    size="small"
+                    label={language === 'ar' ? '⚠ تم تقليص السياق' : '⚠ Context trimmed to fit limits'}
+                    sx={{
+                      mt: 0.5, ...(isRTL ? { mr: 0.5 } : { ml: 0.5 }),
+                      fontSize: '0.67rem', height: 22,
+                      bgcolor: 'warning.light', color: 'warning.dark',
+                      border: '1px solid', borderColor: 'warning.main',
+                    }}
+                  />
+                )}
+                {/* Suggestion chips below assistant messages */}}
                 {msg.role === 'assistant' && !msg.error && msg.suggestions?.length > 0 && (
                   <Box sx={{
                     display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 0.75,
@@ -605,6 +635,13 @@ ${userText}`
         autoHideDuration={2000}
         onClose={() => setCopySnack(false)}
         message={language === 'ar' ? 'تم النسخ' : 'Copied'}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
+      <Snackbar
+        open={rateSnack}
+        autoHideDuration={2000}
+        onClose={() => setRateSnack(false)}
+        message={language === 'ar' ? 'انتظر لحظة قبل إرسال رسالة أخرى' : 'Please wait before sending another message'}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
     </Box>
