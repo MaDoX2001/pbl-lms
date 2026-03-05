@@ -9,6 +9,8 @@ import PersonIcon from '@mui/icons-material/Person';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
+import ReplyIcon from '@mui/icons-material/Reply';
+import CloseIcon from '@mui/icons-material/Close';
 import { useAppSettings } from '../context/AppSettingsContext';
 import { useSelector } from 'react-redux';
 import api from '../services/api';
@@ -122,6 +124,7 @@ const AIChatPage = () => {
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [copySnack, setCopySnack] = useState(false);
+  const [replyTo, setReplyTo] = useState(null); // { role, content }
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -153,22 +156,29 @@ const AIChatPage = () => {
     const userText = (text || input).trim();
     if (!userText || loading) return;
 
-    const userMsg = { role: 'user', content: userText };
+    // Prepend quoted message so AI sees the reply context
+    const fullText = replyTo
+      ? `[رد على: "${replyTo.content.slice(0, 120)}${replyTo.content.length > 120 ? '...' : ''}"]
+${userText}`
+      : userText;
+
+    const userMsg = { role: 'user', content: userText, replyTo: replyTo || undefined };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
     setInput('');
+    setReplyTo(null);
     setLoading(true);
 
     try {
-      const history = newMessages.slice(0, -1);
-      const res = await api.post('/ai/chat', { message: userText, history });
+      const history = newMessages.slice(0, -1).slice(-6);
+      const res = await api.post('/ai/chat', { message: fullText, history });
       setMessages([...newMessages, { role: 'assistant', content: res.data.data.reply }]);
     } catch (err) {
       // Silent retry once on 500
       if (err.response?.status === 500 || !err.response) {
         try {
-          const history = newMessages.slice(0, -1);
-          const res = await api.post('/ai/chat', { message: userText, history });
+          const history = newMessages.slice(0, -1).slice(-6);
+          const res = await api.post('/ai/chat', { message: fullText, history });
           setMessages([...newMessages, { role: 'assistant', content: res.data.data.reply }]);
           return;
         } catch {}
@@ -259,6 +269,7 @@ const AIChatPage = () => {
                   : (msg.role === 'user' ? 'row-reverse' : 'row'),
                 alignItems: 'flex-start',
                 gap: 1.5,
+                '&:hover .reply-btn': { opacity: 1 },
               }}
             >
               <Avatar sx={{
@@ -280,6 +291,32 @@ const AIChatPage = () => {
                     textAlign: isRTL ? 'right' : 'left',
                   }}
                 >
+                  {/* Quoted reply preview inside bubble */}
+                  {msg.replyTo && (
+                    <Box sx={{
+                      borderLeft: isRTL ? 'none' : '3px solid',
+                      borderRight: isRTL ? '3px solid' : 'none',
+                      borderColor: msg.role === 'user' ? 'rgba(255,255,255,0.5)' : 'primary.main',
+                      pl: isRTL ? 0 : 1, pr: isRTL ? 1 : 0,
+                      mb: 1, opacity: 0.85,
+                    }}>
+                      <Typography variant="caption" sx={{
+                        display: 'block', fontWeight: 600,
+                        color: msg.role === 'user' ? 'rgba(255,255,255,0.8)' : 'primary.main',
+                        mb: 0.25,
+                      }}>
+                        {msg.replyTo.role === 'user' ? (language === 'ar' ? 'أنت' : 'You') : (language === 'ar' ? 'المساعد' : 'Assistant')}
+                      </Typography>
+                      <Typography variant="caption" sx={{
+                        display: 'block', whiteSpace: 'pre-wrap',
+                        color: msg.role === 'user' ? 'rgba(255,255,255,0.75)' : 'text.secondary',
+                        overflow: 'hidden', textOverflow: 'ellipsis',
+                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                      }}>
+                        {msg.replyTo.content}
+                      </Typography>
+                    </Box>
+                  )}
                   {msg.role === 'user' ? (
                     <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
                       {msg.content}
@@ -288,22 +325,30 @@ const AIChatPage = () => {
                     <MessageContent content={msg.content} />
                   )}
                 </Paper>
-                {msg.role === 'assistant' && !msg.error && (
-                  <Tooltip title={language === 'ar' ? 'نسخ' : 'Copy'}>
+                {/* Action buttons row */}
+                <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.25, ...(isRTL ? { mr: 0.5 } : { ml: 0.5 }) }}>
+                  <Tooltip title={language === 'ar' ? 'رد' : 'Reply'}>
                     <IconButton
                       size="small"
-                      onClick={() => copyMessage(msg.content)}
-                      sx={{
-                        mt: 0.5,
-                        color: 'text.disabled',
-                        '&:hover': { color: 'text.secondary' },
-                        ...(isRTL ? { mr: 0.5 } : { ml: 0.5 }),
-                      }}
+                      className="reply-btn"
+                      onClick={() => { setReplyTo({ role: msg.role, content: msg.content }); inputRef.current?.focus(); }}
+                      sx={{ opacity: 0, transition: 'opacity 0.15s', color: 'text.disabled', '&:hover': { color: 'text.secondary' } }}
                     >
-                      <ContentCopyIcon sx={{ fontSize: 14 }} />
+                      <ReplyIcon sx={{ fontSize: 14 }} />
                     </IconButton>
                   </Tooltip>
-                )}
+                  {msg.role === 'assistant' && !msg.error && (
+                    <Tooltip title={language === 'ar' ? 'نسخ' : 'Copy'}>
+                      <IconButton
+                        size="small"
+                        onClick={() => copyMessage(msg.content)}
+                        sx={{ color: 'text.disabled', '&:hover': { color: 'text.secondary' } }}
+                      >
+                        <ContentCopyIcon sx={{ fontSize: 14 }} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Box>
               </Box>
             </Box>
           ))
@@ -324,6 +369,32 @@ const AIChatPage = () => {
       </Box>
 
       <Divider />
+
+      {/* Reply preview bar */}
+      {replyTo && (
+        <Box sx={{
+          px: { xs: 1.5, md: 3 }, py: 0.75,
+          bgcolor: 'action.selected',
+          borderLeft: isRTL ? 'none' : '3px solid',
+          borderRight: isRTL ? '3px solid' : 'none',
+          borderColor: 'primary.main',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexDirection: isRTL ? 'row-reverse' : 'row',
+          gap: 1,
+        }}>
+          <Box sx={{ overflow: 'hidden', flex: 1 }}>
+            <Typography variant="caption" fontWeight={700} color="primary.main" display="block">
+              {replyTo.role === 'user' ? (language === 'ar' ? 'رد على رسالتك' : 'Replying to yourself') : (language === 'ar' ? 'رد على المساعد' : 'Replying to Assistant')}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" noWrap display="block">
+              {replyTo.content.slice(0, 100)}{replyTo.content.length > 100 ? '...' : ''}
+            </Typography>
+          </Box>
+          <IconButton size="small" onClick={() => setReplyTo(null)}>
+            <CloseIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+        </Box>
+      )}
 
       {/* Input */}
       <Box sx={{
