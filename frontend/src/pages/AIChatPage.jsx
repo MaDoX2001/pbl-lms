@@ -170,14 +170,18 @@ ${userText}`
     setLoading(true);
 
     try {
-      const history = newMessages.slice(0, -1).slice(-6);
+      const history = user?.role === 'admin'
+        ? newMessages.slice(0, -1)           // admin: full history
+        : newMessages.slice(0, -1).slice(-6); // others: last 6
       const res = await api.post('/ai/chat', { message: fullText, history });
       setMessages([...newMessages, { role: 'assistant', content: res.data.data.reply }]);
     } catch (err) {
       // Silent retry once on 500
       if (err.response?.status === 500 || !err.response) {
         try {
-          const history = newMessages.slice(0, -1).slice(-6);
+          const history = user?.role === 'admin'
+            ? newMessages.slice(0, -1)
+            : newMessages.slice(0, -1).slice(-6);
           const res = await api.post('/ai/chat', { message: fullText, history });
           setMessages([...newMessages, { role: 'assistant', content: res.data.data.reply }]);
           return;

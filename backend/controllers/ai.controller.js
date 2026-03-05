@@ -163,8 +163,8 @@ const chat = async (req, res) => {
     const userContext = await buildUserContext(user);
     const fullSystemPrompt = basePrompt + (userContext ? `\n${userContext}` : '');
 
-    // Trim history to last 6 messages to reduce token usage
-    const trimmedHistory = history.slice(-6);
+    // Admin gets full history; others trimmed to last 6
+    const trimmedHistory = user?.role === 'admin' ? history : history.slice(-6);
 
     const chatHistory = trimmedHistory.map((msg) => ({
       role: msg.role === 'user' ? 'user' : 'model',
