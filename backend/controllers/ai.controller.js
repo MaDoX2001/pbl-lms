@@ -22,6 +22,12 @@ const AI_MODELS = envModels.length > 0 ? envModels : DEFAULT_AI_MODELS;
 const MAX_INPUT_CHARS = Number(process.env.AI_MAX_INPUT_CHARS || 4000);
 const MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS || 1400);
 
+// Lightweight in-memory cache for buildUserContext results.
+// Avoids 3 redundant MongoDB round-trips per message;
+// naturally expires after USER_CONTEXT_TTL_MS so fresh progress is picked up quickly.
+const userContextCache = new Map();
+const USER_CONTEXT_TTL_MS = 30_000; // 30 seconds
+
 // Detect if a message contains Arduino code patterns
 const ARDUINO_CODE_PATTERNS = [
   /void\s+setup\s*\(/,
@@ -158,6 +164,13 @@ const TEACHER_SYSTEM_PROMPT = `أنت مساعد ذكي للمعلمين داخ�
 const buildUserContext = async (user) => {
   if (!user) return { context: '', currentProjectContext: '' };
 
+  // Cache hit: return early if data is still fresh
+  const cacheKey = user._id.toString();
+  const cached = userContextCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
+  }
+
   const levelMap = { beginner: 'مبتدئ', intermediate: 'متوسط', advanced: 'متقدم', expert: 'خبير' };
   let context = `\n--- بيانات المستخدم ---\nالاسم: ${user.name}\nالدور: ${user.role === 'student' ? 'طالب' : user.role === 'teacher' ? 'معلم' : 'مدير'}\n`;
   let currentProjectContext = '';
@@ -280,7 +293,12 @@ const buildUserContext = async (user) => {
   }
 
   context += `--- نهاية البيانات ---\n`;
-  return { context, currentProjectContext };
+  const result = { context, currentProjectContext };
+
+  // Cache the result for USER_CONTEXT_TTL_MS milliseconds
+  userContextCache.set(cacheKey, { data: result, expiresAt: Date.now() + USER_CONTEXT_TTL_MS });
+
+  return result;
 };
 
 // Parallel suggestion generator — fires independently from the main AI call
