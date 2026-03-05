@@ -206,7 +206,11 @@ ${userText}`
     try {
       const history = newMessages.slice(0, -1).slice(-6); // everyone uses last 6
       const res = await api.post('/ai/chat', { message: fullText, history, summary });
-      const updatedMessages = [...newMessages, { role: 'assistant', content: res.data.data.reply }];
+      const updatedMessages = [...newMessages, {
+        role: 'assistant',
+        content: res.data.data.reply,
+        suggestions: res.data.data.suggestions || [],
+      }];
       setMessages(updatedMessages);
 
       // Trigger background summarization every 6 messages (after the first 6)
@@ -220,7 +224,11 @@ ${userText}`
         try {
           const history = newMessages.slice(0, -1).slice(-6);
           const res = await api.post('/ai/chat', { message: fullText, history, summary });
-          const updatedMessages = [...newMessages, { role: 'assistant', content: res.data.data.reply }];
+          const updatedMessages = [...newMessages, {
+            role: 'assistant',
+            content: res.data.data.reply,
+            suggestions: res.data.data.suggestions || [],
+          }];
           setMessages(updatedMessages);
           if (updatedMessages.length >= 12 && updatedMessages.length % 6 === 0) {
             triggerSummarize(updatedMessages.slice(-12, -6), summary);
@@ -398,6 +406,32 @@ ${userText}`
                     </Tooltip>
                   )}
                 </Box>
+                {/* Suggestion chips below assistant messages */}
+                {msg.role === 'assistant' && !msg.error && msg.suggestions?.length > 0 && (
+                  <Box sx={{
+                    display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 0.75,
+                    ...(isRTL ? { mr: 0.5 } : { ml: 0.5 }),
+                  }}>
+                    {msg.suggestions.map((s, si) => (
+                      <Chip
+                        key={si}
+                        label={s}
+                        size="small"
+                        variant="outlined"
+                        color="primary"
+                        onClick={() => sendMessage(s)}
+                        disabled={loading}
+                        sx={{
+                          cursor: 'pointer',
+                          fontSize: '0.71rem',
+                          height: 26,
+                          direction,
+                          '&:hover': { bgcolor: 'primary.light', color: 'white', borderColor: 'primary.light' },
+                        }}
+                      />
+                    ))}
+                  </Box>
+                )}
               </Box>
             </Box>
           ))

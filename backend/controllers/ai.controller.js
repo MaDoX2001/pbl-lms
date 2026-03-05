@@ -314,29 +314,52 @@ const chat = async (req, res) => {
     // Build personalized context from DB
     const { context: userContext, currentProjectContext } = await buildUserContext(user);
 
-    // Inject cumulative summary if provided
-    const summaryContext = summary && summary.trim()
-      ? `\n\n--- ملخص المحادثة السابقة ---\n${summary}\n--- نهاية الملخص ---`
-      : '';
-
-    // Build full system prompt: base + user data + current project context + summary
-    const fullSystemPrompt = basePrompt
-      + (userContext ? `\n${userContext}` : '')
-      + currentProjectContext
-      + summaryContext;
-
-    // Everyone uses last 6 messages; full context comes from the cumulative summary
-    const trimmedHistory = history.slice(-6);
-
-    const chatHistory = trimmedHistory.map((msg) => ({
-      role: msg.role === 'user' ? 'user' : 'model',
-      parts: [{ text: msg.content }],
-    }));
-
     // Auto-wrap Arduino code in the message for better AI analysis
     const processedMessage = containsArduinoCode(message)
       ? wrapArduinoCode(message)
       : message;
+
+    // --- TOKEN SAFETY GUARD ---
+    // Base parts that are never trimmed
+    const baseSystemPart = basePrompt
+      + (userContext ? `\n${userContext}` : '')
+      + currentProjectContext;
+
+    // Estimate tokens: total characters / 4 (standard approximation)
+    const TOKEN_SAFE_LIMIT = 6500;
+    const estimateTokens = (sumText, histCount) => {
+      const histText = history.slice(-histCount).map(m => m.content).join('');
+      const sumLen = sumText && sumText.trim() ? sumText.length + 80 : 0;
+      return Math.ceil((baseSystemPart.length + sumLen + histText.length + message.length) / 4);
+    };
+
+    let workingSummary = summary;
+    let workingHistoryCount = 6;
+
+    if (estimateTokens(workingSummary, workingHistoryCount) > TOKEN_SAFE_LIMIT) {
+      workingSummary = summary.slice(-800); // Step 1: trim summary to last 800 chars
+      console.warn('⚠ Token guard: trimmed summary to 800 chars');
+    }
+    if (estimateTokens(workingSummary, workingHistoryCount) > TOKEN_SAFE_LIMIT) {
+      workingHistoryCount = 4; // Step 2: reduce history to 4 messages
+      console.warn('⚠ Token guard: reduced history to 4 messages');
+    }
+    if (estimateTokens(workingSummary, workingHistoryCount) > TOKEN_SAFE_LIMIT) {
+      workingHistoryCount = 2; // Step 3: reduce history to 2 messages
+      console.warn('⚠ Token guard: reduced history to 2 messages');
+    }
+
+    const finalSummaryContext = workingSummary && workingSummary.trim()
+      ? `\n\n--- ملخص المحادثة السابقة ---\n${workingSummary}\n--- نهاية الملخص ---`
+      : '';
+
+    const fullSystemPrompt = baseSystemPart + finalSummaryContext;
+
+    const trimmedHistory = history.slice(-workingHistoryCount);
+    const chatHistory = trimmedHistory.map((msg) => ({
+      role: msg.role === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.content }],
+    }));
 
     for (let modelIndex = 0; modelIndex < AI_MODELS.length; modelIndex++) {
       const modelName = AI_MODELS[modelIndex];
@@ -365,6 +388,35 @@ const chat = async (req, res) => {
 
           console.log(`✅ AI response via ${modelName} (attempt ${attempt + 1})`);
 
+          // --- SUGGESTION ENGINE ---
+          // Generate 2-3 short follow-up questions in the background (fast, low tokens)
+          let suggestions = [];
+          try {
+            const suggestPrompt = `You are helping a student learning Arduino programming.
+The student just asked: "${message.slice(0, 200)}"
+The AI replied: "${text.slice(0, 300)}"
+${currentProjectContext ? `Student's current project info: ${currentProjectContext.slice(0, 200)}` : ''}
+
+Generate exactly 3 short follow-up questions the student might want to ask next.
+Questions must relate to Arduino programming or the student's project.
+Return ONLY a valid JSON array of 3 strings. No explanation, no markdown, just the array.
+Example: ["How do I wire the sensor?","What does digitalRead return?","Show me an example"]`;
+
+            const suggestModel = genAI.getGenerativeModel({
+              model: modelName,
+              generationConfig: { maxOutputTokens: 120, temperature: 0.7 },
+            });
+            const suggestResult = await suggestModel.generateContent(suggestPrompt);
+            const suggestText = suggestResult.response.text().trim();
+            const match = suggestText.match(/\[[\s\S]*\]/);
+            if (match) {
+              const parsed = JSON.parse(match[0]);
+              if (Array.isArray(parsed)) suggestions = parsed.slice(0, 3).map(String);
+            }
+          } catch (suggestErr) {
+            console.warn('Suggestion generation failed (non-critical):', suggestErr.message);
+          }
+
           // Save messages to DB for admin users only
           if (user?.role === 'admin') {
             try {
@@ -387,7 +439,7 @@ const chat = async (req, res) => {
             }
           }
 
-          return res.json({ success: true, data: { reply: text, model: modelName } });
+          return res.json({ success: true, data: { reply: text, model: modelName, suggestions } });
 
         } catch (err) {
           const isRetriable429 = err.status === 429 && attempt < MAX_RETRIES - 1;
