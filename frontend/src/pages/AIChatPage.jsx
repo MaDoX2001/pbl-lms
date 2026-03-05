@@ -205,26 +205,71 @@ ${userText}`
     setReplyTo(null);
     setLoading(true);
 
-    try {
-      const history = newMessages.slice(0, -1).slice(-6); // everyone uses last 6
-      const res = await api.post('/ai/chat', { message: fullText, history, summary });
-      const updatedMessages = [...newMessages, {
-        role: 'assistant',
-        content: res.data.data.reply,
-        suggestions: res.data.data.suggestions || [],
-      }];
-      setMessages(updatedMessages);
+    const history = newMessages.slice(0, -1).slice(-6);
+    let streamedText = ''; // declared here so catch block can check if any content arrived
 
-      // Trigger background summarization every 6 messages (after the first 6)
+    try {
+      // Add streaming placeholder — content fills in progressively
+      setMessages([...newMessages, { role: 'assistant', content: '', streaming: true, suggestions: [] }]);
+
+      const token = localStorage.getItem('token');
+      const baseURL = api.defaults.baseURL || '';
+      const response = await fetch(`${baseURL}/ai/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ message: fullText, history, summary }),
+      });
+
+      if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      let finalSuggestions = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          let event;
+          try { event = JSON.parse(line.slice(6)); } catch { continue; }
+          if (event.type === 'chunk') {
+            streamedText += event.text;
+            const snapshot = streamedText; // capture value for functional update closure
+            setMessages(prev => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last?.role === 'assistant') {
+                updated[updated.length - 1] = { ...last, content: snapshot };
+              }
+              return updated;
+            });
+          } else if (event.type === 'done') {
+            finalSuggestions = event.suggestions || [];
+          } else if (event.type === 'error') {
+            throw new Error(event.message || 'Stream error');
+          }
+        }
+      }
+
+      // Finalize: strip streaming flag, attach suggestions
+      const finalMsg = { role: 'assistant', content: streamedText, suggestions: finalSuggestions };
+      const updatedMessages = [...newMessages, finalMsg];
+      setMessages(updatedMessages);
       if (updatedMessages.length >= 12 && updatedMessages.length % 6 === 0) {
-        const batch = updatedMessages.slice(-12, -6);
-        triggerSummarize(batch, summary);
+        triggerSummarize(updatedMessages.slice(-12, -6), summary);
       }
     } catch (err) {
-      // Silent retry once on 500
-      if (err.response?.status === 500 || !err.response) {
+      if (!streamedText) {
+        // No content was streamed — fall back to standard POST
         try {
-          const history = newMessages.slice(0, -1).slice(-6);
           const res = await api.post('/ai/chat', { message: fullText, history, summary });
           const updatedMessages = [...newMessages, {
             role: 'assistant',
@@ -236,10 +281,22 @@ ${userText}`
             triggerSummarize(updatedMessages.slice(-12, -6), summary);
           }
           return;
-        } catch {}
+        } catch (fallbackErr) {
+          const msg = fallbackErr.response?.data?.message
+            || (fallbackErr.response?.status === 429 ? t('aiRateLimited') : t('aiError'));
+          setMessages([...newMessages, { role: 'assistant', content: msg, error: true }]);
+          return;
+        }
       }
-      const msg = err.response?.data?.message || (err.response?.status === 429 ? t('aiRateLimited') : t('aiError'));
-      setMessages([...newMessages, { role: 'assistant', content: msg, error: true }]);
+      // Partial content already visible — just remove the streaming flag and keep what arrived
+      setMessages(prev => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        if (last?.role === 'assistant') {
+          updated[updated.length - 1] = { ...last, streaming: false };
+        }
+        return updated;
+      });
     } finally {
       setLoading(false);
       isSendingRef.current = false;

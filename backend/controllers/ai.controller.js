@@ -399,6 +399,12 @@ const chat = async (req, res) => {
     // Fire suggestion generation in parallel with the main Gemini call
     const suggestionPromise = generateSuggestions(message, currentProjectContext).catch(() => []);
 
+    // SSE headers — tell the client to expect a real-time event stream
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // disable Render/nginx proxy buffering
+
     for (let modelIndex = 0; modelIndex < AI_MODELS.length; modelIndex++) {
       const modelName = AI_MODELS[modelIndex];
 
@@ -412,6 +418,8 @@ const chat = async (req, res) => {
 
       const MAX_RETRIES = 2;
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        // Track whether any SSE chunk was written — affects retry/fallback logic
+        let streamStarted = false;
         try {
           const chatSession = model.startChat({
             history: [
@@ -421,15 +429,24 @@ const chat = async (req, res) => {
             ],
           });
 
-          const result = await chatSession.sendMessage(processedMessage);
-          const text = result.response.text();
+          // Use streaming API — yields chunks as Gemini generates them
+          let fullText = '';
+          const streamResult = await chatSession.sendMessageStream(processedMessage);
+          for await (const chunk of streamResult.stream) {
+            const chunkText = chunk.text();
+            if (chunkText) {
+              streamStarted = true;
+              fullText += chunkText;
+              res.write(`data: ${JSON.stringify({ type: 'chunk', text: chunkText })}\n\n`);
+            }
+          }
 
-          console.log(`✅ AI response via ${modelName} (attempt ${attempt + 1})`);
+          console.log(`✅ AI stream complete via ${modelName} (attempt ${attempt + 1})`);
 
           // Collect suggestions — already running in parallel since before the model loop
           const suggestions = await suggestionPromise;
 
-          // Save messages to DB for admin users only
+          // Save full text to DB for admin users only
           if (user?.role === 'admin') {
             try {
               await AIChatHistory.findOneAndUpdate(
@@ -439,7 +456,7 @@ const chat = async (req, res) => {
                     messages: {
                       $each: [
                         { role: 'user', content: message },
-                        { role: 'assistant', content: text },
+                        { role: 'assistant', content: fullText },
                       ],
                     },
                   },
@@ -451,9 +468,21 @@ const chat = async (req, res) => {
             }
           }
 
-          return res.json({ success: true, data: { reply: text, model: modelName, suggestions } });
+          // Signal stream end with metadata
+          res.write(`data: ${JSON.stringify({ type: 'done', model: modelName, suggestions })}\n\n`);
+          res.end();
+          return;
 
         } catch (err) {
+          // If we already streamed partial content, we can't retry — signal error and close
+          if (streamStarted) {
+            try {
+              res.write(`data: ${JSON.stringify({ type: 'error', message: 'انقطع الاتصال بالذكاء الاصطناعي.' })}\n\n`);
+              res.end();
+            } catch {}
+            return;
+          }
+
           const isRetriable429 = err.status === 429 && attempt < MAX_RETRIES - 1;
           if (isRetriable429) {
             const waitTime = (attempt + 1) * 3000;
@@ -481,10 +510,18 @@ const chat = async (req, res) => {
 
   } catch (error) {
     console.error('Gemini AI error:', error.message);
-    res.status(500).json({
-      success: false,
-      message: 'حدثت مشكلة في الخدمة، حاول مرة أخرى.',
-    });
+    // If SSE headers already sent, can't set status code — use error event instead
+    if (res.headersSent) {
+      try {
+        res.write(`data: ${JSON.stringify({ type: 'error', message: 'حدثت مشكلة في الخدمة، حاول مرة أخرى.' })}\n\n`);
+        res.end();
+      } catch {}
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'حدثت مشكلة في الخدمة، حاول مرة أخرى.',
+      });
+    }
   }
 };
 
