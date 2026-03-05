@@ -152,16 +152,20 @@ const TEACHER_SYSTEM_PROMPT = `أنت مساعد ذكي للمعلمين داخ�
 - أجب بنفس لغة السؤال.`;
 
 // Build dynamic context from user's real data
+// Returns { context: string, currentProjectContext: string }
 const buildUserContext = async (user) => {
-  if (!user) return '';
+  if (!user) return { context: '', currentProjectContext: '' };
 
   const levelMap = { beginner: 'مبتدئ', intermediate: 'متوسط', advanced: 'متقدم', expert: 'خبير' };
   let context = `\n--- بيانات المستخدم ---\nالاسم: ${user.name}\nالدور: ${user.role === 'student' ? 'طالب' : user.role === 'teacher' ? 'معلم' : 'مدير'}\n`;
+  let currentProjectContext = '';
 
   if (user.role === 'student') {
     try {
       const [progressList, levelData, team] = await Promise.all([
-        Progress.find({ student: user._id }).populate('project', 'title level').lean(),
+        Progress.find({ student: user._id })
+          .populate('project', 'title level description shortDescription objectives milestones')
+          .lean(),
         StudentLevel.findOne({ student: user._id }).lean(),
         Team.findOne({ members: user._id }).populate('members', 'name').lean(),
       ]);
@@ -197,13 +201,77 @@ const buildUserContext = async (user) => {
         const memberNames = team.members.map(m => m.name).filter(Boolean).join('، ');
         context += `\nالفريق: ${team.name}\nأعضاء الفريق: ${memberNames}\n`;
       }
+
+      // --- Detect current active project and build CURRENT PROJECT CONTEXT ---
+      const currentProgress =
+        active.find(p => p.status === 'in-progress') ||
+        active.find(p => p.status === 'submitted') ||
+        active.find(p => p.status === 'reviewed') ||
+        active[0];
+
+      if (currentProgress?.project) {
+        const proj = currentProgress.project;
+        const statusLabel = {
+          'not-started': 'Not started yet',
+          'in-progress': 'Currently in progress',
+          'submitted': 'Submitted, awaiting review',
+          'reviewed': 'Under review',
+        }[currentProgress.status] || currentProgress.status;
+
+        let block = `\n\n--- CURRENT PROJECT CONTEXT ---`;
+        block += `\nThe student is currently working on the project: "${proj.title}".`;
+        block += `\nProject status: ${statusLabel}.`;
+
+        const desc = proj.shortDescription || proj.description;
+        if (desc) {
+          block += `\nProject goal: ${desc.slice(0, 300)}${desc.length > 300 ? '...' : ''}`;
+        }
+
+        if (proj.objectives?.length > 0) {
+          block += `\nLearning objectives: ${proj.objectives.slice(0, 3).join(' | ')}`;
+        }
+
+        // Milestones: show completed vs pending
+        if (proj.milestones?.length > 0 && currentProgress.milestoneProgress?.length > 0) {
+          const completedMilestones = currentProgress.milestoneProgress
+            .filter(m => m.completed)
+            .map(m => {
+              const found = proj.milestones.find(pm => String(pm._id) === String(m.milestoneId));
+              return found?.title;
+            })
+            .filter(Boolean);
+
+          const pendingMilestones = proj.milestones
+            .filter(pm => !currentProgress.milestoneProgress.find(
+              m => String(m.milestoneId) === String(pm._id) && m.completed
+            ))
+            .map(pm => pm.title)
+            .slice(0, 3);
+
+          if (completedMilestones.length > 0) {
+            block += `\nCompleted stages: ${completedMilestones.join(', ')}.`;
+          }
+          if (pendingMilestones.length > 0) {
+            block += `\nNext pending stages: ${pendingMilestones.join(', ')}.`;
+          }
+        } else if (proj.milestones?.length > 0) {
+          const nextMilestone = proj.milestones.sort((a, b) => a.order - b.order)[0];
+          if (nextMilestone) block += `\nFirst stage to complete: ${nextMilestone.title}.`;
+        }
+
+        block += `\n\nUse this project context to guide the student toward the next logical step whenever their question relates to the project.`;
+        block += `\n--- END OF PROJECT CONTEXT ---`;
+
+        currentProjectContext = block;
+      }
+
     } catch (err) {
       console.warn('Could not build user context:', err.message);
     }
   }
 
   context += `--- نهاية البيانات ---\n`;
-  return context;
+  return { context, currentProjectContext };
 };
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -237,14 +305,18 @@ const chat = async (req, res) => {
     const basePrompt = isTeacher ? TEACHER_SYSTEM_PROMPT : STUDENT_SYSTEM_PROMPT;
 
     // Build personalized context from DB
-    const userContext = await buildUserContext(user);
+    const { context: userContext, currentProjectContext } = await buildUserContext(user);
 
     // Inject cumulative summary if provided
     const summaryContext = summary && summary.trim()
       ? `\n\n--- ملخص المحادثة السابقة ---\n${summary}\n--- نهاية الملخص ---`
       : '';
 
-    const fullSystemPrompt = basePrompt + (userContext ? `\n${userContext}` : '') + summaryContext;
+    // Build full system prompt: base + user data + current project context + summary
+    const fullSystemPrompt = basePrompt
+      + (userContext ? `\n${userContext}` : '')
+      + currentProjectContext
+      + summaryContext;
 
     // Everyone uses last 6 messages; full context comes from the cumulative summary
     const trimmedHistory = history.slice(-6);
