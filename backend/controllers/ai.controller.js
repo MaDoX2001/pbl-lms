@@ -509,7 +509,7 @@ const chat = async (req, res) => {
           // If we already streamed partial content, we can't retry — signal error and close
           if (streamStarted) {
             try {
-              res.write(`data: ${JSON.stringify({ type: 'error', message: 'انقطع الاتصال بالذكاء الاصطناعي.' })}\n\n`);
+              res.write(`data: ${JSON.stringify({ type: 'error', code: 'STREAM_INTERRUPTED', message: 'انقطع الاتصال بالذكاء الاصطناعي.' })}\n\n`);
               res.end();
             } catch {}
             return;
@@ -547,7 +547,8 @@ const chat = async (req, res) => {
     // If SSE headers already sent, can't set status code — use error event instead
     if (res.headersSent) {
       try {
-        res.write(`data: ${JSON.stringify({ type: 'error', message: 'حدثت مشكلة في الخدمة، حاول مرة أخرى.' })}\n\n`);
+        const errCode = error.status === 429 ? 'MODEL_RATE_LIMIT' : error.status === 404 ? 'MODEL_UNAVAILABLE' : 'UNKNOWN_ERROR';
+        res.write(`data: ${JSON.stringify({ type: 'error', code: errCode, message: 'حدثت مشكلة في الخدمة، حاول مرة أخرى.' })}\n\n`);
         res.end();
       } catch {}
     } else {
@@ -600,9 +601,14 @@ const summarize = async (req, res) => {
       .map((m) => `${m.role === 'user' ? 'المستخدم' : 'المساعد'}: ${m.content}`)
       .join('\n');
 
-    const prompt = previousSummary && previousSummary.trim()
-      ? `Previous summary:\n${previousSummary}\n\nNew conversation:\n${conversationText}\n\nMerge the previous summary with the new conversation into one concise updated summary (maximum 150 words). Preserve: the student's current Arduino project name, the specific task or circuit they are working on, any bugs or errors encountered, the student's current progress stage, and a brief list of concepts already explained to the student (so the AI can avoid re-explaining them and build progressively). Omit greetings and filler.`
-      : `Summarize the following Arduino tutoring conversation in one concise paragraph (maximum 120 words). Preserve: the student's project or task, any code problems or bugs discussed, the student's progress, and a brief list of concepts already explained to the student. Omit greetings and filler.\n\n${conversationText}`;
+    const isTeacher = req.user?.role === 'teacher' || req.user?.role === 'admin';
+    const prompt = isTeacher
+      ? (previousSummary && previousSummary.trim()
+          ? `Previous summary:\n${previousSummary}\n\nNew conversation:\n${conversationText}\n\nMerge the previous summary with the new conversation into one concise updated summary (maximum 150 words). Preserve: discussed evaluation criteria, project design decisions, student progress observations, and teaching strategies mentioned. Omit greetings and filler.`
+          : `Summarize the following conversation between a teacher and an AI assistant about course design, student evaluation, or project supervision.\n\nPreserve:\n- discussed evaluation criteria\n- project design decisions\n- student progress observations\n- teaching strategies\n\nLimit: 120 words. Omit greetings and filler.\n\n${conversationText}`)
+      : (previousSummary && previousSummary.trim()
+          ? `Previous summary:\n${previousSummary}\n\nNew conversation:\n${conversationText}\n\nMerge the previous summary with the new conversation into one concise updated summary (maximum 150 words). Preserve: the student's current Arduino project name, the specific task or circuit they are working on, any bugs or errors encountered, the student's current progress stage, and a brief list of concepts already explained to the student (so the AI can avoid re-explaining them and build progressively). Omit greetings and filler.`
+          : `Summarize the following Arduino tutoring conversation in one concise paragraph (maximum 120 words). Preserve: the student's project or task, any code problems or bugs discussed, the student's progress, and a brief list of concepts already explained to the student. Omit greetings and filler.\n\n${conversationText}`);
 
     for (const modelName of AI_MODELS) {
       try {

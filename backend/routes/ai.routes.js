@@ -29,10 +29,10 @@ router.post('/summary/save', protect, saveSummary);
 // GET  /api/ai/summary - all authenticated users (returns only the rolling summary)
 router.get('/summary', protect, getSummary);
 
-// GET  /api/ai/history - admin only (DB-persisted chat + summary)
+// GET  /api/ai/history - all authenticated users (DB-persisted chat + summary)
 router.get('/history', protect, getHistory);
 
-// DELETE /api/ai/history - admin only (clears messages + summary)
+// DELETE /api/ai/history - all authenticated users (clears messages + summary)
 router.delete('/history', protect, clearHistory);
 
 module.exports = router;

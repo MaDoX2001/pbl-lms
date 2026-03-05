@@ -133,7 +133,7 @@ const AIChatPage = () => {
     try {
       if (user?.role === 'admin') return []; // will load from DB
       const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : [];
+      return saved ? JSON.parse(saved).slice(-20) : [];
     } catch { return []; }
   });
   const [summary, setSummary] = useState(() => {
@@ -174,24 +174,13 @@ const AIChatPage = () => {
       .finally(() => setHistoryLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Admin: load history + summary from DB on mount
-  useEffect(() => {
-    if (user?.role !== 'admin') return;
-    setHistoryLoading(true);
-    api.get('/ai/history')
-      .then(res => {
-        const data = res.data.data || {};
-        setMessages(data.messages || []);
-        setSummary(data.summary || '');
-      })
-      .catch(() => {})
-      .finally(() => setHistoryLoading(false));
-  }, [user?.role]);
-
-  // Non-admin: persist messages to localStorage
+  // Non-admin: persist messages to localStorage (capped at 20 to mirror DB limit)
   useEffect(() => {
     if (user?.role === 'admin') return;
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(messages)); } catch {}
+    try {
+      const trimmed = messages.slice(-20);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+    } catch {}
   }, [messages, user?.role]);
 
   // Non-admin: persist summary to localStorage
@@ -313,25 +302,16 @@ ${userText}`
       }
     } catch (err) {
       if (!streamedText) {
-        // No content was streamed — fall back to standard POST
-        try {
-          const res = await api.post('/ai/chat', { message: fullText, history, summary });
-          const updatedMessages = [...newMessages, {
+        // /api/ai/chat only speaks SSE — no JSON fallback is available
+        setMessages(prev => [
+          ...prev.filter(m => !(m.role === 'assistant' && m.streaming)),
+          {
             role: 'assistant',
-            content: res.data.data.reply,
-            suggestions: res.data.data.suggestions || [],
-          }];
-          setMessages(updatedMessages);
-          if (updatedMessages.length >= 12 && updatedMessages.length % 6 === 0) {
-            triggerSummarize(updatedMessages.slice(-12, -6), summary);
-          }
-          return;
-        } catch (fallbackErr) {
-          const msg = fallbackErr.response?.data?.message
-            || (fallbackErr.response?.status === 429 ? t('aiRateLimited') : t('aiError'));
-          setMessages([...newMessages, { role: 'assistant', content: msg, error: true }]);
-          return;
-        }
+            content: t('aiError') || 'AI service temporarily unavailable.',
+            error: true,
+          },
+        ]);
+        return;
       }
       // Partial content already visible — just remove the streaming flag and keep what arrived
       setMessages(prev => {
