@@ -305,7 +305,7 @@ const buildUserContext = async (user) => {
   // Teacher / admin: add platform project list so AI knows available curriculum
   if (user.role === 'teacher' || user.role === 'admin') {
     try {
-      const projects = await Project.find({}, 'title level').sort({ createdAt: 1 }).lean();
+      const projects = await Project.find({}, 'title level').sort({ createdAt: 1 }).limit(20).lean();
       if (projects.length > 0) {
         context += `\nمشاريع المنصة المتاحة:\n`;
         projects.forEach(p => {

@@ -43,8 +43,9 @@ const SUGGESTIONS_EN_TEACHER = [
   'Suggest ways to help a struggling student',
 ];
 
-// Stable React key generator for dynamically created messages
-const makeKey = () => Math.random().toString(36).slice(2, 9);
+// Stable React key generator — counter + timestamp guarantees no collision
+let _keySeq = 0;
+const makeKey = () => `${Date.now()}-${++_keySeq}`;
 
 // Render message content: parse ```code``` blocks
 const MessageContent = ({ content, isUser, streaming = false }) => {
@@ -170,12 +171,18 @@ const AIChatPage = () => {
     api.get('/ai/history')
       .then(res => {
         const data = res.data.data || {};
-        if (data.messages?.length > 0) setMessages(data.messages);
+        // Assign stable _key to every message coming from DB so React key stays consistent
+        if (data.messages?.length > 0) setMessages(data.messages.map(m => ({ ...m, _key: makeKey() })));
         if (data.summary) setSummary(data.summary); // DB wins over localStorage
       })
       .catch(() => {}) // silent fail — localStorage values remain as fallback
       .finally(() => setHistoryLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cleanup: cancel pending debounced summary write when the component unmounts
+  useEffect(() => {
+    return () => clearTimeout(summarySaveTimerRef.current);
+  }, []);
 
   // Non-admin: persist messages to localStorage (capped at 20 to mirror DB limit)
   useEffect(() => {
@@ -297,7 +304,13 @@ ${userText}`
             finalSuggestions = event.suggestions || [];
             finalGuardTriggered = !!event.guardTriggered;
           } else if (event.type === 'error') {
-            throw new Error(event.message || 'Stream error');
+            // Use structured error code for a more specific message when available
+            const errMsg = event.code === 'MODEL_RATE_LIMIT'
+              ? (t('aiRateLimited') || 'خدمة الذكاء الاصطناعي مزدحمة حالياً، حاول بعد دقيقة.')
+              : event.code === 'MODEL_UNAVAILABLE'
+              ? (t('aiError') || 'النموذج غير متاح حالياً، حاول مرة أخرى.')
+              : event.message || 'Stream error';
+            throw new Error(errMsg);
           }
         }
       }
@@ -347,6 +360,7 @@ ${userText}`
   };
 
   const clearChat = () => {
+    clearTimeout(summarySaveTimerRef.current); // cancel any pending debounced DB summary write
     setMessages([]);
     setSummary('');
     // Clear DB (messages + summary) for all roles — getHistory/clearHistory now open to all
@@ -386,7 +400,9 @@ ${userText}`
 
       {/* Messages */}
       <Box sx={{ flex: 1, overflowY: 'auto', px: { xs: 1.5, md: 3 }, py: 2 }}>
-        {historyLoading ? (
+        {historyLoading && messages.length === 0 ? (
+          // Only show full-page spinner when there are no messages yet (e.g. admin with no localStorage).
+          // Non-admin users see their localStorage messages immediately while the DB fetch runs.
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
             <CircularProgress />
           </Box>
