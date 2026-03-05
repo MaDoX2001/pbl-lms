@@ -15,6 +15,7 @@ const aiChatHistorySchema = new mongoose.Schema({
       createdAt: { type: Date, default: Date.now },
     },
   ],
+  summary: { type: String, default: '' },
 }, { timestamps: true });
 
 module.exports = mongoose.model('AIChatHistory', aiChatHistorySchema);

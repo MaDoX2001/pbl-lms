@@ -134,7 +134,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // POST /api/ai/chat
 const chat = async (req, res) => {
   try {
-    const { message, history = [] } = req.body;
+    const { message, history = [], summary = '' } = req.body;
     const user = req.user;
 
     if (!process.env.GEMINI_API_KEY) {
@@ -161,10 +161,16 @@ const chat = async (req, res) => {
 
     // Build personalized context from DB
     const userContext = await buildUserContext(user);
-    const fullSystemPrompt = basePrompt + (userContext ? `\n${userContext}` : '');
 
-    // Admin gets full history; others trimmed to last 6
-    const trimmedHistory = user?.role === 'admin' ? history : history.slice(-6);
+    // Inject cumulative summary if provided
+    const summaryContext = summary && summary.trim()
+      ? `\n\n--- ملخص المحادثة السابقة ---\n${summary}\n--- نهاية الملخص ---`
+      : '';
+
+    const fullSystemPrompt = basePrompt + (userContext ? `\n${userContext}` : '') + summaryContext;
+
+    // Everyone uses last 6 messages; full context comes from the cumulative summary
+    const trimmedHistory = history.slice(-6);
 
     const chatHistory = trimmedHistory.map((msg) => ({
       role: msg.role === 'user' ? 'user' : 'model',
@@ -198,7 +204,7 @@ const chat = async (req, res) => {
 
           console.log(`✅ AI response via ${modelName} (attempt ${attempt + 1})`);
 
-          // Save to DB for admin users only
+          // Save messages to DB for admin users only
           if (user?.role === 'admin') {
             try {
               await AIChatHistory.findOneAndUpdate(
@@ -265,13 +271,16 @@ const getHistory = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Admin only' });
     }
     const record = await AIChatHistory.findOne({ user: user._id }).lean();
-    res.json({ success: true, data: record?.messages || [] });
+    res.json({
+      success: true,
+      data: { messages: record?.messages || [], summary: record?.summary || '' },
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// DELETE /api/ai/history - admin only
+// DELETE /api/ai/history - admin only (clears messages + summary)
 const clearHistory = async (req, res) => {
   try {
     const user = req.user;
@@ -280,7 +289,7 @@ const clearHistory = async (req, res) => {
     }
     await AIChatHistory.findOneAndUpdate(
       { user: user._id },
-      { $set: { messages: [] } },
+      { $set: { messages: [], summary: '' } },
       { upsert: true }
     );
     res.json({ success: true });
@@ -289,4 +298,60 @@ const clearHistory = async (req, res) => {
   }
 };
 
-module.exports = { chat, getHistory, clearHistory };
+// POST /api/ai/summarize - all users
+// Accepts { previousSummary, messages } → returns { summary }
+const summarize = async (req, res) => {
+  try {
+    const { previousSummary = '', messages = [] } = req.body;
+
+    if (!messages.length) {
+      return res.status(400).json({ success: false, message: 'messages required' });
+    }
+
+    const conversationText = messages
+      .map((m) => `${m.role === 'user' ? 'المستخدم' : 'المساعد'}: ${m.content}`)
+      .join('\n');
+
+    const prompt = previousSummary && previousSummary.trim()
+      ? `الملخص السابق:\n${previousSummary}\n\nالمحادثة الجديدة:\n${conversationText}\n\nادمج الملخص السابق مع المحادثة الجديدة في ملخص واحد موجز (150 كلمة كحد أقصى). احتفظ بالمعلومات المهمة فقط (الأسئلة الرئيسية، الإجابات، المواضيع، القرارات).`
+      : `لخّص المحادثة التالية في فقرة موجزة (100 كلمة كحد أقصى). احتفظ بالمعلومات المهمة فقط:\n\n${conversationText}`;
+
+    for (const modelName of AI_MODELS) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: { maxOutputTokens: 300, temperature: 0.2 },
+        });
+        const result = await model.generateContent(prompt);
+        const newSummary = result.response.text().trim();
+        console.log(`✅ Summarized via ${modelName}`);
+        return res.json({ success: true, data: { summary: newSummary } });
+      } catch (err) {
+        if (err.status === 404 || err.status === 429) continue;
+        throw err;
+      }
+    }
+
+    return res.status(429).json({ success: false, message: 'تعذّر إنشاء الملخص حالياً.' });
+  } catch (error) {
+    console.error('Summarize error:', error.message);
+    res.status(500).json({ success: false, message: 'حدثت مشكلة أثناء التلخيص.' });
+  }
+};
+
+// POST /api/ai/summary/save - saves cumulative summary to DB (admin)
+const saveSummary = async (req, res) => {
+  try {
+    const { summary = '' } = req.body;
+    await AIChatHistory.findOneAndUpdate(
+      { user: req.user._id },
+      { $set: { summary } },
+      { upsert: true }
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+module.exports = { chat, getHistory, clearHistory, summarize, saveSummary };

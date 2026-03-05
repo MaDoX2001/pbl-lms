@@ -16,6 +16,7 @@ import { useSelector } from 'react-redux';
 import api from '../services/api';
 
 const STORAGE_KEY = 'ai_chat_messages';
+const SUMMARY_KEY = 'ai_chat_summary';
 
 const SUGGESTIONS_AR_STUDENT = [
   'اشرح لي كيفية استخدام LED مع Arduino',
@@ -120,6 +121,12 @@ const AIChatPage = () => {
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
+  const [summary, setSummary] = useState(() => {
+    try {
+      if (user?.role === 'admin') return ''; // will load from DB
+      return localStorage.getItem(SUMMARY_KEY) || '';
+    } catch { return ''; }
+  });
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -132,25 +139,52 @@ const AIChatPage = () => {
     ? (language === 'ar' ? SUGGESTIONS_AR_TEACHER : SUGGESTIONS_EN_TEACHER)
     : (language === 'ar' ? SUGGESTIONS_AR_STUDENT : SUGGESTIONS_EN_STUDENT);
 
-  // Admin: load history from DB on mount
+  // Admin: load history + summary from DB on mount
   useEffect(() => {
     if (user?.role !== 'admin') return;
     setHistoryLoading(true);
     api.get('/ai/history')
-      .then(res => setMessages(res.data.data || []))
+      .then(res => {
+        const data = res.data.data || {};
+        setMessages(data.messages || []);
+        setSummary(data.summary || '');
+      })
       .catch(() => {})
       .finally(() => setHistoryLoading(false));
   }, [user?.role]);
 
-  // Non-admin: persist to localStorage
+  // Non-admin: persist messages to localStorage
   useEffect(() => {
     if (user?.role === 'admin') return;
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(messages)); } catch {}
   }, [messages, user?.role]);
 
+  // Non-admin: persist summary to localStorage
+  useEffect(() => {
+    if (user?.role === 'admin') return;
+    try {
+      if (summary) localStorage.setItem(SUMMARY_KEY, summary);
+      else localStorage.removeItem(SUMMARY_KEY);
+    } catch {}
+  }, [summary, user?.role]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
+
+  // Background summarization: called silently after new messages arrive
+  const triggerSummarize = useCallback(async (batch, prevSummary) => {
+    try {
+      const res = await api.post('/ai/summarize', { previousSummary: prevSummary, messages: batch });
+      const newSummary = res.data.data.summary;
+      setSummary(newSummary);
+      if (user?.role === 'admin') {
+        api.post('/ai/summary/save', { summary: newSummary }).catch(() => {});
+      }
+    } catch (err) {
+      console.warn('Background summarize failed silently:', err.message);
+    }
+  }, [user?.role]);
 
   const sendMessage = async (text) => {
     const userText = (text || input).trim();
@@ -170,20 +204,27 @@ ${userText}`
     setLoading(true);
 
     try {
-      const history = user?.role === 'admin'
-        ? newMessages.slice(0, -1)           // admin: full history
-        : newMessages.slice(0, -1).slice(-6); // others: last 6
-      const res = await api.post('/ai/chat', { message: fullText, history });
-      setMessages([...newMessages, { role: 'assistant', content: res.data.data.reply }]);
+      const history = newMessages.slice(0, -1).slice(-6); // everyone uses last 6
+      const res = await api.post('/ai/chat', { message: fullText, history, summary });
+      const updatedMessages = [...newMessages, { role: 'assistant', content: res.data.data.reply }];
+      setMessages(updatedMessages);
+
+      // Trigger background summarization every 6 messages (after the first 6)
+      if (updatedMessages.length >= 12 && updatedMessages.length % 6 === 0) {
+        const batch = updatedMessages.slice(-12, -6);
+        triggerSummarize(batch, summary);
+      }
     } catch (err) {
       // Silent retry once on 500
       if (err.response?.status === 500 || !err.response) {
         try {
-          const history = user?.role === 'admin'
-            ? newMessages.slice(0, -1)
-            : newMessages.slice(0, -1).slice(-6);
-          const res = await api.post('/ai/chat', { message: fullText, history });
-          setMessages([...newMessages, { role: 'assistant', content: res.data.data.reply }]);
+          const history = newMessages.slice(0, -1).slice(-6);
+          const res = await api.post('/ai/chat', { message: fullText, history, summary });
+          const updatedMessages = [...newMessages, { role: 'assistant', content: res.data.data.reply }];
+          setMessages(updatedMessages);
+          if (updatedMessages.length >= 12 && updatedMessages.length % 6 === 0) {
+            triggerSummarize(updatedMessages.slice(-12, -6), summary);
+          }
           return;
         } catch {}
       }
@@ -204,10 +245,14 @@ ${userText}`
 
   const clearChat = () => {
     setMessages([]);
+    setSummary('');
     if (user?.role === 'admin') {
       api.delete('/ai/history').catch(() => {});
     } else {
-      try { localStorage.removeItem(STORAGE_KEY); } catch {}
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(SUMMARY_KEY);
+      } catch {}
     }
   };
 
