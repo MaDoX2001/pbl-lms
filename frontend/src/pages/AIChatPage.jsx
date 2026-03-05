@@ -43,6 +43,9 @@ const SUGGESTIONS_EN_TEACHER = [
   'Suggest ways to help a struggling student',
 ];
 
+// Stable React key generator for dynamically created messages
+const makeKey = () => Math.random().toString(36).slice(2, 9);
+
 // Render message content: parse ```code``` blocks
 const MessageContent = ({ content, isUser, streaming = false }) => {
   const [copied, setCopied] = useState(null);
@@ -230,7 +233,7 @@ const AIChatPage = () => {
 ${userText}`
       : userText;
 
-    const userMsg = { role: 'user', content: userText, replyTo: replyTo || undefined };
+    const userMsg = { role: 'user', content: userText, replyTo: replyTo || undefined, _key: makeKey() };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
     setInput('');
@@ -242,7 +245,8 @@ ${userText}`
 
     try {
       // Add streaming placeholder — content fills in progressively
-      setMessages([...newMessages, { role: 'assistant', content: '', streaming: true, suggestions: [] }]);
+      const placeholderKey = makeKey();
+      setMessages([...newMessages, { role: 'assistant', content: '', streaming: true, suggestions: [], _key: placeholderKey }]);
 
       const token = localStorage.getItem('token');
       const baseURL = api.defaults.baseURL || '';
@@ -255,7 +259,12 @@ ${userText}`
         body: JSON.stringify({ message: fullText, history, summary }),
       });
 
-      if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok || !response.body) {
+        const msg = response.status === 429
+          ? (t('aiRateLimited') || 'طلبات كثيرة جداً، انتظر دقيقة ثم حاول.')
+          : (t('aiError') || 'AI service temporarily unavailable.');
+        throw new Error(msg);
+      }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -294,7 +303,7 @@ ${userText}`
       }
 
       // Finalize: strip streaming flag, attach suggestions and context-guard info
-      const finalMsg = { role: 'assistant', content: streamedText, suggestions: finalSuggestions, guardTriggered: finalGuardTriggered };
+      const finalMsg = { role: 'assistant', content: streamedText, suggestions: finalSuggestions, guardTriggered: finalGuardTriggered, _key: placeholderKey };
       const updatedMessages = [...newMessages, finalMsg];
       setMessages(updatedMessages);
       if (updatedMessages.length >= 12 && updatedMessages.length % 6 === 0) {
@@ -307,8 +316,9 @@ ${userText}`
           ...prev.filter(m => !(m.role === 'assistant' && m.streaming)),
           {
             role: 'assistant',
-            content: t('aiError') || 'AI service temporarily unavailable.',
+            content: err.message || t('aiError') || 'AI service temporarily unavailable.',
             error: true,
+            _key: makeKey(),
           },
         ]);
         return;
@@ -401,7 +411,7 @@ ${userText}`
         ) : (
           messages.map((msg, i) => (
             <Box
-              key={i}
+              key={msg._key || i}
               sx={{
                 display: 'flex',
                 mb: 2,
@@ -503,7 +513,7 @@ ${userText}`
                     }}
                   />
                 )}
-                {/* Suggestion chips below assistant messages */}}
+                {/* Suggestion chips below assistant messages */}
                 {msg.role === 'assistant' && !msg.error && msg.suggestions?.length > 0 && (
                   <Box sx={{
                     display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 0.75,
@@ -534,8 +544,8 @@ ${userText}`
           ))
         )}
 
-        {/* Loading bubble */}
-        {loading && (
+        {/* Loading bubble — hidden while a streaming placeholder is already visible */}
+        {loading && !messages.some(m => m.streaming) && (
           <Box sx={{ display: 'flex', gap: 1.5, mb: 2, flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center' }}>
             <Avatar sx={{ bgcolor: 'success.main', width: 36, height: 36 }}>
               <SmartToyIcon fontSize="small" />

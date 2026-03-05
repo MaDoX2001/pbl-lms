@@ -3,6 +3,7 @@ const Progress = require('../models/Progress.model');
 const StudentLevel = require('../models/StudentLevel.model');
 const Team = require('../models/Team.model');
 const AIChatHistory = require('../models/AIChatHistory.model');
+const Project = require('../models/Project.model');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -27,6 +28,15 @@ const MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS || 1400);
 // naturally expires after USER_CONTEXT_TTL_MS so fresh progress is picked up quickly.
 const userContextCache = new Map();
 const USER_CONTEXT_TTL_MS = 30_000; // 30 seconds
+
+// Prune stale cache entries every 5 minutes to prevent unbounded memory growth.
+// .unref() ensures this timer does not keep the Node process alive on shutdown.
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, val] of userContextCache.entries()) {
+    if (val.expiresAt <= now) userContextCache.delete(key);
+  }
+}, 5 * 60 * 1000).unref?.();
 
 // Detect if a message contains Arduino code patterns
 const ARDUINO_CODE_PATTERNS = [
@@ -292,6 +302,21 @@ const buildUserContext = async (user) => {
     }
   }
 
+  // Teacher / admin: add platform project list so AI knows available curriculum
+  if (user.role === 'teacher' || user.role === 'admin') {
+    try {
+      const projects = await Project.find({}, 'title level').sort({ createdAt: 1 }).lean();
+      if (projects.length > 0) {
+        context += `\nمشاريع المنصة المتاحة:\n`;
+        projects.forEach(p => {
+          context += `- ${p.title}${p.level ? ` (${p.level})` : ''}\n`;
+        });
+      }
+    } catch (err) {
+      console.warn('Could not load platform projects for teacher context:', err.message);
+    }
+  }
+
   context += `--- نهاية البيانات ---\n`;
   const result = { context, currentProjectContext };
 
@@ -303,8 +328,16 @@ const buildUserContext = async (user) => {
 
 // Parallel suggestion generator — fires independently from the main AI call
 // Uses only user message + project context (no AI reply needed) so it can run upfront
-const generateSuggestions = async (message, projectContext) => {
-  const suggestPrompt = `A student learning Arduino programming just asked: "${message.slice(0, 200)}"
+const generateSuggestions = async (message, projectContext, userRole = 'student') => {
+  const isTeacherRole = userRole === 'teacher' || userRole === 'admin';
+  const suggestPrompt = isTeacherRole
+    ? `A teacher using a PBL LMS platform just said: "${message.slice(0, 200)}"
+
+Generate exactly 3 short follow-up questions the teacher might want to ask next.
+Questions should relate to project design, student evaluation, or teaching strategy.
+Return ONLY a valid JSON array of 3 strings. No explanation, no markdown, just the array.
+Example: ["How do I write fair grading rubrics?","What are good oral assessment questions?","How to help a struggling student?"]`
+    : `A student learning Arduino programming just asked: "${message.slice(0, 200)}"
 ${projectContext ? `Student's current project context:\n${projectContext.slice(0, 300)}` : ''}
 
 Generate exactly 3 short follow-up questions the student might want to ask next.
@@ -338,6 +371,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // POST /api/ai/chat
 const chat = async (req, res) => {
+  let heartbeatInterval = null; // cleared before every res.end() to prevent timer leaks
   try {
     const { message, history = [], summary = '' } = req.body;
     const user = req.user;
@@ -424,9 +458,9 @@ const chat = async (req, res) => {
     // Fire suggestions only for question-like messages — saves a Gemini call for code pastes / statements
     // Also covers short messages (<80 chars) since those are almost always questions or simple requests
     const QUESTION_RE = /[?\u061F]|^(\u0643\u064A\u0641|\u0645\u0627 |\u0647\u0644 |\u0644\u0645\u0627\u0630\u0627|\u0645\u062A\u0649|\u0623\u064A\u0646|\u0627\u0634\u0631\u062D|\u0648\u0636\u062D|\u0628\u064A\u0646 |how |what |why |when |where |is |are |can |could |should |do |does |explain|show |tell )/i;
-    const isQuestion = QUESTION_RE.test(message.slice(0, 100)) || message.trim().length < 80;
+    const isQuestion = QUESTION_RE.test(message.trim().slice(0, 100)) || message.trim().length < 80;
     const suggestionPromise = isQuestion
-      ? generateSuggestions(message, currentProjectContext).catch(() => [])
+      ? generateSuggestions(message, currentProjectContext, user?.role).catch(() => [])
       : Promise.resolve([]);
 
     // SSE headers — tell the client to expect a real-time event stream
@@ -434,6 +468,11 @@ const chat = async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no'); // disable Render/nginx proxy buffering
+
+    // Heartbeat: prevents Render/nginx from closing idle connections before the first chunk arrives
+    heartbeatInterval = setInterval(() => {
+      try { res.write(': heartbeat\n\n'); } catch {}
+    }, 15000);
 
     for (let modelIndex = 0; modelIndex < AI_MODELS.length; modelIndex++) {
       const modelName = AI_MODELS[modelIndex];
@@ -501,6 +540,7 @@ const chat = async (req, res) => {
           // Signal stream end with metadata (guardTriggered useful for client-side debugging)
           const tokenEst = estimateTokens(workingSummary, workingHistoryCount);
           if (guardTriggered) console.info(`ℹ️ Token guard fired — estimated tokens: ${tokenEst}, model: ${modelName}`);
+          clearInterval(heartbeatInterval);
           res.write(`data: ${JSON.stringify({ type: 'done', model: modelName, suggestions, guardTriggered })}\n\n`);
           res.end();
           return;
@@ -509,6 +549,7 @@ const chat = async (req, res) => {
           // If we already streamed partial content, we can't retry — signal error and close
           if (streamStarted) {
             try {
+              clearInterval(heartbeatInterval);
               res.write(`data: ${JSON.stringify({ type: 'error', code: 'STREAM_INTERRUPTED', message: 'انقطع الاتصال بالذكاء الاصطناعي.' })}\n\n`);
               res.end();
             } catch {}
@@ -537,6 +578,7 @@ const chat = async (req, res) => {
     }
 
     // Should not reach here but just in case
+    clearInterval(heartbeatInterval);
     return res.status(429).json({
       success: false,
       message: 'الخدمة مشغولة حالياً، حاول بعد دقيقة.',
@@ -547,6 +589,7 @@ const chat = async (req, res) => {
     // If SSE headers already sent, can't set status code — use error event instead
     if (res.headersSent) {
       try {
+        clearInterval(heartbeatInterval);
         const errCode = error.status === 429 ? 'MODEL_RATE_LIMIT' : error.status === 404 ? 'MODEL_UNAVAILABLE' : 'UNKNOWN_ERROR';
         res.write(`data: ${JSON.stringify({ type: 'error', code: errCode, message: 'حدثت مشكلة في الخدمة، حاول مرة أخرى.' })}\n\n`);
         res.end();
@@ -597,11 +640,12 @@ const summarize = async (req, res) => {
       return res.status(400).json({ success: false, message: 'messages required' });
     }
 
-    const conversationText = messages
-      .map((m) => `${m.role === 'user' ? 'المستخدم' : 'المساعد'}: ${m.content}`)
-      .join('\n');
-
     const isTeacher = req.user?.role === 'teacher' || req.user?.role === 'admin';
+    const userLabel = isTeacher ? 'Teacher' : 'المستخدم';
+    const assistantLabel = isTeacher ? 'Assistant' : 'المساعد';
+    const conversationText = messages
+      .map((m) => `${m.role === 'user' ? userLabel : assistantLabel}: ${m.content}`)
+      .join('\n');
     const prompt = isTeacher
       ? (previousSummary && previousSummary.trim()
           ? `Previous summary:\n${previousSummary}\n\nNew conversation:\n${conversationText}\n\nMerge the previous summary with the new conversation into one concise updated summary (maximum 150 words). Preserve: discussed evaluation criteria, project design decisions, student progress observations, and teaching strategies mentioned. Omit greetings and filler.`
