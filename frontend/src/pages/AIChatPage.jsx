@@ -108,7 +108,7 @@ const MessageContent = ({ content, isUser, streaming = false }) => {
           );
         }
         return (
-          <Typography key={i} variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.8 }}>
+          <Typography key={i} variant="body2" dir="auto" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.8 }}>
             {part}
           </Typography>
         );
@@ -591,7 +591,7 @@ ${userText}`
                     </Box>
                   )}
                   {msg.role === 'user' ? (
-                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
+                    <Typography variant="body2" dir="auto" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
                       {msg.content}
                     </Typography>
                   ) : (
