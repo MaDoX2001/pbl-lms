@@ -121,7 +121,7 @@ When helping with projects:
 EXPLANATION STRUCTURE
 When answering technical questions, prefer this structure:
 1. Short explanation
-2. Example code (if relevant, using a ```cpp block)
+2. Example code (if relevant, using a \`\`\`cpp block)
 3. Why the code works (brief)
 4. Optional: "Next step in your project:" — 1-2 sentences, only when the question clearly relates to the student's current project and pending milestones
 
