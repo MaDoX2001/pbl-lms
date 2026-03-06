@@ -486,7 +486,7 @@ ${userText}`
               {suggestions.map((s, i) => (
                 <Chip
                   key={i}
-                  label={s}
+                  label={<span dir={isRTL ? 'rtl' : 'ltr'}>{s}</span>}
                   onClick={() => sendMessage(s)}
                   variant="outlined"
                   color="primary"
@@ -644,7 +644,7 @@ ${userText}`
                     {msg.suggestions.map((s, si) => (
                       <Chip
                         key={si}
-                        label={s}
+                        label={<span dir={isRTL ? 'rtl' : 'ltr'}>{s}</span>}
                         size="small"
                         variant="outlined"
                         color="primary"
