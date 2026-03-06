@@ -18,7 +18,7 @@ const Footer = () => {
         color: isDark ? 'text.primary' : 'white',
         borderTop: isDark ? '1px solid' : 'none',
         borderColor: 'divider',
-        py: 1.5,
+        py: 2.5,
         mt: 'auto',
       }}
     >

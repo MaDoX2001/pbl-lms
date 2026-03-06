@@ -452,14 +452,14 @@ ${userText}`
       {/* Header */}
       <Box sx={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        px: 3, py: 1.5, borderBottom: '1px solid', borderColor: 'divider',
+        px: 3, py: 0.75, borderBottom: '1px solid', borderColor: 'divider',
         flexDirection: isRTL ? 'row-reverse' : 'row',
       }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexDirection: isRTL ? 'row-reverse' : 'row' }}>
-          <SmartToyIcon sx={{ color: 'primary.main', fontSize: 28 }} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexDirection: isRTL ? 'row-reverse' : 'row' }}>
+          <SmartToyIcon sx={{ color: 'primary.main', fontSize: 22 }} />
           <Box>
-            <Typography variant="h6" fontWeight={700}>{t('aiAssistantTitle')}</Typography>
-            <Typography variant="caption" color="text.secondary">{t('aiPoweredBy')}</Typography>
+            <Typography variant="subtitle2" fontWeight={700} lineHeight={1.2}>{t('aiAssistantTitle')}</Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>{t('aiPoweredBy')}</Typography>
           </Box>
         </Box>
         {messages.length > 0 && (
