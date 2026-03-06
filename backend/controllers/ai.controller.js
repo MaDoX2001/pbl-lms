@@ -397,8 +397,8 @@ const buildUserContext = async (user) => {
   context += `--- نهاية البيانات ---\n`;
   const result = { context, currentProjectContext };
 
-  // Admin context is expensive (full DB scan) — cache for 5 min; others 10 min
-  const ttl = user.role === 'admin' ? 5 * 60_000 : 10 * 60_000;
+  // Cache for 5 min for all roles
+  const ttl = 5 * 60_000;
   userContextCache.set(cacheKey, { data: result, expiresAt: Date.now() + ttl });
 
   return result;
