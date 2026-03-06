@@ -157,6 +157,7 @@ const AIChatPage = () => {
   const isSendingRef = useRef(false);       // deduplication guard — prevents double-send on rapid clicks
   const lastSendTimeRef = useRef(0);        // client-side rate guard (2s minimum between manual sends)
   const summarySaveTimerRef = useRef(null); // debounces POST /ai/summary/save DB writes
+  const newMsgCountRef = useRef(0);         // counts new messages added this session (for summarize trigger)
 
   const suggestions = isTeacher
     ? (language === 'ar' ? SUGGESTIONS_AR_TEACHER : SUGGESTIONS_EN_TEACHER)
@@ -222,7 +223,7 @@ const AIChatPage = () => {
     }
   }, []);
 
-  const sendMessage = async (text) => {
+  const sendMessage = useCallback(async (text) => {
     const userText = (text || input).trim();
     if (!userText || loading || isSendingRef.current) return;
     // 2-second client-side rate guard — only applies to manual keyboard/button sends,
@@ -319,7 +320,10 @@ ${userText}`
       const finalMsg = { role: 'assistant', content: streamedText, suggestions: finalSuggestions, guardTriggered: finalGuardTriggered, _key: placeholderKey };
       const updatedMessages = [...newMessages, finalMsg];
       setMessages(updatedMessages);
-      if (updatedMessages.length >= 12 && updatedMessages.length % 6 === 0) {
+      // Trigger summarize every 6 new messages exchanged IN THIS SESSION
+      // Uses a ref so DB-loaded history doesn't skew the counter
+      newMsgCountRef.current += 2; // +1 user +1 assistant
+      if (newMsgCountRef.current >= 6 && newMsgCountRef.current % 6 === 0) {
         triggerSummarize(updatedMessages.slice(-12, -6), summary);
       }
     } catch (err) {
@@ -350,7 +354,7 @@ ${userText}`
       isSendingRef.current = false;
       inputRef.current?.focus();
     }
-  };
+  }, [input, loading, messages, summary, replyTo, t, triggerSummarize]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {

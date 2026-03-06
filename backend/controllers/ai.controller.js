@@ -595,6 +595,7 @@ const chat = async (req, res) => {
         res.end();
       } catch {}
     } else {
+      clearInterval(heartbeatInterval);
       res.status(500).json({
         success: false,
         message: 'حدثت مشكلة في الخدمة، حاول مرة أخرى.',
@@ -640,10 +641,19 @@ const summarize = async (req, res) => {
       return res.status(400).json({ success: false, message: 'messages required' });
     }
 
+    // Guard: cap message count and total text size to prevent oversized summarization prompts
+    const MAX_SUMMARIZE_MESSAGES = 20;
+    const MAX_SUMMARIZE_CHARS = 8000;
+    const cappedMessages = messages.slice(-MAX_SUMMARIZE_MESSAGES);
+    const rawText = cappedMessages.map(m => m.content || '').join('');
+    if (rawText.length > MAX_SUMMARIZE_CHARS) {
+      return res.status(400).json({ success: false, message: 'محتوى الرسائل كبير جداً للتلخيص.' });
+    }
+
     const isTeacher = req.user?.role === 'teacher' || req.user?.role === 'admin';
     const userLabel = isTeacher ? 'Teacher' : 'المستخدم';
     const assistantLabel = isTeacher ? 'Assistant' : 'المساعد';
-    const conversationText = messages
+    const conversationText = cappedMessages
       .map((m) => `${m.role === 'user' ? userLabel : assistantLabel}: ${m.content}`)
       .join('\n');
     const prompt = isTeacher
