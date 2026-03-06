@@ -716,6 +716,8 @@ ${userText}`
       }}>
         <TextField
           inputRef={inputRef}
+          id="ai-chat-input"
+          name="ai-chat-input"
           fullWidth
           multiline
           maxRows={4}
@@ -725,6 +727,7 @@ ${userText}`
           onKeyDown={handleKeyDown}
           disabled={loading}
           size="small"
+          autoComplete="off"
           sx={{ '& .MuiInputBase-root': { borderRadius: 3, direction } }}
         />
         <IconButton
