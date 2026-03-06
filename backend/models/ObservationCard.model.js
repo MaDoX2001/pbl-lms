@@ -8,7 +8,13 @@ const observationCardSchema = new mongoose.Schema({
   },
   phase: {
     type: String,
-    enum: ['group', 'individual_oral'],
+    // group          : تقييم جماعي للفريق ككل
+    // individual_oral: تقييم فردي (للتوافق مع النسخ القديمة)
+    // role_designer  : كارت خاص بدور مصمم النظام
+    // role_hardware  : كارت خاص بدور مهندس التوصيلات
+    // role_tester    : كارت خاص بدور المختبِر
+    // role_programming: كارت البرمجة المشترك (يُقيَّم لكل عضو فردياً)
+    enum: ['group', 'individual_oral', 'role_designer', 'role_hardware', 'role_tester', 'role_programming'],
     required: true
   },
   // For individual_oral phase: role-specific criteria marking

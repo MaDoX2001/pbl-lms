@@ -45,7 +45,7 @@ exports.enrollTeam = async (req, res) => {
     // Access control: Only team members or admin can enroll
     if (req.user.role === 'student') {
       const isMember = team.members.some(
-        member => member.toString() === req.user._id.toString()
+        member => (member.user?._id || member.user || member).toString() === req.user._id.toString()
       );
       if (!isMember) {
         return res.status(403).json({
@@ -109,7 +109,7 @@ exports.getTeamProjects = async (req, res) => {
     // Access control: Students can only see their team's projects
     if (req.user.role === 'student') {
       const isMember = team.members.some(
-        member => member.toString() === req.user._id.toString()
+        member => (member.user?._id || member.user || member).toString() === req.user._id.toString()
       );
       if (!isMember) {
         return res.status(403).json({
@@ -156,7 +156,7 @@ exports.getProjectTeams = async (req, res) => {
     const enrollments = await TeamProject.find({ project: projectId })
       .populate({
         path: 'team',
-        populate: { path: 'members', select: 'name email' }
+        populate: { path: 'members.user', select: 'name email' }
       })
       .populate('enrolledBy', 'name')
       .sort({ enrolledAt: -1 });

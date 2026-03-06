@@ -28,6 +28,7 @@ import SchoolIcon from '@mui/icons-material/School';
 import PeopleIcon from '@mui/icons-material/People';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
 const DRAWER_WIDTH = 280;
 
@@ -52,7 +53,8 @@ const Sidebar = ({ open, onClose }) => {
       { to: '/chat', icon: <ChatIcon />, label: t('chats') },
       { to: '/resources', icon: <BookmarkIcon />, label: t('resources') },
       { to: '/ai-chat', icon: <SmartToyIcon />, label: t('aiChatMenu') },
-      { to: '/live-lectures', icon: <VideocamIcon />, label: t('liveLectures') }
+      { to: '/live-lectures', icon: <VideocamIcon />, label: t('liveLectures') },
+      { to: '/faq', icon: <HelpOutlineIcon />, label: 'الأسئلة الشائعة' }
     ];
 
     if (user?.role === 'student') {

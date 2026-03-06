@@ -1,6 +1,15 @@
 const Team = require('../models/Team.model');
 const User = require('../models/User.model');
 
+// Helper: checks if userId is a member of team (works before/after populate)
+const isMemberOf = (team, userId) => {
+  const id = userId.toString();
+  return team.members.some(m => (m.user?._id || m.user || m).toString() === id);
+};
+
+// Helper: convert plain userId array to member sub-doc format
+const toMemberDocs = (userIds) => userIds.map(id => ({ user: id, role: 'unassigned' }));
+
 /**
  * Team Controller
  * 
@@ -61,7 +70,7 @@ exports.createTeam = async (req, res) => {
 
     // Check if any member is already in another team
     const existingTeams = await Team.find({
-      members: { $in: members },
+      'members.user': { $in: members },
       isActive: true
     });
 
@@ -72,16 +81,16 @@ exports.createTeam = async (req, res) => {
       });
     }
 
-    // Create team
+    // Create team — convert plain IDs to member sub-documents
     const team = await Team.create({
       name,
-      members,
+      members: toMemberDocs(members),
       description,
       createdBy: req.user._id
     });
 
     // Populate members
-    await team.populate('members', 'name email');
+    await team.populate('members.user', 'name email');
 
     res.status(201).json({
       success: true,
@@ -116,7 +125,7 @@ exports.getAllTeams = async (req, res) => {
     }
 
     const teams = await Team.find({ isActive: true })
-      .populate('members', 'name email')
+      .populate('members.user', 'name email')
       .populate('createdBy', 'name')
       .sort({ createdAt: -1 });
 
@@ -140,7 +149,7 @@ exports.getAllTeams = async (req, res) => {
 exports.getTeamById = async (req, res) => {
   try {
     const team = await Team.findById(req.params.id)
-      .populate('members', 'name email')
+      .populate('members.user', 'name email')
       .populate('createdBy', 'name');
 
     if (!team) {
@@ -152,10 +161,7 @@ exports.getTeamById = async (req, res) => {
 
     // Access control: Students can only see their own team
     if (req.user.role === 'student') {
-      const isMember = team.members.some(
-        member => member._id.toString() === req.user._id.toString()
-      );
-      if (!isMember) {
+      if (!isMemberOf(team, req.user._id)) {
         return res.status(403).json({
           success: false,
           message: 'غير مصرح لك بعرض هذا الفريق'
@@ -183,10 +189,10 @@ exports.getMyTeam = async (req, res) => {
   try {
     // Find team where user is a member
     const team = await Team.findOne({
-      members: req.user._id,
+      'members.user': req.user._id,
       isActive: true
     })
-      .populate('members', 'name email')
+      .populate('members.user', 'name email')
       .populate('createdBy', 'name');
 
     if (!team) {
@@ -261,13 +267,12 @@ exports.updateTeam = async (req, res) => {
       }
 
       // Check if any new member is already in another team
-      const newMembers = members.filter(
-        m => !team.members.map(mem => mem.toString()).includes(m)
-      );
+      const currentMemberIds = team.members.map(m => (m.user?._id || m.user).toString());
+      const newMembers = members.filter(m => !currentMemberIds.includes(m.toString()));
       if (newMembers.length > 0) {
         const existingTeams = await Team.find({
           _id: { $ne: team._id },
-          members: { $in: newMembers },
+          'members.user': { $in: newMembers },
           isActive: true
         });
         if (existingTeams.length > 0) {
@@ -281,11 +286,22 @@ exports.updateTeam = async (req, res) => {
 
     // Update fields
     if (name) team.name = name;
-    if (members) team.members = members;
+    if (members) {
+      // Preserve existing roles for members that remain
+      const existingRoles = {};
+      team.members.forEach(m => {
+        const uid = (m.user?._id || m.user).toString();
+        existingRoles[uid] = m.role || 'unassigned';
+      });
+      team.members = members.map(id => ({
+        user: id,
+        role: existingRoles[id.toString()] || 'unassigned'
+      }));
+    }
     if (description !== undefined) team.description = description;
 
     await team.save();
-    await team.populate('members', 'name email');
+    await team.populate('members.user', 'name email');
 
     res.json({
       success: true,
@@ -341,5 +357,54 @@ exports.deleteTeam = async (req, res) => {
       message: 'حدث خطأ في حذف الفريق',
       error: error.message
     });
+  }
+};
+
+// @desc    Student sets their own role within the team
+// @route   PUT /api/teams/my-team/role
+// @access  Student only
+exports.setMyRole = async (req, res) => {
+  try {
+    if (req.user.role !== 'student') {
+      return res.status(403).json({ success: false, message: 'الطلاب فقط يمكنهم تحديد أدوارهم' });
+    }
+
+    const VALID_ROLES = ['system_designer', 'hardware_engineer', 'tester'];
+    const { role } = req.body;
+
+    if (!VALID_ROLES.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: `الدور غير صالح. الأدوار المتاحة: ${VALID_ROLES.join(' | ')}`
+      });
+    }
+
+    const team = await Team.findOne({ 'members.user': req.user._id, isActive: true });
+    if (!team) {
+      return res.status(404).json({ success: false, message: 'أنت لست عضواً في أي فريق' });
+    }
+
+    // Check if this role is already taken by another member
+    const roleTaken = team.members.some(
+      m => m.role === role && (m.user?._id || m.user).toString() !== req.user._id.toString()
+    );
+    if (roleTaken) {
+      return res.status(409).json({
+        success: false,
+        message: 'هذا الدور محجوز بالفعل لعضو آخر في الفريق'
+      });
+    }
+
+    // Update the member's role
+    const memberDoc = team.members.find(
+      m => (m.user?._id || m.user).toString() === req.user._id.toString()
+    );
+    memberDoc.role = role;
+    await team.save();
+    await team.populate('members.user', 'name email');
+
+    res.json({ success: true, data: team });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'حدث خطأ في تحديث الدور', error: error.message });
   }
 };

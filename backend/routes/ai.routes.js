@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
-const { chat, getHistory, clearHistory, summarize, saveSummary, getSummary } = require('../controllers/ai.controller');
+const { chat, getHistory, clearHistory, summarize, saveSummary, getSummary, teacherAnalytics, getRemedialActivities, getProjectIdeas } = require('../controllers/ai.controller');
 const { protect } = require('../middleware/auth.middleware');
 
 // Per-user rate limiter: max 10 chat requests per minute per authenticated user.
@@ -34,5 +34,14 @@ router.get('/history', protect, getHistory);
 
 // DELETE /api/ai/history - all authenticated users (clears messages + summary)
 router.delete('/history', protect, clearHistory);
+
+// POST /api/ai/teacher-analytics - teacher/admin only: AI analytics report for a project
+router.post('/teacher-analytics', protect, teacherAnalytics);
+
+// POST /api/ai/remedial - student: get personalized remedial activity suggestions
+router.post('/remedial', protect, getRemedialActivities);
+
+// GET /api/ai/project-ideas - student: get AI-suggested Arduino project ideas
+router.get('/project-ideas', protect, getProjectIdeas);
 
 module.exports = router;

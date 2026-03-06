@@ -285,10 +285,10 @@ router.get('/:id/public', protect, async (req, res) => {
         });
       }
 
-      // Check if both are in same team
+      // Check if both are in same team (new {user, role} member structure)
       const Team = require('../models/Team.model');
       const commonTeam = await Team.findOne({
-        members: { $all: [currentUser.id, targetUserId] }
+        'members.user': { $all: [currentUser.id, targetUserId] }
       });
 
       if (commonTeam) {

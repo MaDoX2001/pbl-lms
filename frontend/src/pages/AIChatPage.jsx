@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Box, Typography, TextField, IconButton, Paper, Avatar,
   CircularProgress, Divider, Chip, Tooltip, Snackbar,
+  Button, Dialog, DialogTitle, DialogContent, DialogActions,
+  FormControl, InputLabel, Select, MenuItem, Alert
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -11,6 +13,9 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
 import ReplyIcon from '@mui/icons-material/Reply';
 import CloseIcon from '@mui/icons-material/Close';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import LightbulbIcon from '@mui/icons-material/Lightbulb';
+import AssessmentIcon from '@mui/icons-material/Assessment';
 import { useAppSettings } from '../context/AppSettingsContext';
 import { useSelector } from 'react-redux';
 import api from '../services/api';
@@ -152,6 +157,19 @@ const AIChatPage = () => {
   const [copySnack, setCopySnack] = useState(false);
   const [rateSnack, setRateSnack] = useState(false); // shown when sending too fast
   const [replyTo, setReplyTo] = useState(null); // { role, content }
+
+  // AI Tools state
+  const [aiProjects, setAiProjects] = useState([]);
+  const [analyticsDialog, setAnalyticsDialog] = useState(false);
+  const [analyticsProjectId, setAnalyticsProjectId] = useState('');
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsResult, setAnalyticsResult] = useState('');
+  const [remedialDialog, setRemedialDialog] = useState(false);
+  const [remedialLoading, setRemedialLoading] = useState(false);
+  const [remedialResult, setRemedialResult] = useState('');
+  const [ideasDialog, setIdeasDialog] = useState(false);
+  const [ideasLoading, setIdeasLoading] = useState(false);
+  const [ideasResult, setIdeasResult] = useState('');
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const isSendingRef = useRef(false);       // deduplication guard — prevents double-send on rapid clicks
@@ -184,6 +202,55 @@ const AIChatPage = () => {
   useEffect(() => {
     return () => clearTimeout(summarySaveTimerRef.current);
   }, []);
+
+  // Load projects for teacher analytics dialog
+  useEffect(() => {
+    if (isTeacher) {
+      api.get('/projects').then(res => setAiProjects(res.data.data || [])).catch(() => {});
+    }
+  }, [isTeacher]);
+
+  const handleTeacherAnalytics = async () => {
+    if (!analyticsProjectId) return;
+    setAnalyticsLoading(true);
+    setAnalyticsResult('');
+    try {
+      const res = await api.post('/ai/teacher-analytics', { projectId: analyticsProjectId });
+      setAnalyticsResult(res.data.data?.analysis || '');
+    } catch (err) {
+      setAnalyticsResult(err.response?.data?.message || 'حدثت مشكلة أثناء إنشاء التقرير.');
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
+
+  const handleRemedialActivities = async () => {
+    setRemedialDialog(true);
+    if (remedialResult) return;
+    setRemedialLoading(true);
+    try {
+      const res = await api.post('/ai/remedial');
+      setRemedialResult(res.data.data?.activities || '');
+    } catch (err) {
+      setRemedialResult(err.response?.data?.message || 'حدثت مشكلة.');
+    } finally {
+      setRemedialLoading(false);
+    }
+  };
+
+  const handleProjectIdeas = async () => {
+    setIdeasDialog(true);
+    if (ideasResult) return;
+    setIdeasLoading(true);
+    try {
+      const res = await api.get('/ai/project-ideas');
+      setIdeasResult(res.data.data?.ideas || '');
+    } catch (err) {
+      setIdeasResult(err.response?.data?.message || 'حدثت مشكلة.');
+    } finally {
+      setIdeasLoading(false);
+    }
+  };
 
   // Non-admin: persist messages to localStorage (capped at 20 to mirror DB limit)
   useEffect(() => {
@@ -427,6 +494,41 @@ ${userText}`
                 />
               ))}
             </Box>
+
+            {/* AI Quick Tool Buttons */}
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, justifyContent: 'center', mt: 3 }}>
+              {isTeacher ? (
+                <Button
+                  variant="outlined"
+                  startIcon={<AssessmentIcon />}
+                  onClick={() => { setAnalyticsDialog(true); setAnalyticsResult(''); }}
+                  size="small"
+                >
+                  تقرير تحليلي للطلاب
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    variant="outlined"
+                    color="secondary"
+                    startIcon={<AutoFixHighIcon />}
+                    onClick={handleRemedialActivities}
+                    size="small"
+                  >
+                    أنشطة علاجية مقترحة
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="success"
+                    startIcon={<LightbulbIcon />}
+                    onClick={handleProjectIdeas}
+                    size="small"
+                  >
+                    أفكار مشاريع Arduino
+                  </Button>
+                </>
+              )}
+            </Box>
           </Box>
         ) : (
           messages.map((msg, i) => (
@@ -654,6 +756,81 @@ ${userText}`
         message={language === 'ar' ? 'انتظر لحظة قبل إرسال رسالة أخرى' : 'Please wait before sending another message'}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
+
+      {/* Teacher Analytics Dialog */}
+      <Dialog open={analyticsDialog} onClose={() => setAnalyticsDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>تقرير تحليلي لأداء الطلاب بالذكاء الاصطناعي</DialogTitle>
+        <DialogContent dividers>
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel id="analytics-project-label">اختر المشروع</InputLabel>
+            <Select
+              labelId="analytics-project-label"
+              value={analyticsProjectId}
+              onChange={e => { setAnalyticsProjectId(e.target.value); setAnalyticsResult(''); }}
+              label="اختر المشروع"
+            >
+              {aiProjects.map(p => (
+                <MenuItem key={p._id} value={p._id}>{p.title}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          {analyticsLoading && <Box sx={{ textAlign: 'center', py: 3 }}><CircularProgress /></Box>}
+          {analyticsResult && (
+            <Paper variant="outlined" sx={{ p: 2, whiteSpace: 'pre-line', lineHeight: 2, direction: 'rtl' }}>
+              <Typography variant="body2">{analyticsResult}</Typography>
+            </Paper>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAnalyticsDialog(false)}>إغلاق</Button>
+          <Button
+            variant="contained"
+            onClick={handleTeacherAnalytics}
+            disabled={!analyticsProjectId || analyticsLoading}
+            startIcon={analyticsLoading ? <CircularProgress size={16} /> : <AssessmentIcon />}
+          >
+            إنشاء التقرير
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Remedial Activities Dialog */}
+      <Dialog open={remedialDialog} onClose={() => setRemedialDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>أنشطة علاجية مقترحة بالذكاء الاصطناعي</DialogTitle>
+        <DialogContent dividers>
+          {remedialLoading && <Box sx={{ textAlign: 'center', py: 3 }}><CircularProgress /></Box>}
+          {remedialResult && (
+            <Paper variant="outlined" sx={{ p: 2, whiteSpace: 'pre-line', lineHeight: 2, direction: 'rtl' }}>
+              <Typography variant="body2">{remedialResult}</Typography>
+            </Paper>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRemedialDialog(false)}>إغلاق</Button>
+          <Button variant="outlined" onClick={() => { setRemedialResult(''); handleRemedialActivities(); }}>
+            تحديث المقترحات
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Project Ideas Dialog */}
+      <Dialog open={ideasDialog} onClose={() => setIdeasDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>أفكار مشاريع Arduino المقترحة</DialogTitle>
+        <DialogContent dividers>
+          {ideasLoading && <Box sx={{ textAlign: 'center', py: 3 }}><CircularProgress /></Box>}
+          {ideasResult && (
+            <Paper variant="outlined" sx={{ p: 2, whiteSpace: 'pre-line', lineHeight: 2, direction: 'rtl' }}>
+              <Typography variant="body2">{ideasResult}</Typography>
+            </Paper>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIdeasDialog(false)}>إغلاق</Button>
+          <Button variant="outlined" onClick={() => { setIdeasResult(''); handleProjectIdeas(); }}>
+            اقتراحات جديدة
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

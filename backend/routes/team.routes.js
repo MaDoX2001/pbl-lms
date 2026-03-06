@@ -6,7 +6,8 @@ const {
   getTeamById,
   getMyTeam,
   updateTeam,
-  deleteTeam
+  deleteTeam,
+  setMyRole
 } = require('../controllers/team.controller');
 const { protect } = require('../middleware/auth.middleware');
 
@@ -18,6 +19,9 @@ const { protect } = require('../middleware/auth.middleware');
 
 // Get my team (for students)
 router.get('/my-team', protect, getMyTeam);
+
+// Set my role within the team (student selects: system_designer | hardware_engineer | tester)
+router.put('/my-team/role', protect, setMyRole);
 
 // Get all teams / Create team
 router.route('/')

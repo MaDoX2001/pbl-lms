@@ -44,6 +44,7 @@ import GroupEvaluationPage from './pages/GroupEvaluationPage';
 import IndividualEvaluationPage from './pages/IndividualEvaluationPage';
 import ResourcesPage from './pages/ResourcesPage';
 import AIChatPage from './pages/AIChatPage';
+import FAQPage from './pages/FAQPage';
 
 // Import actions
 import { loadUser } from './redux/slices/authSlice';
@@ -251,6 +252,9 @@ function App() {
                   <AllUsersPage />
                 </PrivateRoute>
               } />
+
+              {/* FAQ / Support */}
+              <Route path="/faq" element={<FAQPage />} />
 
               {/* 404 */}
               <Route path="*" element={<Navigate to="/" />} />

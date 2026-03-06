@@ -6,7 +6,15 @@ const mongoose = require('mongoose');
  * Represents a team of 2-4 students for PBL activities.
  * Teams are created and managed by ADMIN only.
  * A student can belong to ONLY ONE team at a time.
+ *
+ * Roles:
+ *  - system_designer  : يصمم المشروع كفكرة وآلية عمله
+ *  - hardware_engineer: يعمل التوصيلات على البورد
+ *  - tester          : يجرب المشروع ويرصد المشكلات
+ *  - unassigned      : لم يتم تحديد الدور بعد (افتراضي)
  */
+const TEAM_ROLES = ['system_designer', 'hardware_engineer', 'tester', 'unassigned'];
+
 const teamSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -15,28 +23,35 @@ const teamSchema = new mongoose.Schema({
     trim: true,
     minlength: [3, 'اسم الفريق يجب أن يكون 3 أحرف على الأقل']
   },
-  
-  // 2-4 students
+
+  // 2-4 students — each with an optional role
   members: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    role: {
+      type: String,
+      enum: TEAM_ROLES,
+      default: 'unassigned'
+    }
   }],
-  
-  // Admin who created the team
+
+  // Admin/Teacher who created the team
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  
+
   // Optional description
   description: {
     type: String,
     trim: true,
     maxlength: [500, 'الوصف يجب ألا يتجاوز 500 حرف']
   },
-  
+
   // Active status (for future soft-delete support)
   isActive: {
     type: Boolean,
@@ -54,8 +69,13 @@ teamSchema.pre('save', function(next) {
   next();
 });
 
+// Helper: extract plain user ObjectIds from members array (works whether populated or not)
+teamSchema.methods.getMemberIds = function() {
+  return this.members.map(m => m.user?._id || m.user);
+};
+
 // Index for faster queries
-teamSchema.index({ members: 1 });
+teamSchema.index({ 'members.user': 1 });
 teamSchema.index({ createdBy: 1 });
 teamSchema.index({ isActive: 1 });
 

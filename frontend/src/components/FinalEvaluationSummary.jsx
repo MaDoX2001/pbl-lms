@@ -11,12 +11,15 @@ import {
   Button,
   Card,
   CardContent,
-  LinearProgress
+  LinearProgress,
+  Tooltip,
+  IconButton
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
-  EmojiEvents as TrophyIcon
+  EmojiEvents as TrophyIcon,
+  Print as PrintIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 import { useAppSettings } from '../context/AppSettingsContext';
@@ -117,14 +120,29 @@ const FinalEvaluationSummary = ({ projectId, studentId, showActions = false, onR
   const verbalGradeLabel = t(`grade${verbalGradeKey.charAt(0).toUpperCase()}${verbalGradeKey.slice(1)}`);
   const isPassed = finalEval.status === 'passed';
 
+  const handlePrint = () => window.print();
+
   return (
-    <Paper sx={{ p: 3 }}>
+    <Paper sx={{ p: 3 }} className="final-evaluation-printable">
+      {/* Print styles */}
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          @page { margin: 15mm; }
+        }
+      `}</style>
+
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5" fontWeight={600}>
           {t('finalEvaluationTitle')}
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Tooltip title="طباعة / PDF" className="no-print">
+            <IconButton onClick={handlePrint} size="small" sx={{ mr: 1 }}>
+              <PrintIcon />
+            </IconButton>
+          </Tooltip>
           {isPassed ? (
             <>
               <CheckCircleIcon sx={{ color: 'success.main', fontSize: 32 }} />

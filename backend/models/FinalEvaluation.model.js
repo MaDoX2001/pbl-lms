@@ -25,6 +25,28 @@ const finalEvaluationSchema = new mongoose.Schema({
     ref: 'EvaluationAttempt',
     required: true
   },
+  // Role-specific evaluation (role_designer / role_hardware / role_tester)
+  roleEvaluation: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'EvaluationAttempt'
+  },
+  // Shared programming evaluation (role_programming card — same card applied to all members)
+  programmingEvaluation: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'EvaluationAttempt'
+  },
+  // Score from role-specific card (0-100), optional
+  roleScore: {
+    type: Number,
+    min: 0,
+    max: 100
+  },
+  // Score from programming card (0-100), optional
+  programmingScore: {
+    type: Number,
+    min: 0,
+    max: 100
+  },
   groupScore: {
     type: Number,
     required: true,

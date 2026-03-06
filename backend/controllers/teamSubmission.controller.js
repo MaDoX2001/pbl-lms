@@ -84,7 +84,7 @@ exports.createSubmission = async (req, res) => {
 
     // Access control: Only team members can submit
     const isMember = team.members.some(
-      member => member.toString() === req.user._id.toString()
+      member => (member.user?._id || member.user || member).toString() === req.user._id.toString()
     );
     if (!isMember) {
       return res.status(403).json({
@@ -124,7 +124,7 @@ exports.createSubmission = async (req, res) => {
     });
 
     await submission.populate([
-      { path: 'team', populate: { path: 'members', select: 'name email' } },
+      { path: 'team', populate: { path: 'members.user', select: 'name email' } },
       { path: 'project', select: 'title description' },
       { path: 'submittedBy', select: 'name email' }
     ]);
@@ -161,7 +161,7 @@ exports.getTeamProjectSubmissions = async (req, res) => {
     // Access control: Students can only see their team's submissions
     if (req.user.role === 'student') {
       const isMember = team.members.some(
-        member => member.toString() === req.user._id.toString()
+        member => (member.user?._id || member.user || member).toString() === req.user._id.toString()
       );
       if (!isMember) {
         return res.status(403).json({
@@ -212,7 +212,7 @@ exports.getProjectSubmissions = async (req, res) => {
     const submissions = await TeamSubmission.find({ project: projectId })
       .populate({
         path: 'team',
-        populate: { path: 'members', select: 'name email' }
+        populate: { path: 'members.user', select: 'name email' }
       })
       .populate('submittedBy', 'name email')
       .populate('feedbackBy', 'name')
@@ -241,7 +241,7 @@ exports.getSubmissionById = async (req, res) => {
     const submission = await TeamSubmission.findById(req.params.id)
       .populate({
         path: 'team',
-        populate: { path: 'members', select: 'name email' }
+        populate: { path: 'members.user', select: 'name email' }
       })
       .populate('project')
       .populate('submittedBy', 'name email')
@@ -258,7 +258,7 @@ exports.getSubmissionById = async (req, res) => {
     // Access control: Students can only see their team's submission
     if (req.user.role === 'student') {
       const isMember = submission.team.members.some(
-        member => member._id.toString() === req.user._id.toString()
+        member => (member.user?._id || member.user || member).toString() === req.user._id.toString()
       );
       if (!isMember) {
         return res.status(403).json({
@@ -318,7 +318,7 @@ exports.addFeedback = async (req, res) => {
 
     await submission.save();
     await submission.populate([
-      { path: 'team', populate: { path: 'members', select: 'name email' } },
+      { path: 'team', populate: { path: 'members.user', select: 'name email' } },
       { path: 'feedbackBy', select: 'name' }
     ]);
 
@@ -379,7 +379,7 @@ exports.addGrade = async (req, res) => {
 
     await submission.save();
     await submission.populate([
-      { path: 'team', populate: { path: 'members', select: 'name email' } },
+      { path: 'team', populate: { path: 'members.user', select: 'name email' } },
       { path: 'gradedBy', select: 'name' }
     ]);
 

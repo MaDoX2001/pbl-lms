@@ -8,7 +8,7 @@ const evaluationAttemptSchema = new mongoose.Schema({
   },
   phase: {
     type: String,
-    enum: ['group', 'individual_oral'],
+    enum: ['group', 'individual_oral', 'role_designer', 'role_hardware', 'role_tester', 'role_programming'],
     required: true
   },
   // For group phase: team reference
@@ -24,7 +24,7 @@ const evaluationAttemptSchema = new mongoose.Schema({
   // For individual phase: selected student role
   studentRole: {
     type: String,
-    enum: ['system_designer', 'hardware_engineer', 'programmer']
+    enum: ['system_designer', 'hardware_engineer', 'tester', 'programmer']
   },
   submission: {
     type: mongoose.Schema.Types.ObjectId,

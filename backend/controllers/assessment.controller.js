@@ -332,7 +332,7 @@ exports.evaluateIndividual = async (req, res) => {
       // Find student's team
       const team = await Team.findOne({
         project: projectId,
-        members: studentId
+        'members.user': studentId
       });
 
       if (!team) {
@@ -570,7 +570,7 @@ exports.finalizeEvaluation = async (req, res) => {
       // Find student's team
       const team = await Team.findOne({
         project: projectId,
-        members: studentId
+        'members.user': studentId
       });
 
       if (!team) {

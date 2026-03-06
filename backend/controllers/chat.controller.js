@@ -343,9 +343,9 @@ exports.getOrCreateTeamConversation = async (req, res) => {
     
     // Get user's team
     const team = await Team.findOne({
-      members: req.user.id,
+      'members.user': req.user.id,
       isActive: true
-    }).populate('members', 'name avatar email role');
+    }).populate('members.user', 'name avatar email role');
 
     console.log('Found team:', team ? team._id : 'null');
 
@@ -372,7 +372,7 @@ exports.getOrCreateTeamConversation = async (req, res) => {
         type: 'team',
         name: `${team.name} - محادثة الفريق`,
         team: team._id,
-        participants: team.members.map(m => m._id)
+        participants: team.members.map(m => m.user?._id || m.user)
       });
 
       await conversation.populate('participants', 'name avatar email role');
@@ -407,9 +407,9 @@ exports.getOrCreateTeamTeachersConversation = async (req, res) => {
     if (req.user.role === 'student') {
       // Get student's team
       team = await Team.findOne({
-        members: req.user.id,
+        'members.user': req.user.id,
         isActive: true
-      }).populate('members', 'name avatar email role');
+      }).populate('members.user', 'name avatar email role');
 
       if (!team) {
         return res.status(404).json({
@@ -427,7 +427,7 @@ exports.getOrCreateTeamTeachersConversation = async (req, res) => {
         });
       }
       
-      team = await Team.findById(teamId).populate('members', 'name avatar email role');
+      team = await Team.findById(teamId).populate('members.user', 'name avatar email role');
       if (!team) {
         return res.status(404).json({
           success: false,
@@ -458,7 +458,7 @@ exports.getOrCreateTeamTeachersConversation = async (req, res) => {
 
       // Create conversation with team + teachers
       const allParticipants = [
-        ...team.members.map(m => m._id.toString()),
+        ...team.members.map(m => (m.user?._id || m.user).toString()),
         ...teachers.map(t => t._id.toString())
       ];
       

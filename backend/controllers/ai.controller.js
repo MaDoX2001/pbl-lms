@@ -4,6 +4,8 @@ const StudentLevel = require('../models/StudentLevel.model');
 const Team = require('../models/Team.model');
 const AIChatHistory = require('../models/AIChatHistory.model');
 const Project = require('../models/Project.model');
+const FinalEvaluation = require('../models/FinalEvaluation.model');
+const User = require('../models/User.model');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -192,7 +194,7 @@ const buildUserContext = async (user) => {
           .populate('project', 'title level description shortDescription objectives milestones')
           .lean(),
         StudentLevel.findOne({ student: user._id }).lean(),
-        Team.findOne({ members: user._id }).populate('members', 'name').lean(),
+        Team.findOne({ 'members.user': user._id }).populate('members.user', 'name').lean(),
       ]);
 
       const active = progressList.filter(p => p.status !== 'completed');
@@ -223,7 +225,7 @@ const buildUserContext = async (user) => {
       }
 
       if (team) {
-        const memberNames = team.members.map(m => m.name).filter(Boolean).join('، ');
+        const memberNames = team.members.map(m => m.user?.name).filter(Boolean).join('، ');
         context += `\nالفريق: ${team.name}\nأعضاء الفريق: ${memberNames}\n`;
       }
 
@@ -715,4 +717,184 @@ const getSummary = async (req, res) => {
   }
 };
 
-module.exports = { chat, getHistory, clearHistory, summarize, saveSummary, getSummary };
+// POST /api/ai/teacher-analytics - generates AI analytics report for a project
+const teacherAnalytics = async (req, res) => {
+  try {
+    const { projectId } = req.body;
+    if (!projectId) {
+      return res.status(400).json({ success: false, message: 'projectId مطلوب.' });
+    }
+
+    const [project, progressList, finalEvals] = await Promise.all([
+      Project.findById(projectId, 'title level description milestones').lean(),
+      Progress.find({ project: projectId })
+        .populate('student', 'name')
+        .lean(),
+      FinalEvaluation.find({ project: projectId }).lean(),
+    ]);
+
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'المشروع غير موجود.' });
+    }
+
+    const evalMap = {};
+    finalEvals.forEach(e => { evalMap[String(e.student)] = e; });
+
+    const studentSummaries = progressList.map(p => {
+      const evalData = evalMap[String(p.student?._id || p.student)];
+      const completedMilestones = (p.milestoneProgress || []).filter(m => m.completed).length;
+      const totalMilestones = project.milestones?.length || 0;
+      return `- ${p.student?.name || 'طالب'}: الحالة=${p.status}, المراحل المنجزة=${completedMilestones}/${totalMilestones}${evalData ? `, التقييم النهائي=${evalData.finalPercentage?.toFixed(1)}% (${evalData.status === 'passed' ? 'ناجح' : 'راسب'})` : ', لم يُقيَّم بعد'}`;
+    });
+
+    const prompt = `أنت محلل تعليمي خبير. فيما يلي بيانات تقدم الطلاب في مشروع "${project.title}" (المستوى: ${project.level || 'غير محدد'}).
+
+بيانات الطلاب:
+${studentSummaries.join('\n') || 'لا يوجد طلاب مسجلون.'}
+
+اكتب تقرير تحليلي للمعلم يشمل:
+1. ملخص عام لأداء المجموعة (جملتان).
+2. نقاط القوة الملاحظة.
+3. نقاط الضعف التي تحتاج تدخلاً.
+4. قائمة بأسماء الطلاب الذين يحتاجون دعماً إضافياً مع سبب قصير.
+5. توصيات عملية للمعلم (3 توصيات).
+
+أسلوب الرد: مهني، منظم، مختصر. لا تستخدم * أو # في بداية الأسطر.`;
+
+    for (const modelName of AI_MODELS) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: { maxOutputTokens: 800, temperature: 0.4 },
+        });
+        const result = await model.generateContent(prompt);
+        const analysis = result.response.text().trim();
+        console.log(`✅ teacherAnalytics via ${modelName}`);
+        return res.json({ success: true, data: { analysis, projectTitle: project.title } });
+      } catch (err) {
+        if (err.status === 404 || err.status === 429) continue;
+        throw err;
+      }
+    }
+
+    return res.status(429).json({ success: false, message: 'تعذّر إنشاء التقرير حالياً، حاول لاحقاً.' });
+  } catch (error) {
+    console.error('teacherAnalytics error:', error.message);
+    res.status(500).json({ success: false, message: 'حدثت مشكلة أثناء إنشاء التقرير.' });
+  }
+};
+
+// POST /api/ai/remedial - generates remedial activity suggestions for a student
+const getRemedialActivities = async (req, res) => {
+  try {
+    const studentId = String(req.user._id);
+
+    const [progressList, levelData] = await Promise.all([
+      Progress.find({ student: studentId })
+        .populate('project', 'title level milestones')
+        .lean(),
+      StudentLevel.findOne({ student: studentId }).lean(),
+    ]);
+
+    const levelMap = { beginner: 'مبتدئ', intermediate: 'متوسط', advanced: 'متقدم', expert: 'خبير' };
+    const currentLevel = levelMap[levelData?.currentLevel] || 'مبتدئ';
+
+    const weakAreas = [];
+    progressList.forEach(p => {
+      if (!p.project) return;
+      const completedIds = new Set(
+        (p.milestoneProgress || []).filter(m => m.completed).map(m => String(m.milestoneId))
+      );
+      const stuck = (p.project.milestones || []).filter(m => !completedIds.has(String(m._id)));
+      if (stuck.length > 0) {
+        weakAreas.push(`مشروع "${p.project.title}": مراحل لم تُكتمل بعد: ${stuck.map(m => m.title).slice(0, 3).join('، ')}`);
+      }
+    });
+
+    const prompt = `أنت مرشد تعليمي متخصص في برمجة Arduino. الطالب في مستوى ${currentLevel}.
+
+${weakAreas.length > 0
+  ? `المجالات التي يحتاج فيها الطالب دعماً:\n${weakAreas.join('\n')}`
+  : 'الطالب يسير بشكل جيد عموماً.'}
+
+اقترح 3 تمارين علاجية مخصصة ومحددة للطالب لتعزيز فهمه:
+- كل تمرين يجب أن يكون عملياً وقابلاً للتنفيذ على Wokwi.
+- حدد العنوان، الهدف (جملة واحدة)، وخطوتين رئيسيتين.
+- الأسلوب: بسيط ومباشر. لا تستخدم * أو # في بداية الأسطر.`;
+
+    for (const modelName of AI_MODELS) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: { maxOutputTokens: 600, temperature: 0.5 },
+        });
+        const result = await model.generateContent(prompt);
+        const activities = result.response.text().trim();
+        console.log(`✅ getRemedialActivities via ${modelName}`);
+        return res.json({ success: true, data: { activities, weakAreas } });
+      } catch (err) {
+        if (err.status === 404 || err.status === 429) continue;
+        throw err;
+      }
+    }
+
+    return res.status(429).json({ success: false, message: 'تعذّر إنشاء الأنشطة العلاجية حالياً.' });
+  } catch (error) {
+    console.error('getRemedialActivities error:', error.message);
+    res.status(500).json({ success: false, message: 'حدثت مشكلة أثناء إنشاء الأنشطة.' });
+  }
+};
+
+// GET /api/ai/project-ideas - suggests Arduino project ideas based on student level
+const getProjectIdeas = async (req, res) => {
+  try {
+    const [progressList, levelData] = await Promise.all([
+      Progress.find({ student: req.user._id })
+        .populate('project', 'title')
+        .lean(),
+      StudentLevel.findOne({ student: req.user._id }).lean(),
+    ]);
+
+    const levelMap = { beginner: 'مبتدئ', intermediate: 'متوسط', advanced: 'متقدم', expert: 'خبير' };
+    const currentLevel = levelMap[levelData?.currentLevel] || 'مبتدئ';
+    const completedProjects = progressList
+      .filter(p => p.status === 'completed')
+      .map(p => p.project?.title)
+      .filter(Boolean);
+
+    const prompt = `أنت مرشد تعليمي متخصص في Arduino لطلاب مستوى ${currentLevel}.
+${completedProjects.length > 0 ? `الطالب أتم المشاريع التالية: ${completedProjects.join('، ')}.` : 'الطالب مبتدئ ولم يُكمل مشاريع بعد.'}
+
+اقترح 5 أفكار مشاريع Arduino إبداعية ومناسبة لهذا المستوى لم يعملها الطالب بعد.
+لكل فكرة:
+- العنوان
+- الوصف (جملتان)
+- المكونات الرئيسية المطلوبة (3-4 مكونات)
+- مستوى الصعوبة (سهل / متوسط / صعب)
+
+الأسلوب: مبدع، مشجع، عملي. لا تستخدم * أو # في بداية الأسطر.`;
+
+    for (const modelName of AI_MODELS) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: { maxOutputTokens: 700, temperature: 0.7 },
+        });
+        const result = await model.generateContent(prompt);
+        const ideas = result.response.text().trim();
+        console.log(`✅ getProjectIdeas via ${modelName}`);
+        return res.json({ success: true, data: { ideas, level: currentLevel } });
+      } catch (err) {
+        if (err.status === 404 || err.status === 429) continue;
+        throw err;
+      }
+    }
+
+    return res.status(429).json({ success: false, message: 'تعذّر إنشاء أفكار المشاريع حالياً.' });
+  } catch (error) {
+    console.error('getProjectIdeas error:', error.message);
+    res.status(500).json({ success: false, message: 'حدثت مشكلة أثناء إنشاء أفكار المشاريع.' });
+  }
+};
+
+module.exports = { chat, getHistory, clearHistory, summarize, saveSummary, getSummary, teacherAnalytics, getRemedialActivities, getProjectIdeas };

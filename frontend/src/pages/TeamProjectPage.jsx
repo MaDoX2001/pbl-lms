@@ -40,6 +40,7 @@ import StudentEvaluationStatus from '../components/StudentEvaluationStatus';
 import FinalEvaluationSummary from '../components/FinalEvaluationSummary';
 import EvaluationProgressBar from '../components/EvaluationProgressBar';
 import BadgeCelebrationPopup from '../components/BadgeCelebrationPopup';
+import MilestoneTimeline from '../components/MilestoneTimeline';
 import { useAppSettings } from '../context/AppSettingsContext';
 
 /**
@@ -283,6 +284,21 @@ const TeamProjectPage = () => {
           )}
         </Box>
       </Paper>
+
+      {/* Milestone Timeline */}
+      {project.milestones?.length > 0 && (
+        <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+          <Typography variant="h5" gutterBottom>
+            مراحل المشروع
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+          <MilestoneTimeline
+            milestones={project.milestones}
+            deadline={project.deadline}
+            completedIds={new Set()}
+          />
+        </Paper>
+      )}
 
       {/* Student Evaluation Status - Only show for students */}
       {user.role === 'student' && evaluationStatus && (
