@@ -315,18 +315,59 @@ const buildUserContext = async (user) => {
     }
   }
 
-  // Teacher: add platform project list
+  // Teacher: students, teams, projects, and recent evaluations
   if (user.role === 'teacher') {
     try {
-      const projects = await Project.find({}, 'title level').sort({ createdAt: 1 }).limit(20).lean();
-      if (projects.length > 0) {
-        context += `\nمشاريع المنصة المتاحة:\n`;
-        projects.forEach(p => {
-          context += `- ${p.title}${p.level ? ` (${p.level})` : ''}\n`;
+      const [allStudents, allProjects, allTeams, allProgress, recentEvals] = await Promise.all([
+        User.find({ role: 'student' }, 'name email createdAt isActive').sort({ createdAt: -1 }).lean(),
+        Project.find({}, 'title level description isPublished').sort({ createdAt: 1 }).limit(20).lean(),
+        Team.find({}).populate('members.user', 'name email').populate('project', 'title').lean(),
+        Progress.find({}).populate('student', 'name email').populate('project', 'title').lean(),
+        FinalEvaluation.find({}).sort({ createdAt: -1 }).limit(30)
+          .populate('student', 'name').populate('project', 'title').lean(),
+      ]);
+
+      context += `\n=== بيانات المنصة للمعلم ===\n`;
+      context += `إجمالي الطلاب: ${allStudents.length} | إجمالي المشاريع: ${allProjects.length}\n`;
+
+      context += `\n--- قائمة الطلاب ---\n`;
+      allStudents.forEach(s => {
+        const progRecords = allProgress.filter(p => p.student?._id?.toString() === s._id.toString());
+        const completed = progRecords.filter(p => p.status === 'completed').length;
+        const active = progRecords.filter(p => p.status === 'in-progress').length;
+        context += `الطالب: ${s.name} (${s.email}) | مشاريع مكتملة: ${completed}، نشطة: ${active}\n`;
+      });
+
+      context += `\n--- المشاريع والإحصاءات ---\n`;
+      allProjects.forEach(proj => {
+        const projProgress = allProgress.filter(p => p.project?._id?.toString() === proj._id.toString());
+        const enrolled = projProgress.length;
+        const completed = projProgress.filter(p => p.status === 'completed').length;
+        const evalRecords = recentEvals.filter(e => e.project?._id?.toString() === proj._id.toString());
+        const avgScore = evalRecords.length > 0
+          ? Math.round(evalRecords.reduce((s, e) => s + (e.totalPercentage || 0), 0) / evalRecords.length)
+          : null;
+        context += `المشروع: ${proj.title} (${proj.level || 'غير محدد'}) | ملتحقون: ${enrolled}، مكتملون: ${completed}${avgScore !== null ? `، متوسط الدرجات: ${avgScore}%` : ''}\n`;
+      });
+
+      if (allTeams.length > 0) {
+        context += `\n--- الفرق ---\n`;
+        allTeams.forEach(team => {
+          const memberNames = team.members.map(m => m.user?.name).filter(Boolean).join('، ');
+          context += `الفريق: ${team.name} | المشروع: ${team.project?.title || 'غير محدد'} | الأعضاء: ${memberNames || 'لا يوجد'}\n`;
+        });
+      }
+
+      if (recentEvals.length > 0) {
+        context += `\n--- آخر التقييمات ---\n`;
+        recentEvals.forEach(e => {
+          const grade = e.totalPercentage !== undefined ? `${Math.round(e.totalPercentage)}%` : 'غير محدد';
+          const passed = e.passed ? 'ناجح' : 'راسب';
+          context += `${e.student?.name || 'طالب'} | ${e.project?.title || 'مشروع'} | ${grade} | ${passed}\n`;
         });
       }
     } catch (err) {
-      console.warn('Could not load platform projects for teacher context:', err.message);
+      console.warn('Could not build teacher context:', err.message);
     }
   }
 
@@ -408,20 +449,39 @@ const buildUserContext = async (user) => {
 // Uses only user message + project context (no AI reply needed) so it can run upfront
 const generateSuggestions = async (message, projectContext, userRole = 'student') => {
   const isTeacherRole = userRole === 'teacher' || userRole === 'admin';
-  const suggestPrompt = isTeacherRole
-    ? `A teacher using a PBL LMS platform just said: "${message.slice(0, 200)}"
+  const isArabic = /[\u0600-\u06FF]/.test(message);
+  let suggestPrompt;
+  if (isTeacherRole) {
+    suggestPrompt = isArabic
+      ? `معلم يستخدم منصة PBL LMS قال: "${message.slice(0, 200)}"
+
+اقترح 3 أسئلة متابعة قصيرة قد يريد المعلم طرحها.
+يجب أن ترتبط بتصميم المشاريع أو تقييم الطلاب أو استراتيجية التدريس.
+أعد فقط مصفوفة JSON من 3 نصوص. بدون شرح أو markdown.
+مثال: ["كيف أكتب معايير تقييم عادلة؟","ما أسئلة التقييم الشفهي الجيدة؟","كيف أساعد طالبًا متعثرًا؟"]`
+      : `A teacher using a PBL LMS platform just said: "${message.slice(0, 200)}"
 
 Generate exactly 3 short follow-up questions the teacher might want to ask next.
 Questions should relate to project design, student evaluation, or teaching strategy.
 Return ONLY a valid JSON array of 3 strings. No explanation, no markdown, just the array.
-Example: ["How do I write fair grading rubrics?","What are good oral assessment questions?","How to help a struggling student?"]`
-    : `A student learning Arduino programming just asked: "${message.slice(0, 200)}"
+Example: ["How do I write fair grading rubrics?","What are good oral assessment questions?","How to help a struggling student?"]`;
+  } else {
+    suggestPrompt = isArabic
+      ? `طالب يتعلم برمجة Arduino سأل: "${message.slice(0, 200)}"
+${projectContext ? `سياق مشروعه الحالي:\n${projectContext.slice(0, 300)}` : ''}
+
+اقترح 3 أسئلة متابعة قصيرة قد يريد الطالب سؤالها.
+يجب أن ترتبط ببرمجة Arduino أو مشروع الطالب.
+أعد فقط مصفوفة JSON من 3 نصوص. بدون شرح أو markdown.
+مثال: ["كيف أوصّل الحساس؟","ماذا يُرجع digitalRead؟","ماذا أفعل بعد ذلك؟"]`
+      : `A student learning Arduino programming just asked: "${message.slice(0, 200)}"
 ${projectContext ? `Student's current project context:\n${projectContext.slice(0, 300)}` : ''}
 
 Generate exactly 3 short follow-up questions the student might want to ask next.
 Questions must relate to Arduino programming or the student's project.
 Return ONLY a valid JSON array of 3 strings. No explanation, no markdown, just the array.
 Example: ["How do I wire the sensor?","What does digitalRead return?","What should I do next?"]`;
+  }
 
   for (const modelName of AI_MODELS) {
     try {
