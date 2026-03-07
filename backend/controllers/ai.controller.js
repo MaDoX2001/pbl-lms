@@ -322,7 +322,7 @@ const buildUserContext = async (user) => {
       const [allStudents, allProjects, allTeams, allProgress, recentEvals] = await Promise.all([
         User.find({ role: 'student' }, 'name email createdAt isActive').sort({ createdAt: -1 }).lean(),
         Project.find({}, 'title level description isPublished').sort({ createdAt: 1 }).limit(20).lean(),
-        Team.find({}).populate('members.user', 'name email').populate('project', 'title').lean(),
+        Team.find({}).populate('members.user', 'name email').lean(),
         Progress.find({}).populate('student', 'name email').populate('project', 'title').lean(),
         FinalEvaluation.find({}).sort({ createdAt: -1 }).limit(30)
           .populate('student', 'name').populate('project', 'title').lean(),
@@ -378,7 +378,7 @@ const buildUserContext = async (user) => {
       const [allUsers, allProjects, allTeams, allProgress, recentEvals] = await Promise.all([
         User.find({}, 'name email role createdAt isActive').sort({ createdAt: -1 }).lean(),
         Project.find({}, 'title level description isPublished createdAt').sort({ createdAt: 1 }).lean(),
-        Team.find({}).populate('members.user', 'name email').populate('project', 'title').lean(),
+        Team.find({}).populate('members.user', 'name email').lean(),
         Progress.find({}).populate('student', 'name email').populate('project', 'title').lean(),
         FinalEvaluation.find({}).sort({ createdAt: -1 }).limit(30)
           .populate('student', 'name').populate('project', 'title').lean(),
