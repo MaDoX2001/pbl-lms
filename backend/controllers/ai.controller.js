@@ -620,6 +620,7 @@ const chat = async (req, res) => {
 
       const model = genAI.getGenerativeModel({
         model: modelName,
+        systemInstruction: fullSystemPrompt,
         generationConfig: {
           maxOutputTokens: MAX_OUTPUT_TOKENS,
           temperature: 0.4,
@@ -634,8 +635,6 @@ const chat = async (req, res) => {
         try {
           const chatSession = model.startChat({
             history: [
-              { role: 'user', parts: [{ text: fullSystemPrompt }] },
-              { role: 'model', parts: [{ text: 'Understood.' }] },
               ...chatHistory,
             ],
           });
