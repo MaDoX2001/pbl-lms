@@ -16,6 +16,9 @@ import CloseIcon from '@mui/icons-material/Close';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import AssessmentIcon from '@mui/icons-material/Assessment';
+import StorageIcon from '@mui/icons-material/Storage';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { useAppSettings } from '../context/AppSettingsContext';
 import { useSelector } from 'react-redux';
 import api from '../services/api';
@@ -36,21 +39,69 @@ const SUGGESTIONS_EN_STUDENT = [
   'What is my next step on the platform?',
 ];
 const SUGGESTIONS_AR_TEACHER = [
+  'قولي مين الطلاب اللي عندي على المنصة حالياً',
+  'هل هناك طلاب متعثرون؟',
   'ساعدني في كتابة معايير تقييم لمشروع Arduino',
-  'اقترح أسئلة للتقييم الشفهي',
-  'كيف أصمم مشروع PBL للمبتدئين؟',
-  'اقترح طرق مساعدة طالب متعثر',
+  'اعطني نظرة عامة على المنصة',
 ];
 const SUGGESTIONS_EN_TEACHER = [
+  'List all students on the platform',
+  'Are there any struggling students?',
   'Help me write evaluation criteria for an Arduino project',
-  'Suggest oral assessment questions',
-  'How to design a PBL project for beginners?',
-  'Suggest ways to help a struggling student',
+  'Give me a platform overview',
 ];
 
 // Stable React key generator — counter + timestamp guarantees no collision
 let _keySeq = 0;
 const makeKey = () => `${Date.now()}-${++_keySeq}`;
+
+// Map function names to Arabic labels
+const ACTION_LABELS = {
+  list_students: 'عرض قائمة الطلاب',
+  get_student_details: 'جلب تفاصيل الطالب',
+  get_project_stats: 'إحصاءات المشروع',
+  list_teams: 'عرض الفرق',
+  get_struggling_students: 'رصد الطلاب المتعثرين',
+  grant_retake: 'منح إذن إعادة التقييم',
+  get_platform_overview: 'نظرة عامة على المنصة',
+};
+
+// Action card shown in chat when AI executed a DB function
+const ActionCard = ({ name, result }) => {
+  const label = ACTION_LABELS[name] || name;
+  const success = result?.success !== false;
+  return (
+    <Box sx={{
+      display: 'inline-flex', alignItems: 'flex-start', gap: 1,
+      bgcolor: success ? 'success.50' : 'error.50',
+      border: '1px solid',
+      borderColor: success ? 'success.200' : 'error.200',
+      borderRadius: 2, px: 1.5, py: 0.75, mb: 0.5, maxWidth: '100%',
+    }}>
+      <StorageIcon sx={{ fontSize: 16, color: success ? 'success.main' : 'error.main', mt: 0.25, flexShrink: 0 }} />
+      <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          {success
+            ? <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
+            : <ErrorOutlineIcon sx={{ fontSize: 14, color: 'error.main' }} />}
+          <Typography variant="caption" fontWeight={700} color={success ? 'success.dark' : 'error.dark'}>
+            {label}
+          </Typography>
+        </Box>
+        {result?.error && (
+          <Typography variant="caption" color="error.main" sx={{ display: 'block', mt: 0.25 }}>
+            {result.error}
+          </Typography>
+        )}
+        {result?.message && (
+          <Typography variant="caption" color="success.dark" sx={{ display: 'block', mt: 0.25 }}>
+            {result.message}
+          </Typography>
+        )}
+      </Box>
+    </Box>
+  );
+};
 
 // Render message content: parse ```code``` blocks
 const MessageContent = ({ content, isUser, streaming = false }) => {
@@ -359,12 +410,23 @@ ${userText}`
           try { event = JSON.parse(line.slice(6)); } catch { continue; }
           if (event.type === 'chunk') {
             streamedText += event.text;
-            const snapshot = streamedText; // capture value for functional update closure
+            const snapshot = streamedText;
             setMessages(prev => {
               const updated = [...prev];
               const last = updated[updated.length - 1];
               if (last?.role === 'assistant') {
                 updated[updated.length - 1] = { ...last, content: snapshot };
+              }
+              return updated;
+            });
+          } else if (event.type === 'action') {
+            // AI executed a DB function — attach it to the assistant message
+            setMessages(prev => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last?.role === 'assistant') {
+                const actions = [...(last.actions || []), { name: event.name, result: event.result }];
+                updated[updated.length - 1] = { ...last, actions };
               }
               return updated;
             });
@@ -383,10 +445,22 @@ ${userText}`
         }
       }
 
-      // Finalize: strip streaming flag, attach suggestions and context-guard info
-      const finalMsg = { role: 'assistant', content: streamedText, suggestions: finalSuggestions, guardTriggered: finalGuardTriggered, _key: placeholderKey };
-      const updatedMessages = [...newMessages, finalMsg];
-      setMessages(updatedMessages);
+      // Finalize: strip streaming flag, attach suggestions, context-guard info, and agent actions
+      setMessages(prev => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        if (last?._key === placeholderKey) {
+          updated[updated.length - 1] = {
+            ...last,
+            content: streamedText,
+            streaming: false,
+            suggestions: finalSuggestions,
+            guardTriggered: finalGuardTriggered,
+          };
+        }
+        return updated;
+      });
+      const updatedMessages = [...newMessages, { role: 'assistant', content: streamedText, suggestions: finalSuggestions, guardTriggered: finalGuardTriggered, _key: placeholderKey }];
       // Trigger summarize every 6 new messages exchanged IN THIS SESSION
       // Uses a ref so DB-loaded history doesn't skew the counter
       newMsgCountRef.current += 2; // +1 user +1 assistant
@@ -595,7 +669,16 @@ ${userText}`
                       {msg.content}
                     </Typography>
                   ) : (
-                    <MessageContent content={msg.content} streaming={!!msg.streaming} />
+                    <>
+                      {msg.actions?.length > 0 && (
+                        <Box sx={{ mb: 0.75, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                          {msg.actions.map((a, i) => (
+                            <ActionCard key={i} name={a.name} result={a.result} />
+                          ))}
+                        </Box>
+                      )}
+                      <MessageContent content={msg.content} streaming={!!msg.streaming} />
+                    </>
                   )}
                 </Paper>
                 {/* Action buttons row */}

@@ -172,16 +172,268 @@ const TEACHER_SYSTEM_PROMPT = `أنت مساعد ذكي للمعلمين داخ�
 - أجب بنفس لغة السؤال.`;
 
 const ADMIN_SYSTEM_PROMPT = `أنت مساعد تحليلي مدمج داخل منصة التعلم بالمشروعات (PBL LMS).
-البيانات المدرجة أدناه في هذه التعليمات هي بياناتك المعرفية الخاصة بهذه المنصة — وليست بيانات خارجية تحتاج إلى "وصول". هذه هي معلوماتك المباشرة.
+لديك أدوات يمكنك استدعاؤها مباشرة لجلب البيانات الحية من قاعدة البيانات وتنفيذ إجراءات إدارية.
+استخدم هذه الأدوات كلما سُئلت عن بيانات الطلاب أو المشاريع أو الفرق أو التقييمات.
 
-قواعد صارمة يجب اتباعها:
-- إذا وُجدت بيانات (طلاب، مشاريع، فرق، تقييمات) في هذه التعليمات، استخدمها مباشرة في إجابتك.
-- لا تقل أبداً "لا أملك صلاحيات" أو "لا يمكنني الوصول" أو ما يشبه ذلك — البيانات موجودة أمامك.
-- إذا سئلت عن قائمة الطلاب أو المشاريع أو الفرق، اعرضها من البيانات المدرجة أدناه مباشرة.
-- إذا لم تجد بيانات في السياق لسبب ما، قل "لا توجد بيانات متاحة حالياً" فقط.
+قواعد صارمة:
+- استدعِ الأداة المناسبة دائماً بدلاً من قول "لا أملك صلاحيات".
+- بعد الحصول على نتيجة الأداة، لخّصها بوضوح ومنظمة.
 - أجب بنفس لغة السؤال.
-- للنص العادي: لا تستخدم * أو # في بداية السطور.
-- كن دقيقاً ومنظماً في عرض الأرقام والإحصاءات.`;
+- لا تستخدم * أو # في بداية السطور في النص العادي.
+- كن دقيقاً في عرض الأرقام والإحصاءات.`;
+
+const TEACHER_SYSTEM_PROMPT_AGENTIC = `أنت مساعد ذكي للمعلمين داخل منصة التعلم بالمشروعات (PBL LMS).
+لديك أدوات يمكنك استدعاؤها لجلب بيانات الطلاب والمشاريع وتنفيذ إجراءات إدارية.
+
+مهامك الأساسية:
+1) مساعدة في التقييم: ساعد في كتابة معايير تقييم واضحة، اقترح أسئلة التقييم الشفهي.
+2) إدارة المشاريع: اقترح أوصاف مشاريع PBL، اقترح موارد تعليمية.
+3) تحليل أداء الطلاب: استخدم الأدوات لجلب البيانات الحقيقية.
+
+قواعد:
+- استدعِ الأداة المناسبة بدلاً من قول "لا أملك صلاحيات".
+- أجب بنفس لغة السؤال.
+- لا تستخدم * أو # في بداية السطور.`;
+
+// ─── Gemini Function (Tool) Declarations ───────────────────────────────────
+const AGENT_TOOLS = [
+  {
+    functionDeclarations: [
+      {
+        name: 'list_students',
+        description: 'List all students on the platform with their progress and completion summary',
+        parameters: { type: 'OBJECT', properties: {}, required: [] },
+      },
+      {
+        name: 'get_student_details',
+        description: 'Get detailed information about a specific student including all projects, evaluations, level, and team',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            student_name: { type: 'STRING', description: 'Full or partial name of the student (Arabic or English)' },
+          },
+          required: ['student_name'],
+        },
+      },
+      {
+        name: 'get_project_stats',
+        description: 'Get statistics for a specific project: enrolled count, completion rate, average score, pass/fail',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            project_title: { type: 'STRING', description: 'Full or partial title of the project' },
+          },
+          required: ['project_title'],
+        },
+      },
+      {
+        name: 'list_teams',
+        description: 'List all teams with their members and roles',
+        parameters: { type: 'OBJECT', properties: {}, required: [] },
+      },
+      {
+        name: 'get_struggling_students',
+        description: 'Identify students who are failing evaluations, behind on projects, or have not started',
+        parameters: { type: 'OBJECT', properties: {}, required: [] },
+      },
+      {
+        name: 'grant_retake',
+        description: 'Grant a student permission to retake a failed evaluation for a specific project',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            student_name: { type: 'STRING', description: 'Full or partial name of the student' },
+            project_title: { type: 'STRING', description: 'Full or partial title of the project' },
+          },
+          required: ['student_name', 'project_title'],
+        },
+      },
+      {
+        name: 'get_platform_overview',
+        description: 'Get a high-level overview of the platform: total students, projects, teams, progress stats',
+        parameters: { type: 'OBJECT', properties: {}, required: [] },
+      },
+    ],
+  },
+];
+
+// ─── Execute Agent Function ─────────────────────────────────────────────────
+const executeAgentFunction = async (name, args = {}) => {
+  try {
+    switch (name) {
+      case 'list_students': {
+        const students = await User.find({ role: 'student' }, 'name email createdAt').lean();
+        const progressList = await Progress.find({})
+          .populate('student', 'name').populate('project', 'title').lean();
+        const result = students.map(s => {
+          const records = progressList.filter(p => p.student?._id?.toString() === s._id.toString());
+          return {
+            name: s.name,
+            email: s.email,
+            projects_active: records.filter(p => p.status === 'in-progress').length,
+            projects_completed: records.filter(p => p.status === 'completed').length,
+            projects_submitted: records.filter(p => p.status === 'submitted').length,
+          };
+        });
+        return { success: true, total: result.length, students: result };
+      }
+
+      case 'get_student_details': {
+        const { student_name } = args;
+        const student = await User.findOne({
+          role: 'student',
+          name: { $regex: student_name, $options: 'i' },
+        }).lean();
+        if (!student) return { success: false, error: `لم يتم العثور على طالب باسم "${student_name}"` };
+
+        const [progress, evaluations, levelDoc, team] = await Promise.all([
+          Progress.find({ student: student._id }).populate('project', 'title level').lean(),
+          FinalEvaluation.find({ student: student._id }).populate('project', 'title').lean(),
+          StudentLevel.findOne({ student: student._id }).lean(),
+          Team.findOne({ 'members.user': student._id }).lean(),
+        ]);
+
+        return {
+          success: true,
+          student: {
+            name: student.name,
+            email: student.email,
+            level: levelDoc?.currentLevel || 'beginner',
+            team: team?.name || null,
+            projects: progress.map(p => ({
+              title: p.project?.title,
+              status: p.status,
+              started: p.startedAt,
+            })),
+            evaluations: evaluations.map(e => ({
+              project: e.project?.title,
+              score: e.totalPercentage !== undefined ? `${Math.round(e.totalPercentage)}%` : null,
+              passed: e.passed,
+            })),
+          },
+        };
+      }
+
+      case 'get_project_stats': {
+        const { project_title } = args;
+        const project = await Project.findOne({ title: { $regex: project_title, $options: 'i' } }).lean();
+        if (!project) return { success: false, error: `لم يتم العثور على مشروع بعنوان "${project_title}"` };
+
+        const [progress, evaluations] = await Promise.all([
+          Progress.find({ project: project._id }).populate('student', 'name').lean(),
+          FinalEvaluation.find({ project: project._id }).populate('student', 'name').lean(),
+        ]);
+
+        const avgScore = evaluations.length > 0
+          ? Math.round(evaluations.reduce((s, e) => s + (e.totalPercentage || 0), 0) / evaluations.length)
+          : null;
+
+        return {
+          success: true,
+          project: {
+            title: project.title,
+            level: project.level,
+            enrolled: progress.length,
+            completed: progress.filter(p => p.status === 'completed').length,
+            submitted: progress.filter(p => ['submitted', 'reviewed'].includes(p.status)).length,
+            evaluations_count: evaluations.length,
+            passed: evaluations.filter(e => e.passed).length,
+            failed: evaluations.filter(e => !e.passed).length,
+            avg_score: avgScore,
+            students: progress.map(p => ({ name: p.student?.name, status: p.status })),
+          },
+        };
+      }
+
+      case 'list_teams': {
+        const teams = await Team.find({}).populate('members.user', 'name').lean();
+        return {
+          success: true,
+          total: teams.length,
+          teams: teams.map(t => ({
+            name: t.name,
+            members: t.members.map(m => ({ name: m.user?.name, role: m.role })),
+          })),
+        };
+      }
+
+      case 'get_struggling_students': {
+        const [allStudents, allProgress, allEvals] = await Promise.all([
+          User.find({ role: 'student' }, 'name email').lean(),
+          Progress.find({}).populate('student', 'name').populate('project', 'title').lean(),
+          FinalEvaluation.find({}).populate('student', 'name').populate('project', 'title').lean(),
+        ]);
+
+        const struggling = [];
+        allStudents.forEach(s => {
+          const records = allProgress.filter(p => p.student?._id?.toString() === s._id.toString());
+          const evals = allEvals.filter(e => e.student?._id?.toString() === s._id.toString());
+          const failedEvals = evals.filter(e => !e.passed);
+          const notStarted = records.filter(p => p.status === 'not-started').length;
+          if (failedEvals.length > 0 || notStarted >= 2) {
+            struggling.push({
+              name: s.name,
+              failed_projects: failedEvals.map(e => e.project?.title).filter(Boolean),
+              not_started_count: notStarted,
+            });
+          }
+        });
+
+        return { success: true, count: struggling.length, struggling_students: struggling };
+      }
+
+      case 'grant_retake': {
+        const { student_name, project_title } = args;
+        const [student, project] = await Promise.all([
+          User.findOne({ role: 'student', name: { $regex: student_name, $options: 'i' } }).lean(),
+          Project.findOne({ title: { $regex: project_title, $options: 'i' } }).lean(),
+        ]);
+        if (!student) return { success: false, error: `لم يتم العثور على طالب باسم "${student_name}"` };
+        if (!project) return { success: false, error: `لم يتم العثور على مشروع بعنوان "${project_title}"` };
+
+        const updated = await FinalEvaluation.findOneAndUpdate(
+          { student: student._id, project: project._id },
+          { retakeAllowed: true },
+          { new: true }
+        );
+        if (!updated) return { success: false, error: `لا يوجد تقييم للطالب "${student.name}" في مشروع "${project.title}"` };
+
+        return { success: true, action: 'grant_retake', student: student.name, project: project.title, message: `تم منح ${student.name} إذن إعادة التقييم في "${project.title}" بنجاح` };
+      }
+
+      case 'get_platform_overview': {
+        const [users, projects, teams, progress] = await Promise.all([
+          User.find({}, 'role').lean(),
+          Project.find({}, 'title level isPublished').lean(),
+          Team.countDocuments(),
+          Progress.find({}).lean(),
+        ]);
+        const students = users.filter(u => u.role === 'student').length;
+        const teachers = users.filter(u => u.role === 'teacher').length;
+        const completed = progress.filter(p => p.status === 'completed').length;
+        const inProgress = progress.filter(p => p.status === 'in-progress').length;
+        return {
+          success: true,
+          overview: {
+            total_students: students,
+            total_teachers: teachers,
+            total_projects: projects.length,
+            published_projects: projects.filter(p => p.isPublished).length,
+            total_teams: teams,
+            progress_completed: completed,
+            progress_in_progress: inProgress,
+          },
+        };
+      }
+
+      default:
+        return { success: false, error: `Unknown function: ${name}` };
+    }
+  } catch (err) {
+    console.error(`[executeAgentFunction] ${name} error:`, err.message);
+    return { success: false, error: err.message };
+  }
+};
 
 // Build dynamic context from user's real data
 // Returns { context: string, currentProjectContext: string }
@@ -535,9 +787,10 @@ const chat = async (req, res) => {
     }
 
     // Pick system prompt based on role
+    const isAgentRole = user?.role === 'admin' || user?.role === 'teacher';
     const basePrompt = user?.role === 'admin'
       ? ADMIN_SYSTEM_PROMPT
-      : (user?.role === 'teacher' ? TEACHER_SYSTEM_PROMPT : STUDENT_SYSTEM_PROMPT);
+      : (user?.role === 'teacher' ? TEACHER_SYSTEM_PROMPT_AGENTIC : STUDENT_SYSTEM_PROMPT);
 
     // Build personalized context from DB
     const { context: userContext, currentProjectContext } = await buildUserContext(user);
@@ -623,6 +876,7 @@ const chat = async (req, res) => {
       const model = genAI.getGenerativeModel({
         model: modelName,
         systemInstruction: fullSystemPrompt,
+        ...(isAgentRole ? { tools: AGENT_TOOLS } : {}),
         generationConfig: {
           maxOutputTokens: MAX_OUTPUT_TOKENS,
           temperature: 0.4,
@@ -643,6 +897,7 @@ const chat = async (req, res) => {
 
           // Use streaming API — yields chunks as Gemini generates them
           let fullText = '';
+          let agentActionResult = null; // set if a function call was executed
           const streamResult = await chatSession.sendMessageStream(processedMessage);
           for await (const chunk of streamResult.stream) {
             const chunkText = chunk.text();
@@ -652,6 +907,35 @@ const chat = async (req, res) => {
               res.write(`data: ${JSON.stringify({ type: 'chunk', text: chunkText })}\n\n`);
             }
           }
+
+          // ── Function-calling (agentic) path ─────────────────────────────
+          if (isAgentRole) {
+            const fullResponse = await streamResult.response;
+            const functionCalls = fullResponse.functionCalls?.() || [];
+            if (functionCalls.length > 0) {
+              const fc = functionCalls[0];
+              console.log(`[Agent] calling ${fc.name} with`, fc.args);
+
+              // Execute the function
+              const fnResult = await executeAgentFunction(fc.name, fc.args);
+              agentActionResult = { name: fc.name, args: fc.args, result: fnResult };
+
+              // Emit action event so frontend can show an action card
+              res.write(`data: ${JSON.stringify({ type: 'action', name: fc.name, args: fc.args, result: fnResult })}\n\n`);
+
+              // Send function result back to model for final natural-language response
+              const finalTurn = await chatSession.sendMessage([{
+                functionResponse: { name: fc.name, response: fnResult },
+              }]);
+              const finalText = finalTurn.response.text();
+              if (finalText) {
+                streamStarted = true;
+                fullText = finalText;
+                res.write(`data: ${JSON.stringify({ type: 'chunk', text: finalText })}\n\n`);
+              }
+            }
+          }
+          // ────────────────────────────────────────────────────────────────
 
           console.log(`✅ AI stream complete via ${modelName} (attempt ${attempt + 1})`);
 
@@ -683,7 +967,7 @@ const chat = async (req, res) => {
           const tokenEst = estimateTokens(workingSummary, workingHistoryCount);
           if (guardTriggered) console.info(`ℹ️ Token guard fired — estimated tokens: ${tokenEst}, model: ${modelName}`);
           clearInterval(heartbeatInterval);
-          res.write(`data: ${JSON.stringify({ type: 'done', model: modelName, suggestions, guardTriggered })}\n\n`);
+          res.write(`data: ${JSON.stringify({ type: 'done', model: modelName, suggestions, guardTriggered, agentAction: agentActionResult || undefined })}\n\n`);
           res.end();
           return;
 
