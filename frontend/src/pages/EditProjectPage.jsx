@@ -92,6 +92,7 @@ const EditProjectPage = () => {
         showObjectives: project.showObjectives !== undefined ? project.showObjectives : true,
         components: project.components?.length > 0 ? project.components : [''],
         showComponents: project.showComponents !== undefined ? project.showComponents : true,
+      });
 
       // Fetch existing observation cards
       try {
