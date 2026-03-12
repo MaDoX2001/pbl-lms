@@ -258,20 +258,8 @@ const CreateProjectPage = () => {
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} sm={4}>
-              <TextField
-                fullWidth
-                id="estimated-duration"
-                label={t('estimatedDurationHours')}
-                name="estimatedDuration"
-                type="number"
-                value={formData.estimatedDuration}
-                onChange={handleChange}
-                disabled={loading}
-              />
-            </Grid>
+            <Grid item xs={12} sm={6}>
 
-            <Grid item xs={12} sm={4}>
               <TextField
                 fullWidth
                 id="project-deadline"

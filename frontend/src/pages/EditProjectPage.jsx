@@ -332,7 +332,7 @@ const EditProjectPage = () => {
               />
             </Grid>
 
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 label={t('deadline')}

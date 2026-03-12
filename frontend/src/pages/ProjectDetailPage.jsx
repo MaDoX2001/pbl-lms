@@ -76,6 +76,26 @@ const ProjectDetailPage = () => {
   const [selectedTeams, setSelectedTeams] = useState([]);
   const [selectAllTeams, setSelectAllTeams] = useState(false);
   const [teamRegisterDialogOpen, setTeamRegisterDialogOpen] = useState(false);
+  const [countdown, setCountdown] = useState('');
+
+  useEffect(() => {
+    if (!project?.deadline) { setCountdown(''); return; }
+    const calc = () => {
+      const diff = new Date(project.deadline) - new Date();
+      if (diff <= 0) { setCountdown(t('deadlinePassed') || 'انتهى الوقت'); return; }
+      const days = Math.floor(diff / 86400000);
+      const hours = Math.floor((diff % 86400000) / 3600000);
+      const minutes = Math.floor((diff % 3600000) / 60000);
+      const seconds = Math.floor((diff % 60000) / 1000);
+      const parts = [];
+      if (days > 0) parts.push(`${days} يوم`);
+      parts.push(`${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`);
+      setCountdown(parts.join(' — '));
+    };
+    calc();
+    const interval = setInterval(calc, 1000);
+    return () => clearInterval(interval);
+  }, [project?.deadline]);
 
   useEffect(() => {
     dispatch(fetchProjectById(id));
@@ -397,10 +417,12 @@ const ProjectDetailPage = () => {
           ))}
         </Box>
         <Box sx={{ display: 'flex', gap: 3, alignItems: 'center' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <AccessTimeIcon />
-            <span>{project.estimatedDuration} {t('hour')}</span>
-          </Box>
+          {project.deadline && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <AccessTimeIcon />
+              <span style={{ fontVariantNumeric: 'tabular-nums' }}>{countdown}</span>
+            </Box>
+          )}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <CodeIcon />
             <span>{project.points} {t('pointsUnit')}</span>
