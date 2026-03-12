@@ -41,6 +41,13 @@ const projectSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  components: [{
+    type: String
+  }],
+  showComponents: {
+    type: Boolean,
+    default: true
+  },
   milestones: [{
     title: {
       type: String,

@@ -45,7 +45,9 @@ const EditProjectPage = () => {
     finalReportNote: '',
     points: 100,
     isPublished: false,
-    showObjectives: true
+    showObjectives: true,
+    components: [''],
+    showComponents: true
   });
 
   // Observation cards state
@@ -87,8 +89,9 @@ const EditProjectPage = () => {
         finalReportNote: project.finalReportNote || '',
         points: project.points || 100,
         isPublished: project.isPublished || false,
-        showObjectives: project.showObjectives !== undefined ? project.showObjectives : true
-      });
+        showObjectives: project.showObjectives !== undefined ? project.showObjectives : true,
+        components: project.components?.length > 0 ? project.components : [''],
+        showComponents: project.showComponents !== undefined ? project.showComponents : true,
 
       // Fetch existing observation cards
       try {
@@ -146,6 +149,18 @@ const EditProjectPage = () => {
     });
   };
 
+  const handleAddComponent = () => {
+    setFormData({ ...formData, components: [...formData.components, ''] });
+  };
+  const handleComponentChange = (index, value) => {
+    const newComponents = [...formData.components];
+    newComponents[index] = value;
+    setFormData({ ...formData, components: newComponents });
+  };
+  const handleDeleteComponent = (index) => {
+    setFormData({ ...formData, components: formData.components.filter((_, i) => i !== index) });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -157,6 +172,7 @@ const EditProjectPage = () => {
       const cleanData = {
         ...formData,
         objectives: formData.objectives.filter(obj => obj.trim() !== ''),
+        components: formData.components.filter(c => c.trim() !== ''),
         estimatedDuration: formData.estimatedDuration ? Number(formData.estimatedDuration) : undefined,
         points: formData.points ? Number(formData.points) : 100
       };
@@ -396,6 +412,50 @@ const EditProjectPage = () => {
                     color="error"
                     onClick={() => handleDeleteObjective(index)}
                     disabled={loading || formData.objectives.length === 1}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </Box>
+              ))}
+            </Grid>
+
+            {/* Components */}
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6">
+                  {t('projectComponents')}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button
+                    variant="outlined"
+                    onClick={() => setFormData({ ...formData, showComponents: !formData.showComponents })}
+                    disabled={loading}
+                  >
+                    {formData.showComponents ? t('hideComponentsInProject') : t('showComponentsInProject')}
+                  </Button>
+                  <Button
+                    startIcon={<AddIcon />}
+                    onClick={handleAddComponent}
+                    disabled={loading}
+                  >
+                    {t('addComponent')}
+                  </Button>
+                </Box>
+              </Box>
+              {formData.components.map((comp, index) => (
+                <Box key={index} sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                  <TextField
+                    fullWidth
+                    label={t('componentWithNumber', { number: index + 1 })}
+                    value={comp}
+                    onChange={(e) => handleComponentChange(index, e.target.value)}
+                    disabled={loading}
+                    placeholder={t('componentPlaceholder')}
+                  />
+                  <IconButton
+                    color="error"
+                    onClick={() => handleDeleteComponent(index)}
+                    disabled={loading || formData.components.length === 1}
                   >
                     <DeleteIcon />
                   </IconButton>

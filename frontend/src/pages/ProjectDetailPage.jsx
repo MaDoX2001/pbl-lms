@@ -438,6 +438,23 @@ const ProjectDetailPage = () => {
             </Paper>
           )}
 
+          {/* Components */}
+          {project.showComponents && project.components?.length > 0 && (
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h5" gutterBottom fontWeight={600}>
+                {t('projectComponents')}
+              </Typography>
+              <List>
+                {project.components.map((comp, index) => (
+                  <ListItem key={index}>
+                    <CheckCircleIcon color="primary" sx={{ mr: 1 }} />
+                    <ListItemText primary={comp} />
+                  </ListItem>
+                ))}
+              </List>
+            </Paper>
+          )}
+
           {/* Learning Scenario */}
           {project.learningScenario && (
             <Paper sx={{ p: 3, mb: 3 }}>
