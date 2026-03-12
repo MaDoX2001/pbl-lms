@@ -763,54 +763,31 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // POST /api/ai/chat
 const chat = async (req, res) => {
-  let heartbeatInterval = null; // cleared before every res.end() to prevent timer leaks
   try {
     const { message, history = [], summary = '' } = req.body;
     const user = req.user;
 
     if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({
-        success: false,
-        message: 'مفتاح خدمة الذكاء الاصطناعي غير مضبوط.',
-      });
+      return res.status(500).json({ success: false, message: 'مفتاح خدمة الذكاء الاصطناعي غير مضبوط.' });
     }
-
     if (!message || message.trim() === '') {
       return res.status(400).json({ success: false, message: 'Message is required' });
     }
-
     if (message.length > MAX_INPUT_CHARS) {
-      return res.status(400).json({
-        success: false,
-        message: `الرسالة طويلة جدًا. الحد الأقصى ${MAX_INPUT_CHARS} حرف.`,
-      });
+      return res.status(400).json({ success: false, message: `الرسالة طويلة جدًا. الحد الأقصى ${MAX_INPUT_CHARS} حرف.` });
     }
 
-    // Pick system prompt based on role
     const isAgentRole = user?.role === 'admin' || user?.role === 'teacher';
     const basePrompt = user?.role === 'admin'
       ? ADMIN_SYSTEM_PROMPT
       : (user?.role === 'teacher' ? TEACHER_SYSTEM_PROMPT_AGENTIC : STUDENT_SYSTEM_PROMPT);
 
-    // Build personalized context from DB
     const { context: userContext, currentProjectContext } = await buildUserContext(user);
 
-    // Auto-wrap Arduino code in the message for better AI analysis
-    const processedMessage = containsArduinoCode(message)
-      ? wrapArduinoCode(message)
-      : message;
+    const processedMessage = containsArduinoCode(message) ? wrapArduinoCode(message) : message;
 
-    // --- TOKEN SAFETY GUARD ---
-    // Base parts that are never trimmed
-    const baseSystemPart = basePrompt
-      + (userContext ? `\n${userContext}` : '')
-      + currentProjectContext;
-
-    // Admin gets a higher token limit since the DB snapshot is intentionally large
+    const baseSystemPart = basePrompt + (userContext ? `\n${userContext}` : '') + currentProjectContext;
     const TOKEN_SAFE_LIMIT = user?.role === 'admin' ? 10000 : 6500;
-
-    // Estimate tokens with language-aware heuristic:
-    // Arabic chars tokenise at ~1 per 2.5 chars; Latin at ~1 per 4 chars
     const estimateTokens = (sumText, histCount) => {
       const histText = history.slice(-histCount).map(m => m.content).join('');
       const totalText = baseSystemPart + (sumText || '') + histText + message;
@@ -822,211 +799,116 @@ const chat = async (req, res) => {
     let workingSummary = summary;
     let workingHistoryCount = 6;
     let guardTriggered = false;
+    if (estimateTokens(workingSummary, workingHistoryCount) > TOKEN_SAFE_LIMIT) { workingSummary = summary.slice(-800); guardTriggered = true; }
+    if (estimateTokens(workingSummary, workingHistoryCount) > TOKEN_SAFE_LIMIT) { workingHistoryCount = 4; guardTriggered = true; }
+    if (estimateTokens(workingSummary, workingHistoryCount) > TOKEN_SAFE_LIMIT) { workingHistoryCount = 2; guardTriggered = true; }
 
-    if (estimateTokens(workingSummary, workingHistoryCount) > TOKEN_SAFE_LIMIT) {
-      workingSummary = summary.slice(-800);
-      guardTriggered = true;
-      console.warn('⚠ Token guard: trimmed summary to 800 chars');
-    }
-    if (estimateTokens(workingSummary, workingHistoryCount) > TOKEN_SAFE_LIMIT) {
-      workingHistoryCount = 4;
-      guardTriggered = true;
-      console.warn('⚠ Token guard: reduced history to 4 messages');
-    }
-    if (estimateTokens(workingSummary, workingHistoryCount) > TOKEN_SAFE_LIMIT) {
-      workingHistoryCount = 2;
-      guardTriggered = true;
-      console.warn('⚠ Token guard: reduced history to 2 messages');
-    }
-
-    const finalSummaryContext = workingSummary && workingSummary.trim()
-      ? `\n\n--- ملخص المحادثة السابقة ---\n${workingSummary}\n--- نهاية الملخص ---`
-      : '';
-
+    const finalSummaryContext = workingSummary?.trim()
+      ? `\n\n--- ملخص المحادثة السابقة ---\n${workingSummary}\n--- نهاية الملخص ---` : '';
     const fullSystemPrompt = baseSystemPart + finalSummaryContext;
 
     const trimmedHistory = history.slice(-workingHistoryCount);
-    const chatHistory = trimmedHistory.map((msg) => ({
-      role: msg.role === 'user' ? 'user' : 'model',
-      parts: [{ text: msg.content }],
+    const chatHistory = trimmedHistory.map(m => ({
+      role: m.role === 'user' ? 'user' : 'model',
+      parts: [{ text: m.content }],
     }));
 
-    // Fire suggestions only for question-like messages — saves a Gemini call for code pastes / statements
-    // Also covers short messages (<80 chars) since those are almost always questions or simple requests
     const QUESTION_RE = /[?\u061F]|^(\u0643\u064A\u0641|\u0645\u0627 |\u0647\u0644 |\u0644\u0645\u0627\u0630\u0627|\u0645\u062A\u0649|\u0623\u064A\u0646|\u0627\u0634\u0631\u062D|\u0648\u0636\u062D|\u0628\u064A\u0646 |how |what |why |when |where |is |are |can |could |should |do |does |explain|show |tell )/i;
     const isQuestion = QUESTION_RE.test(message.trim().slice(0, 100)) || message.trim().length < 80;
     const suggestionPromise = isQuestion
       ? generateSuggestions(message, currentProjectContext, user?.role).catch(() => [])
       : Promise.resolve([]);
 
-    // SSE headers — tell the client to expect a real-time event stream
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no'); // disable Render/nginx proxy buffering
-
-    // Heartbeat: prevents Render/nginx from closing idle connections before the first chunk arrives
-    heartbeatInterval = setInterval(() => {
-      try { res.write(': heartbeat\n\n'); } catch {}
-    }, 15000);
-
     for (let modelIndex = 0; modelIndex < AI_MODELS.length; modelIndex++) {
       const modelName = AI_MODELS[modelIndex];
-
       const model = genAI.getGenerativeModel({
         model: modelName,
         systemInstruction: fullSystemPrompt,
         ...(isAgentRole ? { tools: AGENT_TOOLS } : {}),
-        generationConfig: {
-          maxOutputTokens: MAX_OUTPUT_TOKENS,
-          temperature: 0.4,
-        },
+        generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS, temperature: 0.4 },
       });
 
       const MAX_RETRIES = 2;
-      let totalWaitMs = 0; // cap total backoff across all retries for this model
+      let totalWaitMs = 0;
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-        // Track whether any SSE chunk was written — affects retry/fallback logic
-        let streamStarted = false;
         try {
-          const chatSession = model.startChat({
-            history: [
-              ...chatHistory,
-            ],
-          });
+          const chatSession = model.startChat({ history: chatHistory });
+          const result = await chatSession.sendMessage(processedMessage);
 
-          // Use streaming API — yields chunks as Gemini generates them
-          let fullText = '';
-          let agentActionResult = null; // set if a function call was executed
-          const streamResult = await chatSession.sendMessageStream(processedMessage);
-          for await (const chunk of streamResult.stream) {
-            const chunkText = chunk.text();
-            if (chunkText) {
-              streamStarted = true;
-              fullText += chunkText;
-              res.write(`data: ${JSON.stringify({ type: 'chunk', text: chunkText })}\n\n`);
-            }
-          }
+          let fullText = result.response.text();
+          let agentActionResult = null;
 
-          // ── Function-calling (agentic) path ─────────────────────────────
+          // ── Function-calling (agentic) path ────────────────────────────
           if (isAgentRole) {
-            const fullResponse = await streamResult.response;
-            const functionCalls = fullResponse.functionCalls?.() || [];
+            const functionCalls = result.response.functionCalls?.() || [];
             if (functionCalls.length > 0) {
               const fc = functionCalls[0];
               console.log(`[Agent] calling ${fc.name} with`, fc.args);
-
-              // Execute the function
               const fnResult = await executeAgentFunction(fc.name, fc.args);
               agentActionResult = { name: fc.name, args: fc.args, result: fnResult };
 
-              // Emit action event so frontend can show an action card
-              res.write(`data: ${JSON.stringify({ type: 'action', name: fc.name, args: fc.args, result: fnResult })}\n\n`);
-
-              // Send function result back to model for final natural-language response
               const finalTurn = await chatSession.sendMessage([{
                 functionResponse: { name: fc.name, response: fnResult },
               }]);
-              const finalText = finalTurn.response.text();
-              if (finalText) {
-                streamStarted = true;
-                fullText = finalText;
-                res.write(`data: ${JSON.stringify({ type: 'chunk', text: finalText })}\n\n`);
-              }
+              fullText = finalTurn.response.text();
             }
           }
-          // ────────────────────────────────────────────────────────────────
+          // ───────────────────────────────────────────────────────────────
 
-          console.log(`✅ AI stream complete via ${modelName} (attempt ${attempt + 1})`);
-
-          // Collect suggestions — already running in parallel since before the model loop
+          console.log(`✅ AI response via ${modelName} (attempt ${attempt + 1})`);
           const suggestions = await suggestionPromise;
 
-          // Save messages to DB for ALL roles — capped at 20 entries so the collection stays lean
           try {
             await AIChatHistory.findOneAndUpdate(
               { user: user._id },
-              {
-                $push: {
-                  messages: {
-                    $each: [
-                      { role: 'user', content: message },
-                      { role: 'assistant', content: fullText },
-                    ],
-                    $slice: -20, // keep only the 20 most recent messages
-                  },
-                },
-              },
+              { $push: { messages: { $each: [{ role: 'user', content: message }, { role: 'assistant', content: fullText }], $slice: -20 } } },
               { upsert: true, new: true }
             );
           } catch (saveErr) {
             console.warn('Could not save chat history:', saveErr.message);
           }
 
-          // Signal stream end with metadata (guardTriggered useful for client-side debugging)
-          const tokenEst = estimateTokens(workingSummary, workingHistoryCount);
-          if (guardTriggered) console.info(`ℹ️ Token guard fired — estimated tokens: ${tokenEst}, model: ${modelName}`);
-          clearInterval(heartbeatInterval);
-          res.write(`data: ${JSON.stringify({ type: 'done', model: modelName, suggestions, guardTriggered, agentAction: agentActionResult || undefined })}\n\n`);
-          res.end();
-          return;
+          return res.json({
+            success: true,
+            text: fullText,
+            suggestions,
+            guardTriggered,
+            agentAction: agentActionResult || undefined,
+            model: modelName,
+          });
 
         } catch (err) {
-          // If we already streamed partial content, we can't retry — signal error and close
-          if (streamStarted) {
-            try {
-              clearInterval(heartbeatInterval);
-              res.write(`data: ${JSON.stringify({ type: 'error', code: 'STREAM_INTERRUPTED', message: 'انقطع الاتصال بالذكاء الاصطناعي.' })}\n\n`);
-              res.end();
-            } catch {}
-            return;
-          }
-
           const isRetriable429 = err.status === 429 && attempt < MAX_RETRIES - 1;
           if (isRetriable429) {
             const waitTime = (attempt + 1) * 3000;
-            if (totalWaitMs + waitTime > 9000) throw err; // cap total backoff at 9s across both models
+            if (totalWaitMs + waitTime > 9000) throw err;
             totalWaitMs += waitTime;
             console.warn(`⚠️ ${modelName} rate limited, retrying in ${waitTime / 1000}s...`);
             await sleep(waitTime);
             continue;
           }
-
           const canTryNextModel = err.status === 404 || err.status === 429;
           if (canTryNextModel && modelIndex < AI_MODELS.length - 1) {
             console.warn(`⚠️ ${modelName} unavailable (${err.status}), trying next model...`);
             break;
           }
-
           throw err;
         }
       }
     }
 
-    // Should not reach here but just in case
-    clearInterval(heartbeatInterval);
-    return res.status(429).json({
-      success: false,
-      message: 'الخدمة مشغولة حالياً، حاول بعد دقيقة.',
-    });
+    return res.status(429).json({ success: false, message: 'الخدمة مشغولة حالياً، حاول بعد دقيقة.' });
 
   } catch (error) {
     console.error('Gemini AI error:', error.message);
-    // If SSE headers already sent, can't set status code — use error event instead
-    if (res.headersSent) {
-      try {
-        clearInterval(heartbeatInterval);
-        const errCode = error.status === 429 ? 'MODEL_RATE_LIMIT' : error.status === 404 ? 'MODEL_UNAVAILABLE' : 'UNKNOWN_ERROR';
-        res.write(`data: ${JSON.stringify({ type: 'error', code: errCode, message: 'حدثت مشكلة في الخدمة، حاول مرة أخرى.' })}\n\n`);
-        res.end();
-      } catch {}
-    } else {
-      clearInterval(heartbeatInterval);
-      res.status(500).json({
-        success: false,
-        message: 'حدثت مشكلة في الخدمة، حاول مرة أخرى.',
-      });
-    }
+    const errCode = error.status === 429 ? 'MODEL_RATE_LIMIT' : error.status === 404 ? 'MODEL_UNAVAILABLE' : 'UNKNOWN_ERROR';
+    return res.status(error.status === 429 ? 429 : 500).json({
+      success: false,
+      code: errCode,
+      message: error.status === 429
+        ? 'خدمة الذكاء الاصطناعي مزدحمة حالياً، حاول بعد دقيقة.'
+        : 'حدثت مشكلة في الخدمة، حاول مرة أخرى.',
+    });
   }
 };
 

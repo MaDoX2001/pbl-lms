@@ -367,129 +367,43 @@ ${userText}`
     setLoading(true);
 
     const history = newMessages.slice(0, -1).slice(-6);
-    let streamedText = ''; // declared here so catch block can check if any content arrived
 
     try {
-      // Add streaming placeholder — content fills in progressively
       const placeholderKey = makeKey();
-      setMessages([...newMessages, { role: 'assistant', content: '', streaming: true, suggestions: [], _key: placeholderKey }]);
+      setMessages([...newMessages, { role: 'assistant', content: '', loading: true, suggestions: [], _key: placeholderKey }]);
 
-      const token = localStorage.getItem('token');
-      const baseURL = api.defaults.baseURL || '';
-      const response = await fetch(`${baseURL}/ai/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ message: fullText, history, summary }),
-      });
+      const res = await api.post('/ai/chat', { message: fullText, history, summary });
+      const { text, suggestions: finalSuggestions = [], guardTriggered: finalGuardTriggered = false, agentAction } = res.data;
 
-      if (!response.ok || !response.body) {
-        const msg = response.status === 429
-          ? (t('aiRateLimited') || 'طلبات كثيرة جداً، انتظر دقيقة ثم حاول.')
-          : (t('aiError') || 'AI service temporarily unavailable.');
-        throw new Error(msg);
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = '';
-      let finalSuggestions = [];
-      let finalGuardTriggered = false;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split('\n');
-        buf = lines.pop() ?? '';
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          let event;
-          try { event = JSON.parse(line.slice(6)); } catch { continue; }
-          if (event.type === 'chunk') {
-            streamedText += event.text;
-            const snapshot = streamedText;
-            setMessages(prev => {
-              const updated = [...prev];
-              const last = updated[updated.length - 1];
-              if (last?.role === 'assistant') {
-                updated[updated.length - 1] = { ...last, content: snapshot };
-              }
-              return updated;
-            });
-          } else if (event.type === 'action') {
-            // AI executed a DB function — attach it to the assistant message
-            setMessages(prev => {
-              const updated = [...prev];
-              const last = updated[updated.length - 1];
-              if (last?.role === 'assistant') {
-                const actions = [...(last.actions || []), { name: event.name, result: event.result }];
-                updated[updated.length - 1] = { ...last, actions };
-              }
-              return updated;
-            });
-          } else if (event.type === 'done') {
-            finalSuggestions = event.suggestions || [];
-            finalGuardTriggered = !!event.guardTriggered;
-          } else if (event.type === 'error') {
-            // Use structured error code for a more specific message when available
-            const errMsg = event.code === 'MODEL_RATE_LIMIT'
-              ? (t('aiRateLimited') || 'خدمة الذكاء الاصطناعي مزدحمة حالياً، حاول بعد دقيقة.')
-              : event.code === 'MODEL_UNAVAILABLE'
-              ? (t('aiError') || 'النموذج غير متاح حالياً، حاول مرة أخرى.')
-              : event.message || 'Stream error';
-            throw new Error(errMsg);
-          }
-        }
-      }
-
-      // Finalize: strip streaming flag, attach suggestions, context-guard info, and agent actions
       setMessages(prev => {
         const updated = [...prev];
         const last = updated[updated.length - 1];
         if (last?._key === placeholderKey) {
           updated[updated.length - 1] = {
             ...last,
-            content: streamedText,
-            streaming: false,
+            content: text,
+            loading: false,
             suggestions: finalSuggestions,
             guardTriggered: finalGuardTriggered,
+            actions: agentAction ? [{ name: agentAction.name, result: agentAction.result }] : [],
           };
         }
         return updated;
       });
-      const updatedMessages = [...newMessages, { role: 'assistant', content: streamedText, suggestions: finalSuggestions, guardTriggered: finalGuardTriggered, _key: placeholderKey }];
-      // Trigger summarize every 6 new messages exchanged IN THIS SESSION
-      // Uses a ref so DB-loaded history doesn't skew the counter
-      newMsgCountRef.current += 2; // +1 user +1 assistant
+
+      const updatedMessages = [...newMessages, { role: 'assistant', content: text, suggestions: finalSuggestions, guardTriggered: finalGuardTriggered, _key: placeholderKey }];
+      newMsgCountRef.current += 2;
       if (newMsgCountRef.current >= 6 && newMsgCountRef.current % 6 === 0) {
         triggerSummarize(updatedMessages.slice(-12, -6), summary);
       }
     } catch (err) {
-      if (!streamedText) {
-        // /api/ai/chat only speaks SSE — no JSON fallback is available
-        setMessages(prev => [
-          ...prev.filter(m => !(m.role === 'assistant' && m.streaming)),
-          {
-            role: 'assistant',
-            content: err.message || t('aiError') || 'AI service temporarily unavailable.',
-            error: true,
-            _key: makeKey(),
-          },
-        ]);
-        return;
-      }
-      // Partial content already visible — just remove the streaming flag and keep what arrived
-      setMessages(prev => {
-        const updated = [...prev];
-        const last = updated[updated.length - 1];
-        if (last?.role === 'assistant') {
-          updated[updated.length - 1] = { ...last, streaming: false };
-        }
-        return updated;
-      });
+      const errMsg = err.response?.status === 429
+        ? (t('aiRateLimited') || 'خدمة الذكاء الاصطناعي مزدحمة حالياً، حاول بعد دقيقة.')
+        : err.response?.data?.message || err.message || t('aiError') || 'AI service temporarily unavailable.';
+      setMessages(prev => [
+        ...prev.filter(m => !(m.role === 'assistant' && m.loading)),
+        { role: 'assistant', content: errMsg, error: true, _key: makeKey() },
+      ]);
     } finally {
       setLoading(false);
       isSendingRef.current = false;
@@ -677,7 +591,7 @@ ${userText}`
                           ))}
                         </Box>
                       )}
-                      <MessageContent content={msg.content} streaming={!!msg.streaming} />
+                      <MessageContent content={msg.content} streaming={!!msg.loading} />
                     </>
                   )}
                 </Paper>
@@ -749,8 +663,8 @@ ${userText}`
           ))
         )}
 
-        {/* Loading bubble — hidden while a streaming placeholder is already visible */}
-        {loading && !messages.some(m => m.streaming) && (
+        {/* Loading bubble — hidden while a placeholder is already visible */}
+        {loading && !messages.some(m => m.loading) && (
           <Box sx={{ display: 'flex', gap: 1.5, mb: 2, flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center' }}>
             <Avatar sx={{ bgcolor: 'success.main', width: 36, height: 36 }}>
               <SmartToyIcon fontSize="small" />
