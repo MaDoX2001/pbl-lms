@@ -436,7 +436,7 @@ const ProjectDetailPage = () => {
           {/* Description */}
           <Paper sx={{ p: 3, mb: 3 }}>
             <Typography variant="h5" gutterBottom fontWeight={600}>
-              {t('overview')}
+              {t('detailedDescription')}
             </Typography>
             <Typography variant="body1" paragraph sx={{ whiteSpace: 'pre-line' }}>
               {project.description}
