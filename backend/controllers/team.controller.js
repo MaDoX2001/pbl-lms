@@ -407,75 +407,75 @@ exports.setMyRole = async (req, res) => {
     res.json({ success: true, data: team });
   } catch (error) {
     res.status(500).json({ success: false, message: 'حدث خطأ في تحديث الدور', error: error.message });
+  }
+};
 
-  // @desc    Student sets their role for a specific project (with rotation enforcement)
-  // @route   PUT /api/teams/project/:projectId/role
-  // @access  Student only
-  exports.setMyProjectRole = async (req, res) => {
-    try {
-      if (req.user.role !== 'student') {
-        return res.status(403).json({ success: false, message: 'الطلاب فقط يمكنهم تحديد أدوارهم' });
-      }
-
-      const VALID_ROLES = ['system_designer', 'hardware_engineer', 'tester'];
-      const { role } = req.body;
-      const { projectId } = req.params;
-
-      if (!VALID_ROLES.includes(role)) {
-        return res.status(400).json({ success: false, message: 'الدور غير صالح' });
-      }
-
-      // Find student's team
-      const team = await Team.findOne({ 'members.user': req.user._id, isActive: true });
-      if (!team) {
-        return res.status(404).json({ success: false, message: 'أنت لست عضواً في أي فريق' });
-      }
-
-      // Find the TeamProject enrollment
-      const teamProject = await TeamProject.findOne({ team: team._id, project: projectId });
-      if (!teamProject) {
-        return res.status(404).json({ success: false, message: 'فريقك غير مسجل في هذا المشروع' });
-      }
-
-      // Check role not already taken by another member in this project
-      const roleTakenByOther = teamProject.memberRoles.some(
-        mr => mr.role === role && mr.user.toString() !== req.user._id.toString()
-      );
-      if (roleTakenByOther) {
-        return res.status(409).json({ success: false, message: 'هذا الدور محجوز لزميل آخر في هذا المشروع' });
-      }
-
-      // Enforce rotation: get all previous projects for this team (enrolled before current)
-      const allTeamProjects = await TeamProject.find({ team: team._id }).sort({ enrolledAt: 1 });
-      const prevProjects = allTeamProjects.filter(
-        tp => tp._id.toString() !== teamProject._id.toString()
-          && tp.enrolledAt <= teamProject.enrolledAt
-      );
-      const usedRoles = prevProjects
-        .map(tp => tp.memberRoles.find(mr => mr.user.toString() === req.user._id.toString()))
-        .filter(Boolean)
-        .map(mr => mr.role);
-
-      if (usedRoles.includes(role)) {
-        return res.status(400).json({
-          success: false,
-          message: 'لقد استخدمت هذا الدور في مشروع سابق — يجب تغيير الأدوار عبر المشاريع'
-        });
-      }
-
-      // Assign or update the role in memberRoles
-      const existing = teamProject.memberRoles.find(mr => mr.user.toString() === req.user._id.toString());
-      if (existing) {
-        existing.role = role;
-      } else {
-        teamProject.memberRoles.push({ user: req.user._id, role });
-      }
-      await teamProject.save();
-
-      res.json({ success: true, data: teamProject });
-    } catch (error) {
-      res.status(500).json({ success: false, message: 'حدث خطأ في تحديث الدور', error: error.message });
+// @desc    Student sets their role for a specific project (with rotation enforcement)
+// @route   PUT /api/teams/project/:projectId/role
+// @access  Student only
+exports.setMyProjectRole = async (req, res) => {
+  try {
+    if (req.user.role !== 'student') {
+      return res.status(403).json({ success: false, message: 'الطلاب فقط يمكنهم تحديد أدوارهم' });
     }
-  };
+
+    const VALID_ROLES = ['system_designer', 'hardware_engineer', 'tester'];
+    const { role } = req.body;
+    const { projectId } = req.params;
+
+    if (!VALID_ROLES.includes(role)) {
+      return res.status(400).json({ success: false, message: 'الدور غير صالح' });
+    }
+
+    // Find student's team
+    const team = await Team.findOne({ 'members.user': req.user._id, isActive: true });
+    if (!team) {
+      return res.status(404).json({ success: false, message: 'أنت لست عضواً في أي فريق' });
+    }
+
+    // Find the TeamProject enrollment
+    const teamProject = await TeamProject.findOne({ team: team._id, project: projectId });
+    if (!teamProject) {
+      return res.status(404).json({ success: false, message: 'فريقك غير مسجل في هذا المشروع' });
+    }
+
+    // Check role not already taken by another member in this project
+    const roleTakenByOther = teamProject.memberRoles.some(
+      mr => mr.role === role && mr.user.toString() !== req.user._id.toString()
+    );
+    if (roleTakenByOther) {
+      return res.status(409).json({ success: false, message: 'هذا الدور محجوز لزميل آخر في هذا المشروع' });
+    }
+
+    // Enforce rotation: get all previous projects for this team (enrolled before current)
+    const allTeamProjects = await TeamProject.find({ team: team._id }).sort({ enrolledAt: 1 });
+    const prevProjects = allTeamProjects.filter(
+      tp => tp._id.toString() !== teamProject._id.toString()
+        && tp.enrolledAt <= teamProject.enrolledAt
+    );
+    const usedRoles = prevProjects
+      .map(tp => tp.memberRoles.find(mr => mr.user.toString() === req.user._id.toString()))
+      .filter(Boolean)
+      .map(mr => mr.role);
+
+    if (usedRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: 'لقد استخدمت هذا الدور في مشروع سابق — يجب تغيير الأدوار عبر المشاريع'
+      });
+    }
+
+    // Assign or update the role in memberRoles
+    const existing = teamProject.memberRoles.find(mr => mr.user.toString() === req.user._id.toString());
+    if (existing) {
+      existing.role = role;
+    } else {
+      teamProject.memberRoles.push({ user: req.user._id, role });
+    }
+    await teamProject.save();
+
+    res.json({ success: true, data: teamProject });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'حدث خطأ في تحديث الدور', error: error.message });
   }
 };
