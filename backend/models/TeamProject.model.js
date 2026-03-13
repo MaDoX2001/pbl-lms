@@ -30,7 +30,21 @@ const teamProjectSchema = new mongoose.Schema({
   enrolledBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
-  }
+  },
+
+  // Per-project role assignments — each member picks their role for this specific project
+  memberRoles: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    role: {
+      type: String,
+      enum: ['system_designer', 'hardware_engineer', 'tester'],
+      required: true
+    }
+  }]
 }, {
   timestamps: true
 });

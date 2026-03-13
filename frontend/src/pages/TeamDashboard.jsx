@@ -40,7 +40,7 @@ const TeamDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [filesLoading, setFilesLoading] = useState(false);
   const [error, setError] = useState('');
-  const [roleLoading, setRoleLoading] = useState(false);
+  const [roleLoading, setRoleLoading] = useState({}); // { [projectId]: bool }
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
   const [activeTab, setActiveTab] = useState(0);
   const [projectFilter, setProjectFilter] = useState('all');
@@ -86,19 +86,24 @@ const TeamDashboard = () => {
     if (team && activeTab === 1) fetchFiles(team._id, projectFilter);
   }, [team, activeTab, projectFilter, fetchFiles]);
 
-  const handleSetRole = async (role) => {
-    setRoleLoading(true);
+  const handleSetProjectRole = async (projectId, role) => {
+    setRoleLoading(prev => ({ ...prev, [projectId]: true }));
     try {
-      const res = await api.put('/teams/my-team/role', { role });
-      setTeam(res.data.data);
+      const res = await api.put(`/teams/project/${projectId}/role`, { role });
+      // Update the projects list with new memberRoles
+      setProjects(prev => prev.map(p =>
+        p.project?._id === projectId ? { ...p, memberRoles: res.data.data.memberRoles } : p
+      ));
       setSnack({ open: true, msg: t('teamRoleSaveSuccess'), severity: 'success' });
     } catch (err) {
       const msg = err.response?.status === 409
         ? t('teamRoleAlreadyTaken')
+        : err.response?.status === 400
+        ? t('teamRoleAlreadyUsed')
         : t('teamRoleSaveError');
       setSnack({ open: true, msg, severity: 'error' });
     } finally {
-      setRoleLoading(false);
+      setRoleLoading(prev => ({ ...prev, [projectId]: false }));
     }
   };
 
@@ -120,9 +125,19 @@ const TeamDashboard = () => {
     </Container>
   );
 
-  // Find current user's member record
-  const myMember = team.members?.find(m => (m.user?._id || m.user) === user?._id || m.user?._id === user?._id);
-  const myRole = myMember?.role || 'unassigned';
+  // Helper: get my role in a specific project enrollment
+  const getMyProjectRole = (enrollment) => {
+    const mr = (enrollment.memberRoles || []).find(r => r.user === user?._id || r.user?._id === user?._id || String(r.user) === String(user?._id));
+    return mr?.role || null;
+  };
+
+  // Helper: get all roles I've already used across previous projects (to enforce rotation)
+  const getMyUsedRoles = (currentEnrollment) => {
+    return projects
+      .filter(p => p._id !== currentEnrollment._id && new Date(p.enrolledAt) <= new Date(currentEnrollment.enrolledAt))
+      .map(p => getMyProjectRole(p))
+      .filter(Boolean);
+  };
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -142,34 +157,6 @@ const TeamDashboard = () => {
 
         <Divider sx={{ my: 2 }} />
 
-        {/* My Role Selector */}
-        <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-          <Typography variant="subtitle1" fontWeight={600}>{t('teamRoleLabel')}:</Typography>
-          <FormControl size="small" sx={{ minWidth: 220 }} disabled={roleLoading}>
-            <InputLabel id="my-role-label">{t('teamRoleSelectPrompt')}</InputLabel>
-            <Select
-              labelId="my-role-label"
-              value={myRole === 'unassigned' ? '' : myRole}
-              label={t('teamRoleSelectPrompt')}
-              onChange={e => handleSetRole(e.target.value)}
-            >
-              <MenuItem value="system_designer">{t('teamRoleSystemDesigner')}</MenuItem>
-              <MenuItem value="hardware_engineer">{t('teamRoleHardwareEngineer')}</MenuItem>
-              <MenuItem value="tester">{t('teamRoleTester')}</MenuItem>
-            </Select>
-          </FormControl>
-          {myRole !== 'unassigned' && (
-            <Chip
-              size="small"
-              icon={ROLE_META[myRole]?.icon}
-              label={t(ROLE_META[myRole]?.labelKey)}
-              color={ROLE_META[myRole]?.color}
-            />
-          )}
-        </Box>
-
-        <Divider sx={{ my: 2 }} />
-
         {/* Team Members */}
         <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <PersonIcon /> {t('teamMembers')}
@@ -179,8 +166,6 @@ const TeamDashboard = () => {
             const memberUser = member.user || member;
             const memberId = memberUser?._id || memberUser;
             const isMe = memberId === user?._id || String(memberId) === String(user?._id);
-            const role = member.role || 'unassigned';
-            const roleMeta = ROLE_META[role];
             return (
               <Grid item xs={12} sm={4} key={String(memberId)}>
                 <Card
@@ -207,13 +192,6 @@ const TeamDashboard = () => {
                     </Box>
                     <Box sx={{ mt: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                       {isMe && <Chip label={t('you')} size="small" color="primary" />}
-                      <Chip
-                        size="small"
-                        icon={roleMeta?.icon}
-                        label={t(roleMeta?.labelKey || 'teamRoleUnassigned')}
-                        color={roleMeta?.color || 'default'}
-                        variant={role === 'unassigned' ? 'outlined' : 'filled'}
-                      />
                     </Box>
                   </CardContent>
                 </Card>
@@ -254,6 +232,70 @@ const TeamDashboard = () => {
                       />
                     </Box>
                   </CardContent>
+                  {/* Per-project role selector */}
+                  <Box sx={{ px: 2, pb: 1 }}>
+                    <Divider sx={{ mb: 1.5 }} />
+                    <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+                      {t('teamRoleForProject')}
+                    </Typography>
+                    {/* Role chips for all members in this project */}
+                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
+                      {(enrollment.memberRoles || []).map(mr => {
+                        const roleKey = mr.role;
+                        const meta = ROLE_META[roleKey];
+                        const memberUser = team.members?.find(m => String(m.user?._id || m.user) === String(mr.user?._id || mr.user))?.user;
+                        const isMe = String(mr.user?._id || mr.user) === String(user?._id);
+                        return (
+                          <Chip
+                            key={String(mr.user?._id || mr.user)}
+                            size="small"
+                            icon={meta?.icon}
+                            label={`${isMe ? t('you') : (memberUser?.name || '...')}: ${t(meta?.labelKey || 'teamRoleUnassigned')}`}
+                            color={isMe ? meta?.color || 'default' : 'default'}
+                            variant={isMe ? 'filled' : 'outlined'}
+                          />
+                        );
+                      })}
+                    </Box>
+                    {/* My role selector */}
+                    {(() => {
+                      const pid = enrollment.project?._id;
+                      const myRole = getMyProjectRole(enrollment);
+                      const takenRoles = (enrollment.memberRoles || [])
+                        .filter(mr => String(mr.user?._id || mr.user) !== String(user?._id))
+                        .map(mr => mr.role);
+                      const usedInPrevious = getMyUsedRoles(enrollment);
+                      return (
+                        <FormControl size="small" sx={{ minWidth: 240 }} disabled={!!roleLoading[pid]}>
+                          <InputLabel id={`role-label-${pid}`}>{t('teamRoleSelectPrompt')}</InputLabel>
+                          <Select
+                            labelId={`role-label-${pid}`}
+                            value={myRole || ''}
+                            label={t('teamRoleSelectPrompt')}
+                            onChange={e => handleSetProjectRole(pid, e.target.value)}
+                          >
+                            {['system_designer', 'hardware_engineer', 'tester'].map(r => {
+                              const meta = ROLE_META[r];
+                              const taken = takenRoles.includes(r);
+                              const usedPrev = usedInPrevious.includes(r);
+                              return (
+                                <MenuItem key={r} value={r} disabled={taken || usedPrev}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    {meta?.icon}
+                                    <span>
+                                      {t(meta?.labelKey)}
+                                      {taken && ` — ${t('teamRoleAlreadyTaken')}`}
+                                      {!taken && usedPrev && ` — ${t('teamRoleAlreadyUsed')}`}
+                                    </span>
+                                  </Box>
+                                </MenuItem>
+                              );
+                            })}
+                          </Select>
+                        </FormControl>
+                      );
+                    })()}
+                  </Box>
                   <CardActions>
                     <Button size="small" onClick={() => navigate(`/team/project/${enrollment.project?._id}`)}>
                       {t('viewProjectAndSubmissions')}

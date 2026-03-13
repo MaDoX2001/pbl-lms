@@ -7,7 +7,8 @@ const {
   getMyTeam,
   updateTeam,
   deleteTeam,
-  setMyRole
+  setMyRole,
+  setMyProjectRole,
 } = require('../controllers/team.controller');
 const { protect } = require('../middleware/auth.middleware');
 
@@ -22,6 +23,9 @@ router.get('/my-team', protect, getMyTeam);
 
 // Set my role within the team (student selects: system_designer | hardware_engineer | tester)
 router.put('/my-team/role', protect, setMyRole);
+
+// Set my role for a specific project (per-project, with rotation enforcement)
+router.put('/project/:projectId/role', protect, setMyProjectRole);
 
 // Get all teams / Create team
 router.route('/')
