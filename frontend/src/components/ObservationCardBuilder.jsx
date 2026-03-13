@@ -10,15 +10,9 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   Alert,
   Divider,
   Chip,
-  FormControlLabel,
-  Checkbox
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import AddIcon from '@mui/icons-material/Add';
@@ -31,13 +25,6 @@ const PHASE_NAMES = {
   group: 'groupPhase',
   individual_oral: 'individualOralPhase'
 };
-
-const ROLES = [
-  { value: 'all' },
-  { value: 'system_designer' },
-  { value: 'hardware_engineer' },
-  { value: 'programmer' }
-];
 
 const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, onSave }) => {
   const { t } = useAppSettings();
@@ -53,11 +40,24 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
 
   const [error, setError] = useState('');
 
+  const normalizeSectionsForPhase = (inputSections) => {
+    if (!Array.isArray(inputSections)) return [];
+    if (phase !== 'individual_oral') return inputSections;
+
+    return inputSections.map(section => ({
+      ...section,
+      criteria: (section.criteria || []).map(criterion => ({
+        ...criterion,
+        applicableRoles: ['all']
+      }))
+    }));
+  };
+
   useEffect(() => {
     if (initialData && initialData.sections) {
-      setSections(initialData.sections);
+      setSections(normalizeSectionsForPhase(initialData.sections));
     }
-  }, [initialData]);
+  }, [initialData, phase]);
 
 
   const addSection = () => {
@@ -105,24 +105,6 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
     setSections(newSections);
   };
 
-  const handleRoleToggle = (sectionIndex, criterionIndex, role) => {
-    const newSections = [...sections];
-    const criterion = newSections[sectionIndex].criteria[criterionIndex];
-    
-    if (criterion.applicableRoles.includes(role)) {
-      criterion.applicableRoles = criterion.applicableRoles.filter(r => r !== role);
-    } else {
-      criterion.applicableRoles.push(role);
-    }
-    
-    // Ensure at least one role is selected
-    if (criterion.applicableRoles.length === 0) {
-      criterion.applicableRoles = ['all'];
-    }
-    
-    setSections(newSections);
-  };
-
   const handleOptionDescriptionChange = (sectionIndex, criterionIndex, optionIndex, description) => {
     const newSections = [...sections];
     newSections[sectionIndex].criteria[criterionIndex].options[optionIndex].description = description;
@@ -157,7 +139,8 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
       }
     }
 
-    onSave({ projectId, phase, sections });
+    const normalizedSections = normalizeSectionsForPhase(sections);
+    onSave({ projectId, phase, sections: normalizedSections });
   };
 
   return (
@@ -183,11 +166,6 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
 
       <Alert severity="info" sx={{ mb: 3 }}>
         <strong>{t('importantNote')}:</strong> {t('sectionWeightsMustEqual100')}
-        {phase === 'individual_oral' && (
-          <Box sx={{ mt: 1 }}>
-            {t('individualRoleAssignmentHint')}
-          </Box>
-        )}
       </Alert>
 
       {/* Section Weight Summary */}
@@ -273,34 +251,6 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
                       </IconButton>
                     </Box>
                   </Grid>
-
-                  {/* Role Selection (Individual/Oral phase only) */}
-                  {phase === 'individual_oral' && (
-                    <Grid item xs={12}>
-                      <Typography variant="body2" color="text.secondary" gutterBottom>
-                        {t('rolesApplicableToCriterion')}
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        {ROLES.map(role => (
-                          <Chip
-                            key={role.value}
-                            label={
-                              role.value === 'all'
-                                ? t('allRoles')
-                                : role.value === 'system_designer'
-                                  ? t('roleSystemDesigner')
-                                  : role.value === 'hardware_engineer'
-                                    ? t('roleHardwareEngineer')
-                                    : t('roleProgrammer')
-                            }
-                            onClick={() => handleRoleToggle(sectionIndex, criterionIndex, role.value)}
-                            color={criterion.applicableRoles.includes(role.value) ? 'primary' : 'default'}
-                            variant={criterion.applicableRoles.includes(role.value) ? 'filled' : 'outlined'}
-                          />
-                        ))}
-                      </Box>
-                    </Grid>
-                  )}
 
                   {/* Options */}
                   <Grid item xs={12}>
