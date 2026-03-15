@@ -389,9 +389,7 @@ const TeamDashboard = () => {
                           <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
                             <Button
                               size="small" variant="outlined" startIcon={<OpenInNewIcon />}
-                              component="a"
-                              href={wokwiData[enrollment.project?._id].latest.wokwiLink}
-                              target="_blank" rel="noopener noreferrer"
+                              onClick={() => navigate(`/team-project/${enrollment.project?._id}/wokwi`)}
                             >
                               {t('wokwiOpenProject')}
                             </Button>

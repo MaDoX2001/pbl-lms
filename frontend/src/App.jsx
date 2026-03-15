@@ -35,6 +35,7 @@ import PreAssessmentPage from './pages/PreAssessmentPage';
 import TeamDashboard from './pages/TeamDashboard';
 import TeamsManagement from './pages/TeamsManagement';
 import TeamProjectPage from './pages/TeamProjectPage';
+import WokwiProjectPage from './pages/WokwiProjectPage';
 import ProjectSubmissionsManagement from './pages/ProjectSubmissionsManagement';
 import StudentProjectsManagement from './pages/StudentProjectsManagement';
 import TeachersListPage from './pages/TeachersListPage';
@@ -205,6 +206,11 @@ function App() {
               <Route path="/team/project/:projectId" element={
                 <PrivateRoute roles={['student']}>
                   <TeamProjectPage />
+                </PrivateRoute>
+              } />
+              <Route path="/team-project/:projectId/wokwi" element={
+                <PrivateRoute roles={['student']}>
+                  <WokwiProjectPage />
                 </PrivateRoute>
               } />
               <Route path="/admin/teams" element={
