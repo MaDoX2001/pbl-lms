@@ -10,6 +10,10 @@ const {
   deleteSubmission,
   uploadMiddleware
 } = require('../controllers/teamSubmission.controller');
+const {
+  submitWokwiLink,
+  getWokwiHistory,
+} = require('../controllers/teamSubmission.controller');
 const { protect } = require('../middleware/auth.middleware');
 
 /**
@@ -17,8 +21,14 @@ const { protect } = require('../middleware/auth.middleware');
  * All routes require authentication
  */
 
-// Create submission (with file upload)
+// Create file submission (with file upload)
 router.post('/', protect, uploadMiddleware, createSubmission);
+
+// Submit a Wokwi simulator link  
+router.post('/wokwi', protect, submitWokwiLink);
+
+// Get Wokwi submission history for a team's project
+router.get('/wokwi/:teamId/:projectId', protect, getWokwiHistory);
 
 // Get all submissions for a specific team's project
 router.get('/team/:teamId/project/:projectId', protect, getTeamProjectSubmissions);

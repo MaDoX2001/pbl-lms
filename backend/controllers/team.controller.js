@@ -479,3 +479,65 @@ exports.setMyProjectRole = async (req, res) => {
     res.status(500).json({ success: false, message: 'حدث خطأ في تحديث الدور', error: error.message });
   }
 };
+
+  // @desc    Mark student as currently working on the simulator for a project
+  // @route   PUT /api/teams/project/:projectId/active-editor
+  // @access  Student only
+  exports.setActiveEditor = async (req, res) => {
+    try {
+      const { projectId } = req.params;
+
+      const team = await Team.findOne({ 'members.user': req.user._id, isActive: true });
+      if (!team) {
+        return res.status(404).json({ success: false, message: 'أنت لست عضواً في أي فريق' });
+      }
+
+      const teamProject = await TeamProject.findOne({ team: team._id, project: projectId });
+      if (!teamProject) {
+        return res.status(404).json({ success: false, message: 'الفريق غير مسجل في هذا المشروع' });
+      }
+
+      teamProject.activeEditor = {
+        user: req.user._id,
+        activeSince: new Date()
+      };
+      await teamProject.save();
+      await teamProject.populate('activeEditor.user', 'name');
+
+      res.json({ success: true, data: teamProject.activeEditor });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'حدث خطأ', error: error.message });
+    }
+  };
+
+  // @desc    Get who is currently working on the simulator (expires after 10 min)
+  // @route   GET /api/teams/project/:projectId/active-editor
+  // @access  Private
+  exports.getActiveEditor = async (req, res) => {
+    try {
+      const { projectId } = req.params;
+
+      const team = await Team.findOne({ 'members.user': req.user._id, isActive: true });
+      if (!team) {
+        return res.status(404).json({ success: false, message: 'أنت لست عضواً في أي فريق' });
+      }
+
+      const teamProject = await TeamProject.findOne({ team: team._id, project: projectId })
+        .populate('activeEditor.user', 'name');
+
+      if (!teamProject || !teamProject.activeEditor?.activeSince) {
+        return res.json({ success: true, data: null });
+      }
+
+      // Expire after 10 minutes
+      const TEN_MINUTES = 10 * 60 * 1000;
+      const elapsed = Date.now() - new Date(teamProject.activeEditor.activeSince).getTime();
+      if (elapsed > TEN_MINUTES) {
+        return res.json({ success: true, data: null });
+      }
+
+      res.json({ success: true, data: teamProject.activeEditor });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'حدث خطأ', error: error.message });
+    }
+  };

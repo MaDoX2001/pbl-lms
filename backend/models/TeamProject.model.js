@@ -44,10 +44,15 @@ const teamProjectSchema = new mongoose.Schema({
       enum: ['system_designer', 'hardware_engineer', 'tester'],
       required: true
     }
-  }]
-}, {
-  timestamps: true
-});
+  }],
+
+  // Active editor: who is currently working on the simulator (expires after 10 min)
+  activeEditor: {
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    activeSince: { type: Date, default: null }
+  }
+
+}, { timestamps: true });
 
 // Compound unique index: A team can only enroll in a project once
 teamProjectSchema.index({ team: 1, project: 1 }, { unique: true });

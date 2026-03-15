@@ -431,3 +431,114 @@ exports.deleteSubmission = async (req, res) => {
     });
   }
 };
+
+  // @desc    Submit a Wokwi simulator link for a project
+  // @route   POST /api/team-submissions/wokwi
+  // @access  Private (team members only)
+  exports.submitWokwiLink = async (req, res) => {
+    try {
+      const { teamId, projectId, wokwiLink, notes } = req.body;
+
+      if (!teamId || !projectId || !wokwiLink) {
+        return res.status(400).json({
+          success: false,
+          message: 'الفريق والمشروع ورابط Wokwi مطلوبون'
+        });
+      }
+
+      // Validate Wokwi link format
+      if (!/^https:\/\/wokwi\.com\/projects\/\d+/.test(wokwiLink)) {
+        return res.status(400).json({
+          success: false,
+          message: 'رابط Wokwi غير صالح — يجب أن يكون بصيغة https://wokwi.com/projects/XXXXX'
+        });
+      }
+
+      const team = await Team.findById(teamId);
+      if (!team) {
+        return res.status(404).json({ success: false, message: 'الفريق غير موجود' });
+      }
+
+      const project = await Project.findById(projectId);
+      if (!project) {
+        return res.status(404).json({ success: false, message: 'المشروع غير موجود' });
+      }
+
+      // Deadline check
+      if (project.deadline && new Date() > new Date(project.deadline)) {
+        return res.status(403).json({ success: false, message: 'انتهى موعد تسليم المشروع' });
+      }
+
+      // Only team members can submit
+      const isMember = team.members.some(
+        m => (m.user?._id || m.user || m).toString() === req.user._id.toString()
+      );
+      if (!isMember) {
+        return res.status(403).json({ success: false, message: 'فقط أعضاء الفريق يمكنهم التسليم' });
+      }
+
+      // Check enrollment
+      const enrollment = await TeamProject.findOne({ team: teamId, project: projectId });
+      if (!enrollment) {
+        return res.status(400).json({ success: false, message: 'الفريق غير مسجل في هذا المشروع' });
+      }
+
+      const submission = await TeamSubmission.create({
+        team: teamId,
+        project: projectId,
+        submissionType: 'wokwi',
+        wokwiLink,
+        notes: notes || '',
+        submittedBy: req.user._id
+      });
+
+      await submission.populate([
+        { path: 'submittedBy', select: 'name email' },
+        { path: 'project', select: 'title' }
+      ]);
+
+      res.status(201).json({ success: true, data: submission });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'حدث خطأ في تسليم الرابط',
+        error: error.message
+      });
+    }
+  };
+
+  // @desc    Get latest Wokwi submissions for a team's project (history)
+  // @route   GET /api/team-submissions/wokwi/:teamId/:projectId
+  // @access  Private (team members, teacher, admin)
+  exports.getWokwiHistory = async (req, res) => {
+    try {
+      const { teamId, projectId } = req.params;
+
+      const team = await Team.findById(teamId);
+      if (!team) {
+        return res.status(404).json({ success: false, message: 'الفريق غير موجود' });
+      }
+
+      if (req.user.role === 'student') {
+        const isMember = team.members.some(
+          m => (m.user?._id || m.user || m).toString() === req.user._id.toString()
+        );
+        if (!isMember) {
+          return res.status(403).json({ success: false, message: 'غير مصرح لك' });
+        }
+      }
+
+      const submissions = await TeamSubmission.find({
+        team: teamId,
+        project: projectId,
+        submissionType: 'wokwi'
+      })
+        .populate('submittedBy', 'name email')
+        .sort({ submittedAt: -1 })
+        .limit(20);
+
+      res.json({ success: true, count: submissions.length, data: submissions });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'خطأ في جلب السجل', error: error.message });
+    }
+  };

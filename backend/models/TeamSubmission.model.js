@@ -2,12 +2,12 @@ const mongoose = require('mongoose');
 
 /**
  * TeamSubmission Model
- * 
- * Represents a team's submission for a project.
- * - Each project allows MULTIPLE submissions
- * - Old submissions are NEVER overwritten
- * - Submissions belong to teams, not individual users
- * - Teachers/Admins can add feedback and score
+ *
+ * Supports two submission types:
+ * - 'file'  : traditional file upload (fileUrl required)
+ * - 'wokwi' : Arduino simulator link submission (wokwiLink required)
+ *
+ * Old submissions are NEVER overwritten — full history is kept.
  */
 const teamSubmissionSchema = new mongoose.Schema({
   team: {
@@ -15,82 +15,75 @@ const teamSubmissionSchema = new mongoose.Schema({
     ref: 'Team',
     required: [true, 'الفريق مطلوب']
   },
-  
+
   project: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Project',
     required: [true, 'المشروع مطلوب']
   },
-  
-  // File upload URL (stored in cloud or local)
-  fileUrl: {
+
+  // Type: 'file' or 'wokwi'
+  submissionType: {
     type: String,
-    required: [true, 'ملف التسليم مطلوب']
+    enum: ['file', 'wokwi'],
+    default: 'file'
   },
-  
-  // Original filename
-  fileName: {
-    type: String,
-    required: true
-  },
-  
-  // Optional description from team
+
+  // ---- File submission fields (submissionType = 'file') ----
+  fileUrl: { type: String },
+  fileName: { type: String },
   description: {
     type: String,
     trim: true,
     maxlength: [1000, 'الوصف يجب ألا يتجاوز 1000 حرف']
   },
-  
-  // Which team member uploaded
+
+  // ---- Wokwi submission fields (submissionType = 'wokwi') ----
+  wokwiLink: {
+    type: String,
+    trim: true,
+    validate: {
+      validator: function(v) {
+        if (!v) return true;
+        return /^https:\/\/wokwi\.com\/projects\/\d+/.test(v);
+      },
+      message: 'رابط Wokwi غير صالح — يجب أن يكون بصيغة https://wokwi.com/projects/XXXXX'
+    }
+  },
+
+  // Notes from student about what changed in this version
+  notes: {
+    type: String,
+    trim: true,
+    maxlength: [500, 'الملاحظات يجب ألا تتجاوز 500 حرف']
+  },
+
+  // ---- Common fields ----
   submittedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  
-  // Submission date/time
+
   submittedAt: {
     type: Date,
     default: Date.now
   },
-  
-  // Feedback from teacher/admin (can be updated multiple times)
-  feedback: {
-    type: String,
-    trim: true
-  },
-  
-  // Who gave feedback
-  feedbackBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-  
-  // When feedback was given
-  feedbackAt: {
-    type: Date
-  },
-  
-  // Score/evaluation (nullable until graded)
+
+  feedback: { type: String, trim: true },
+  feedbackBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  feedbackAt: { type: Date },
+
   score: {
     type: Number,
     min: [0, 'الدرجة لا يمكن أن تكون أقل من 0'],
     max: [100, 'الدرجة لا يمكن أن تتجاوز 100'],
     default: null
   },
-  
-  // Who graded
-  gradedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-  
-  // When graded
-  gradedAt: {
-    type: Date
-  },
-  
-  // Status: pending, reviewed, graded
+
+  gradedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  gradedAt: { type: Date },
+
   status: {
     type: String,
     enum: ['pending', 'reviewed', 'graded'],
@@ -100,11 +93,22 @@ const teamSubmissionSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Indexes for faster queries
+// Custom validator: fileUrl required for 'file' type, wokwiLink required for 'wokwi' type
+teamSubmissionSchema.pre('validate', function(next) {
+  if (this.submissionType === 'file' && !this.fileUrl) {
+    this.invalidate('fileUrl', 'ملف التسليم مطلوب عند نوع التسليم "file"');
+  }
+  if (this.submissionType === 'wokwi' && !this.wokwiLink) {
+    this.invalidate('wokwiLink', 'رابط Wokwi مطلوب عند نوع التسليم "wokwi"');
+  }
+  next();
+});
+
 teamSubmissionSchema.index({ team: 1, project: 1 });
 teamSubmissionSchema.index({ project: 1 });
 teamSubmissionSchema.index({ team: 1 });
 teamSubmissionSchema.index({ status: 1 });
 teamSubmissionSchema.index({ submittedAt: -1 });
+teamSubmissionSchema.index({ team: 1, project: 1, submissionType: 1, submittedAt: -1 });
 
 module.exports = mongoose.model('TeamSubmission', teamSubmissionSchema);

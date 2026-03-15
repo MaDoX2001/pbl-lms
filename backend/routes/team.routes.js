@@ -10,6 +10,10 @@ const {
   setMyRole,
   setMyProjectRole,
 } = require('../controllers/team.controller');
+const {
+  setActiveEditor,
+  getActiveEditor,
+} = require('../controllers/team.controller');
 const { protect } = require('../middleware/auth.middleware');
 
 /**
@@ -26,6 +30,10 @@ router.put('/my-team/role', protect, setMyRole);
 
 // Set my role for a specific project (per-project, with rotation enforcement)
 router.put('/project/:projectId/role', protect, setMyProjectRole);
+
+// Active editor: "أنا أعمل الآن" — mark/get who is working on simulator
+router.put('/project/:projectId/active-editor', protect, setActiveEditor);
+router.get('/project/:projectId/active-editor', protect, getActiveEditor);
 
 // Get all teams / Create team
 router.route('/')

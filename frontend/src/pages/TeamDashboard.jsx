@@ -8,6 +8,10 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   IconButton, Tooltip, Tab, Tabs,
 } from '@mui/material';
+  import Dialog from '@mui/material/Dialog';
+  import DialogTitle from '@mui/material/DialogTitle';
+  import DialogContent from '@mui/material/DialogContent';
+  import DialogActions from '@mui/material/DialogActions';
 import {
   Group as GroupIcon,
   Assignment as AssignmentIcon,
@@ -18,6 +22,9 @@ import {
   BugReport as BugReportIcon,
   DesignServices as DesignServicesIcon,
 } from '@mui/icons-material';
+  import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+  import HistoryIcon from '@mui/icons-material/History';
+  import EditNoteIcon from '@mui/icons-material/EditNote';
 import api from '../services/api';
 import { useAppSettings } from '../context/AppSettingsContext';
 
@@ -44,6 +51,9 @@ const TeamDashboard = () => {
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
   const [activeTab, setActiveTab] = useState(0);
   const [projectFilter, setProjectFilter] = useState('all');
+    const [wokwiData, setWokwiData] = useState({});   // { [projectId]: { latest: null|obj } }
+    const [activeEditors, setActiveEditors] = useState({}); // { [projectId]: null|obj }
+    const [historyDialog, setHistoryDialog] = useState({ open: false, teamId: null, projectId: null, submissions: [], loading: false });
 
   const fetchTeamData = useCallback(async () => {
     try {
@@ -85,6 +95,63 @@ const TeamDashboard = () => {
   useEffect(() => {
     if (team && activeTab === 1) fetchFiles(team._id, projectFilter);
   }, [team, activeTab, projectFilter, fetchFiles]);
+
+  // Fetch latest Wokwi submission per project
+  const fetchWokwiData = useCallback(async (teamId, projectIds) => {
+    for (const pid of projectIds) {
+      try {
+        const res = await api.get(`/team-submissions/wokwi/${teamId}/${pid}`);
+        const subs = res.data.data || [];
+        setWokwiData(prev => ({ ...prev, [pid]: { latest: subs[0] || null } }));
+      } catch {}
+    }
+  }, []);
+
+  // Fetch active editor per project
+  const fetchActiveEditors = useCallback(async (projectIds) => {
+    for (const pid of projectIds) {
+      try {
+        const res = await api.get(`/teams/project/${pid}/active-editor`);
+        setActiveEditors(prev => ({ ...prev, [pid]: res.data.data }));
+      } catch {}
+    }
+  }, []);
+
+  // Load wokwi data when team + projects are ready
+  useEffect(() => {
+    if (team && projects.length > 0) {
+      const pids = projects.map(p => p.project?._id).filter(Boolean);
+      fetchWokwiData(team._id, pids);
+      fetchActiveEditors(pids);
+    }
+  }, [team, projects, fetchWokwiData, fetchActiveEditors]);
+
+  // Poll active editors every 30s
+  useEffect(() => {
+    if (!team || projects.length === 0) return;
+    const pids = projects.map(p => p.project?._id).filter(Boolean);
+    const interval = setInterval(() => fetchActiveEditors(pids), 30000);
+    return () => clearInterval(interval);
+  }, [team, projects, fetchActiveEditors]);
+
+  const handleSetActiveEditor = async (projectId) => {
+    try {
+      await api.put(`/teams/project/${projectId}/active-editor`);
+      setSnack({ open: true, msg: t('wokwiImWorkingSet'), severity: 'success' });
+      const res = await api.get(`/teams/project/${projectId}/active-editor`);
+      setActiveEditors(prev => ({ ...prev, [projectId]: res.data.data }));
+    } catch {}
+  };
+
+  const openHistoryDialog = async (teamId, projectId) => {
+    setHistoryDialog({ open: true, teamId, projectId, submissions: [], loading: true });
+    try {
+      const res = await api.get(`/team-submissions/wokwi/${teamId}/${projectId}`);
+      setHistoryDialog(prev => ({ ...prev, submissions: res.data.data || [], loading: false }));
+    } catch {
+      setHistoryDialog(prev => ({ ...prev, loading: false }));
+    }
+  };
 
   const handleSetProjectRole = async (projectId, role) => {
     setRoleLoading(prev => ({ ...prev, [projectId]: true }));
@@ -140,6 +207,7 @@ const TeamDashboard = () => {
   };
 
   return (
+    <>
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       {/* Team Info Card */}
       <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
@@ -301,6 +369,59 @@ const TeamDashboard = () => {
                       {t('viewProjectAndSubmissions')}
                     </Button>
                   </CardActions>
+                    {/* ---- Wokwi Section ---- */}
+                    <Box sx={{ px: 2, pb: 2 }}>
+                      <Divider sx={{ mb: 1.5 }} />
+                      <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+                        {t('wokwiLatestVersion')}
+                      </Typography>
+                      {wokwiData[enrollment.project?._id]?.latest ? (
+                        <Box>
+                          <Typography variant="body2" color="text.secondary">
+                            {t('wokwiLastUpdatedBy')}: <strong>{wokwiData[enrollment.project?._id].latest.submittedBy?.name}</strong>
+                            {' — '}{new Date(wokwiData[enrollment.project?._id].latest.submittedAt).toLocaleString('ar-EG')}
+                          </Typography>
+                          {wokwiData[enrollment.project?._id].latest.notes && (
+                            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, fontStyle: 'italic' }}>
+                              {wokwiData[enrollment.project?._id].latest.notes}
+                            </Typography>
+                          )}
+                          <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                            <Button
+                              size="small" variant="outlined" startIcon={<OpenInNewIcon />}
+                              component="a"
+                              href={wokwiData[enrollment.project?._id].latest.wokwiLink}
+                              target="_blank" rel="noopener noreferrer"
+                            >
+                              {t('wokwiOpenProject')}
+                            </Button>
+                            <Button
+                              size="small" variant="outlined" startIcon={<HistoryIcon />}
+                              onClick={() => openHistoryDialog(team._id, enrollment.project?._id)}
+                            >
+                              {t('wokwiVersionHistory')}
+                            </Button>
+                          </Box>
+                        </Box>
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">
+                          {t('wokwiNoSubmissions')}
+                        </Typography>
+                      )}
+                      {/* Active editor warning */}
+                      {activeEditors[enrollment.project?._id] &&
+                       String(activeEditors[enrollment.project?._id]?.user?._id) !== String(user?._id) && (
+                        <Alert severity="warning" sx={{ mt: 1, py: 0.5 }} icon={<EditNoteIcon fontSize="small" />}>
+                          <strong>{activeEditors[enrollment.project?._id]?.user?.name}</strong>{' '}{t('wokwiActiveEditor')}
+                        </Alert>
+                      )}
+                      <Button
+                        size="small" variant="text" sx={{ mt: 1 }}
+                        onClick={() => handleSetActiveEditor(enrollment.project?._id)}
+                      >
+                        {t('wokwiImWorkingNow')}
+                      </Button>
+                    </Box>
                 </Card>
               </Grid>
             ))}
@@ -372,7 +493,56 @@ const TeamDashboard = () => {
         message={snack.msg}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
-    </Container>
+      </Container>
+
+      {/* Wokwi Version History Dialog */}
+      <Dialog
+        open={historyDialog.open}
+        onClose={() => setHistoryDialog(p => ({ ...p, open: false }))}
+        maxWidth="sm" fullWidth
+      >
+        <DialogTitle fontWeight={700}>{t('wokwiVersionHistory')}</DialogTitle>
+        <DialogContent dividers>
+          {historyDialog.loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress /></Box>
+          ) : historyDialog.submissions.length === 0 ? (
+            <Alert severity="info">{t('wokwiNoSubmissions')}</Alert>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {historyDialog.submissions.map((sub, idx) => (
+                <Paper key={sub._id} variant="outlined" sx={{ p: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1 }}>
+                    <Box>
+                      <Typography variant="body2" fontWeight={600}>{sub.submittedBy?.name}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {new Date(sub.submittedAt).toLocaleString('ar-EG')}
+                      </Typography>
+                      {sub.notes && (
+                        <Typography variant="body2" sx={{ mt: 0.5, fontStyle: 'italic' }} color="text.secondary">
+                          {sub.notes}
+                        </Typography>
+                      )}
+                    </Box>
+                    <Button
+                      size="small" variant="outlined" startIcon={<OpenInNewIcon />}
+                      component="a" href={sub.wokwiLink} target="_blank" rel="noopener noreferrer"
+                    >
+                      {t('wokwiOpenProject')}
+                    </Button>
+                  </Box>
+                  {idx === 0 && (
+                    <Chip label={t('wokwiLatestVersion')} size="small" color="success" sx={{ mt: 1 }} />
+                  )}
+                </Paper>
+              ))}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setHistoryDialog(p => ({ ...p, open: false }))}>{t('close')}</Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 };
 
