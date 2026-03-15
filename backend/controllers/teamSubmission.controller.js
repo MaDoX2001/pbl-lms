@@ -447,7 +447,7 @@ exports.deleteSubmission = async (req, res) => {
       }
 
       // Validate Wokwi link format
-      if (!/^https:\/\/wokwi\.com\/projects\/\d+/.test(wokwiLink)) {
+      if (!/^https:\/\/wokwi\.com\/projects\/[a-zA-Z0-9_-]+/.test(wokwiLink)) {
         return res.status(400).json({
           success: false,
           message: 'رابط Wokwi غير صالح — يجب أن يكون بصيغة https://wokwi.com/projects/XXXXX'

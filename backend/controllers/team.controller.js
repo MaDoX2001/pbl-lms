@@ -485,6 +485,10 @@ exports.setMyProjectRole = async (req, res) => {
   // @access  Student only
   exports.setActiveEditor = async (req, res) => {
     try {
+      if (req.user.role !== 'student') {
+        return res.status(403).json({ success: false, message: 'الطلاب فقط يمكنهم تحديث حالة العمل الآن' });
+      }
+
       const { projectId } = req.params;
 
       const team = await Team.findOne({ 'members.user': req.user._id, isActive: true });
@@ -533,6 +537,8 @@ exports.setMyProjectRole = async (req, res) => {
       const TEN_MINUTES = 10 * 60 * 1000;
       const elapsed = Date.now() - new Date(teamProject.activeEditor.activeSince).getTime();
       if (elapsed > TEN_MINUTES) {
+        teamProject.activeEditor = { user: null, activeSince: null };
+        await teamProject.save();
         return res.json({ success: true, data: null });
       }
 

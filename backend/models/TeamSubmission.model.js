@@ -45,7 +45,7 @@ const teamSubmissionSchema = new mongoose.Schema({
     validate: {
       validator: function(v) {
         if (!v) return true;
-        return /^https:\/\/wokwi\.com\/projects\/\d+/.test(v);
+        return /^https:\/\/wokwi\.com\/projects\/[a-zA-Z0-9_-]+/.test(v);
       },
       message: 'رابط Wokwi غير صالح — يجب أن يكون بصيغة https://wokwi.com/projects/XXXXX'
     }
@@ -110,5 +110,6 @@ teamSubmissionSchema.index({ team: 1 });
 teamSubmissionSchema.index({ status: 1 });
 teamSubmissionSchema.index({ submittedAt: -1 });
 teamSubmissionSchema.index({ team: 1, project: 1, submissionType: 1, submittedAt: -1 });
+teamSubmissionSchema.index({ team: 1, project: 1, createdAt: -1 });
 
 module.exports = mongoose.model('TeamSubmission', teamSubmissionSchema);
