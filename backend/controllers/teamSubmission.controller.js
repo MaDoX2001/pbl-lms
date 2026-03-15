@@ -542,3 +542,38 @@ exports.deleteSubmission = async (req, res) => {
       res.status(500).json({ success: false, message: 'خطأ في جلب السجل', error: error.message });
     }
   };
+
+  // @desc    Get ONLY the latest Wokwi submission for a team's project
+  // @route   GET /api/team-submissions/wokwi/:teamId/:projectId/latest
+  // @access  Private
+  exports.getLatestWokwiSubmission = async (req, res) => {
+    try {
+      const { teamId, projectId } = req.params;
+
+      const team = await Team.findById(teamId);
+      if (!team) {
+        return res.status(404).json({ success: false, message: 'الفريق غير موجود' });
+      }
+
+      if (req.user.role === 'student') {
+        const isMember = team.members.some(
+          m => (m.user?._id || m.user || m).toString() === req.user._id.toString()
+        );
+        if (!isMember) {
+          return res.status(403).json({ success: false, message: 'غير مصرح لك' });
+        }
+      }
+
+      const submission = await TeamSubmission.findOne({
+        team: teamId,
+        project: projectId,
+        submissionType: 'wokwi'
+      })
+        .populate('submittedBy', 'name email')
+        .sort({ submittedAt: -1 });
+
+      res.json({ success: true, data: submission || null });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'خطأ في جلب آخر نسخة', error: error.message });
+    }
+  };

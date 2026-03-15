@@ -13,6 +13,7 @@ const {
 const {
   submitWokwiLink,
   getWokwiHistory,
+  getLatestWokwiSubmission,
 } = require('../controllers/teamSubmission.controller');
 const { protect } = require('../middleware/auth.middleware');
 
@@ -26,6 +27,9 @@ router.post('/', protect, uploadMiddleware, createSubmission);
 
 // Submit a Wokwi simulator link  
 router.post('/wokwi', protect, submitWokwiLink);
+
+// Get ONLY the latest Wokwi submission (most efficient for page load)
+router.get('/wokwi/:teamId/:projectId/latest', protect, getLatestWokwiSubmission);
 
 // Get Wokwi submission history for a team's project
 router.get('/wokwi/:teamId/:projectId', protect, getWokwiHistory);

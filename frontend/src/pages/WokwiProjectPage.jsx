@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Alert,
@@ -27,12 +27,13 @@ export default function WokwiProjectPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [projectTitle, setProjectTitle] = useState('');
-  const [teamId, setTeamId] = useState('');
+  const [myTeamId, setMyTeamId] = useState('');
+  const [latestSubmission, setLatestSubmission] = useState(null);
   const [wokwiHistory, setWokwiHistory] = useState([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
-  const latestSubmission = useMemo(() => wokwiHistory[0] || null, [wokwiHistory]);
-
+  // On mount: fetch ONLY the latest submission (1 record) for efficiency
   useEffect(() => {
     let mounted = true;
 
@@ -42,30 +43,24 @@ export default function WokwiProjectPage() {
         setError('');
 
         const teamRes = await api.get('/teams/my-team');
-        const myTeamId = teamRes.data?.data?._id;
+        const teamId = teamRes.data?.data?._id;
 
-        if (!myTeamId) {
-          throw new Error(t('notInTeamYet'));
-        }
+        if (!teamId) throw new Error(t('notInTeamYet'));
 
-        const [historyRes, projectsRes] = await Promise.all([
-          api.get(`/team-submissions/wokwi/${myTeamId}/${projectId}`),
-          api.get(`/team-projects/team/${myTeamId}`)
+        const [latestRes, projectsRes] = await Promise.all([
+          api.get(`/team-submissions/wokwi/${teamId}/${projectId}/latest`),
+          api.get(`/team-projects/team/${teamId}`)
         ]);
 
         if (!mounted) return;
 
-        const submissions = historyRes.data?.data || [];
-        const enrollments = projectsRes.data?.data || [];
-        const enrollment = enrollments.find(e => String(e.project?._id) === String(projectId));
+        const enrollment = (projectsRes.data?.data || []).find(
+          e => String(e.project?._id) === String(projectId)
+        );
 
-        setTeamId(myTeamId);
-        setWokwiHistory(submissions);
+        setMyTeamId(teamId);
+        setLatestSubmission(latestRes.data?.data || null);
         setProjectTitle(enrollment?.project?.title || t('simulationEnvironment'));
-
-        if (submissions.length === 0) {
-          setError(t('wokwiNoSubmissions'));
-        }
       } catch (err) {
         if (!mounted) return;
         setError(err.response?.data?.message || err.message || t('genericLoadError'));
@@ -75,10 +70,20 @@ export default function WokwiProjectPage() {
     };
 
     fetchData();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [projectId, t]);
+
+  // Lazy-load history only when dialog opens
+  const handleOpenHistory = async () => {
+    setHistoryOpen(true);
+    if (wokwiHistory.length > 0) return; // already loaded
+    setHistoryLoading(true);
+    try {
+      const res = await api.get(`/team-submissions/wokwi/${myTeamId}/${projectId}`);
+      setWokwiHistory(res.data?.data || []);
+    } catch {}
+    setHistoryLoading(false);
+  };
 
   const openExternal = (link) => {
     if (!link) return;
@@ -131,8 +136,8 @@ export default function WokwiProjectPage() {
             size="small"
             variant="outlined"
             startIcon={<HistoryIcon />}
-            onClick={() => setHistoryOpen(true)}
-            disabled={!wokwiHistory.length}
+            onClick={handleOpenHistory}
+            disabled={!latestSubmission}
           >
             {t('wokwiVersionHistory')}
           </Button>
@@ -148,17 +153,27 @@ export default function WokwiProjectPage() {
           </Button>
         </Box>
 
-        {error && !latestSubmission?.wokwiLink ? (
-          <Box sx={{ p: 2 }}>
-            <Alert severity="info">{error}</Alert>
+        {!latestSubmission ? (
+          <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+            <Alert severity="info" sx={{ width: '100%', maxWidth: 480 }}>
+              {error || t('wokwiNoSubmissions')}
+            </Alert>
+            <Button
+              variant="contained"
+              startIcon={<SaveIcon />}
+              onClick={() => navigate('/arduino-simulator')}
+            >
+              {t('uploadNewSubmission')}
+            </Button>
           </Box>
         ) : (
           <Box sx={{ flex: 1, minHeight: 0 }}>
             <iframe
-              src={latestSubmission?.wokwiLink}
+              src={latestSubmission.wokwiLink}
               title="Wokwi Project"
               style={{ width: '100%', height: '100%', border: 'none' }}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
               allowFullScreen
             />
           </Box>
@@ -168,7 +183,9 @@ export default function WokwiProjectPage() {
       <Dialog open={historyOpen} onClose={() => setHistoryOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{t('wokwiVersionHistory')}</DialogTitle>
         <DialogContent dividers>
-          {wokwiHistory.length === 0 ? (
+          {historyLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress /></Box>
+          ) : wokwiHistory.length === 0 ? (
             <Alert severity="info">{t('wokwiNoSubmissions')}</Alert>
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
