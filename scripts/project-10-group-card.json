@@ -1,0 +1,65 @@
+{
+  "phase": "group",
+  "sections": [
+    {
+      "name": "تصميم وتنفيذ النظام",
+      "weight": 50,
+      "criteria": [
+        {
+          "name": "صحة توصيل حساس Ultrasonic والمخرجات",
+          "applicableRoles": ["all"],
+          "options": [
+            { "percentage": 0, "description": "لم يتم توصيل الحساس أو التوصيلات خاطئة بالكامل." },
+            { "percentage": 20, "description": "بعض التوصيلات تمت لكن معظمها غير صحيح." },
+            { "percentage": 40, "description": "الدائرة موصلة جزئياً مع أخطاء واضحة." },
+            { "percentage": 60, "description": "الدائرة تعمل لكن مع بعض الأخطاء البسيطة." },
+            { "percentage": 80, "description": "الدائرة موصلة بشكل صحيح تقريباً مع ملاحظة بسيطة." },
+            { "percentage": 100, "description": "تم توصيل الحساس والمكونات بشكل صحيح وكامل." }
+          ]
+        },
+        {
+          "name": "دقة قياس المسافة واستجابة النظام",
+          "applicableRoles": ["all"],
+          "options": [
+            { "percentage": 0, "description": "النظام لا يقيس المسافة أو لا يعمل." },
+            { "percentage": 20, "description": "القياس غير صحيح ولا يظهر تنبيه واضح." },
+            { "percentage": 40, "description": "القياس يحدث أحياناً مع أخطاء كبيرة." },
+            { "percentage": 60, "description": "النظام يقيس المسافة لكن الاستجابة غير دقيقة." },
+            { "percentage": 80, "description": "النظام يقيس المسافة ويصدر تنبيه بشكل جيد." },
+            { "percentage": 100, "description": "النظام يقيس المسافة بدقة ويصدر التنبيه عند الحد المحدد." }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "التعاون والعمل الجماعي",
+      "weight": 50,
+      "criteria": [
+        {
+          "name": "تنظيم العمل وتوزيع الأدوار داخل الفريق",
+          "applicableRoles": ["all"],
+          "options": [
+            { "percentage": 0, "description": "لم يتم تنظيم العمل أو توزيع المهام." },
+            { "percentage": 20, "description": "تنظيم ضعيف للعمل بين الأعضاء." },
+            { "percentage": 40, "description": "توزيع جزئي للمهام." },
+            { "percentage": 60, "description": "تنظيم مقبول للعمل بين أعضاء الفريق." },
+            { "percentage": 80, "description": "توزيع واضح للأدوار مع تعاون جيد." },
+            { "percentage": 100, "description": "تنظيم كامل للعمل وتعاون فعال بين جميع الأعضاء." }
+          ]
+        },
+        {
+          "name": "مشاركة جميع الطلاب في البرمجة",
+          "applicableRoles": ["all"],
+          "options": [
+            { "percentage": 0, "description": "لم يشارك أي طالب في كتابة البرنامج." },
+            { "percentage": 20, "description": "شارك طالب واحد فقط في البرمجة." },
+            { "percentage": 40, "description": "شارك طالبان بشكل محدود." },
+            { "percentage": 60, "description": "شارك معظم الطلاب في كتابة البرنامج." },
+            { "percentage": 80, "description": "شارك جميع الطلاب بدرجة جيدة في البرمجة." },
+            { "percentage": 100, "description": "شارك جميع الطلاب بفاعلية في كتابة البرنامج وتحسينه." }
+          ]
+        }
+      ]
+    }
+  ]
+}

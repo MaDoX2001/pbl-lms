@@ -1,0 +1,35 @@
+{
+  "phase": "individual_oral",
+  "sections": [
+    {
+      "name": "التقييم الفردي الشفهي",
+      "weight": 100,
+      "criteria": [
+        {
+          "name": "فهم الطالب لآلية قياس المسافة باستخدام Ultrasonic",
+          "applicableRoles": ["all"],
+          "options": [
+            { "percentage": 0, "description": "لا يستطيع شرح كيفية قياس المسافة." },
+            { "percentage": 20, "description": "شرح ضعيف وغير واضح لآلية القياس." },
+            { "percentage": 40, "description": "يفهم جزءاً من فكرة القياس." },
+            { "percentage": 60, "description": "يشرح الفكرة الأساسية لقياس المسافة." },
+            { "percentage": 80, "description": "يشرح آلية القياس وعلاقتها بالكود." },
+            { "percentage": 100, "description": "يشرح آلية القياس بدقة ويربطها بعملية اتخاذ القرار في النظام." }
+          ]
+        },
+        {
+          "name": "قدرة الطالب على تفسير البرنامج البرمجي",
+          "applicableRoles": ["system_designer", "hardware_engineer", "programmer"],
+          "options": [
+            { "percentage": 0, "description": "لا يستطيع تفسير البرنامج." },
+            { "percentage": 20, "description": "يفسر سطراً واحداً فقط." },
+            { "percentage": 40, "description": "يفهم بعض أوامر البرنامج." },
+            { "percentage": 60, "description": "يفسر أجزاء من البرنامج بشكل مقبول." },
+            { "percentage": 80, "description": "يفسر البرنامج ويشرح حساب المسافة." },
+            { "percentage": 100, "description": "يفسر البرنامج بالكامل ويشرح منطق القرار المستخدم." }
+          ]
+        }
+      ]
+    }
+  ]
+}
