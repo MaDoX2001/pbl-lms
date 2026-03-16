@@ -569,7 +569,7 @@ ${userText}`
                         {msg.replyTo.role === 'user' ? (language === 'ar' ? 'أنت' : 'You') : (language === 'ar' ? 'المساعد' : 'Assistant')}
                       </Typography>
                       <Typography variant="caption" sx={{
-                        display: 'block', whiteSpace: 'pre-wrap',
+                        whiteSpace: 'pre-wrap',
                         color: msg.role === 'user' ? 'rgba(255,255,255,0.75)' : 'text.secondary',
                         overflow: 'hidden', textOverflow: 'ellipsis',
                         display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
