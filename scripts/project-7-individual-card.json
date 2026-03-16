@@ -1,0 +1,35 @@
+{
+  "phase": "individual_oral",
+  "sections": [
+    {
+      "name": "التقييم الفردي الشفهي",
+      "weight": 100,
+      "criteria": [
+        {
+          "name": "فهم الطالب لفكرة النظام الذكي",
+          "applicableRoles": ["all"],
+          "options": [
+            { "percentage": 0, "description": "لا يستطيع شرح فكرة النظام أو مكوناته." },
+            { "percentage": 20, "description": "يشرح الفكرة بشكل ضعيف وغير واضح." },
+            { "percentage": 40, "description": "يشرح الفكرة بشكل جزئي." },
+            { "percentage": 60, "description": "يفهم الفكرة الأساسية للنظام." },
+            { "percentage": 80, "description": "يشرح فكرة النظام والمكونات بوضوح." },
+            { "percentage": 100, "description": "يشرح النظام كاملاً ويبين كيفية عمله بدقة." }
+          ]
+        },
+        {
+          "name": "قدرة الطالب على تفسير الكود البرمجي",
+          "applicableRoles": ["system_designer", "hardware_engineer", "programmer"],
+          "options": [
+            { "percentage": 0, "description": "لا يستطيع تفسير أي جزء من الكود." },
+            { "percentage": 20, "description": "يستطيع تفسير سطر واحد فقط من الكود." },
+            { "percentage": 40, "description": "يفهم بعض الأوامر البرمجية." },
+            { "percentage": 60, "description": "يفسر معظم أجزاء البرنامج بشكل مقبول." },
+            { "percentage": 80, "description": "يفسر البرنامج ويشرح منطق الشرط البرمجي." },
+            { "percentage": 100, "description": "يفسر البرنامج بالكامل ويقترح تحسينات عليه." }
+          ]
+        }
+      ]
+    }
+  ]
+}
