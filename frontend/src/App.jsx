@@ -8,7 +8,6 @@ import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import Footer from './components/Footer';
 import PrivateRoute from './components/PrivateRoute';
-import PreAssessmentGate from './components/PreAssessmentGate';
 
 // Import pages
 import HomePage from './pages/HomePage';
@@ -31,7 +30,6 @@ import EmailVerificationPage from './pages/EmailVerificationPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ChatPage from './pages/ChatPage';
 import LiveLecturesPage from './pages/LiveLecturesPage';
-import PreAssessmentPage from './pages/PreAssessmentPage';
 import TeamDashboard from './pages/TeamDashboard';
 import TeamsManagement from './pages/TeamsManagement';
 import TeamProjectPage from './pages/TeamProjectPage';
@@ -99,9 +97,7 @@ function App() {
             minHeight: 'calc(100vh - 56px)'
           }}
         >
-          {/* Wrap routes with PreAssessmentGate - checks once at app level */}
-          <PreAssessmentGate>
-            <Routes>
+          <Routes>
               {/* Public routes */}
               <Route path="/" element={<HomePage />} />
               <Route path="/login" element={!isAuthenticated ? <LoginPage /> : <Navigate to="/dashboard" />} />
@@ -132,13 +128,6 @@ function App() {
               <Route path="/live-lectures" element={
                 <PrivateRoute>
                   <LiveLecturesPage />
-                </PrivateRoute>
-              } />
-
-              {/* Pre-Assessment route */}
-              <Route path="/preassessment" element={
-                <PrivateRoute roles={['student']}>
-                  <PreAssessmentPage />
                 </PrivateRoute>
               } />
 
@@ -264,8 +253,7 @@ function App() {
 
               {/* 404 */}
               <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
-          </PreAssessmentGate>
+          </Routes>
         </Box>
       </Box>
       <Footer />
