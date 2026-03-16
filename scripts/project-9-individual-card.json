@@ -1,0 +1,35 @@
+{
+  "phase": "individual_oral",
+  "sections": [
+    {
+      "name": "التقييم الفردي الشفهي",
+      "weight": 100,
+      "criteria": [
+        {
+          "name": "فهم الطالب لآلية عمل حساس الحركة",
+          "applicableRoles": ["all"],
+          "options": [
+            { "percentage": 0, "description": "لا يستطيع شرح عمل حساس الحركة." },
+            { "percentage": 20, "description": "شرح ضعيف للحساس." },
+            { "percentage": 40, "description": "يفهم جزءاً من عمل الحساس." },
+            { "percentage": 60, "description": "يشرح الفكرة الأساسية للحساس." },
+            { "percentage": 80, "description": "يشرح عمل الحساس وعلاقته بالبرنامج." },
+            { "percentage": 100, "description": "يشرح عمل الحساس بدقة ويبين كيف يتخذ النظام القرار." }
+          ]
+        },
+        {
+          "name": "قدرة الطالب على تفسير البرنامج البرمجي",
+          "applicableRoles": ["system_designer", "hardware_engineer", "programmer"],
+          "options": [
+            { "percentage": 0, "description": "لا يستطيع تفسير أي جزء من البرنامج." },
+            { "percentage": 20, "description": "يفسر سطراً واحداً فقط." },
+            { "percentage": 40, "description": "يفهم بعض الأوامر البرمجية." },
+            { "percentage": 60, "description": "يفسر أجزاء من البرنامج بشكل مقبول." },
+            { "percentage": 80, "description": "يفسر معظم البرنامج ويشرح شرط if." },
+            { "percentage": 100, "description": "يفسر البرنامج كاملاً ويقترح تحسينات ممكنة." }
+          ]
+        }
+      ]
+    }
+  ]
+}
