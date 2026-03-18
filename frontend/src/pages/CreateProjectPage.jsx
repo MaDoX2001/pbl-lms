@@ -52,6 +52,7 @@ const CreateProjectPage = () => {
       {
         title: '',
         description: '',
+        dueDate: '',
         points: 0,
         tasks: [{ title: '', description: '' }],
       },
@@ -126,7 +127,7 @@ const CreateProjectPage = () => {
       ...prev,
       milestones: [
         ...prev.milestones,
-        { title: '', description: '', points: 0, tasks: [{ title: '', description: '' }] },
+        { title: '', description: '', dueDate: '', points: 0, tasks: [{ title: '', description: '' }] },
       ],
     }));
   };
@@ -203,6 +204,7 @@ const CreateProjectPage = () => {
           .map((milestone, index) => ({
             title: (milestone.title || '').trim(),
             description: (milestone.description || '').trim(),
+            dueDate: milestone.dueDate ? new Date(milestone.dueDate).toISOString() : undefined,
             order: index + 1,
             points: Number(milestone.points || 0),
             tasks: (milestone.tasks || [])
@@ -523,7 +525,7 @@ const CreateProjectPage = () => {
                   </Box>
 
                   <Grid container spacing={2}>
-                    <Grid item xs={12} md={8}>
+                    <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
                         label="عنوان المرحلة"
@@ -532,7 +534,18 @@ const CreateProjectPage = () => {
                         disabled={loading}
                       />
                     </Grid>
-                    <Grid item xs={12} md={4}>
+                    <Grid item xs={12} md={3}>
+                      <TextField
+                        fullWidth
+                        type="datetime-local"
+                        label="موعد تسليم المرحلة"
+                        value={milestone.dueDate || ''}
+                        onChange={(e) => handleMilestoneChange(milestoneIndex, 'dueDate', e.target.value)}
+                        disabled={loading}
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={3}>
                       <TextField
                         fullWidth
                         type="number"

@@ -517,6 +517,14 @@ const ProjectDetailPage = () => {
                         <Typography variant="subtitle1" fontWeight={700}>
                           {index + 1}. {milestone.title}
                         </Typography>
+                        {milestone.dueDate && (
+                          <Chip
+                            size="small"
+                            color="secondary"
+                            variant="outlined"
+                            label={`حتى ${new Date(milestone.dueDate).toLocaleDateString('ar-EG')}`}
+                          />
+                        )}
                         {milestone.points > 0 && (
                           <Chip size="small" label={`${milestone.points} ${t('pointsUnit')}`} color="info" variant="outlined" />
                         )}

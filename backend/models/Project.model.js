@@ -54,6 +54,10 @@ const projectSchema = new mongoose.Schema({
       required: true
     },
     description: String,
+    dueDate: {
+      type: Date,
+      required: false
+    },
     order: {
       type: Number,
       required: true

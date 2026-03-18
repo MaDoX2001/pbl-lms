@@ -105,12 +105,12 @@ const MilestoneTimeline = ({ milestones = [], deadline = null, completedIds = ne
                   {done && <Chip size="small" label={isAr ? 'مكتمل ✓' : 'Done ✓'} color="success" />}
                   {active && <Chip size="small" label={isAr ? 'نشطة الآن' : 'Active now'} color="primary" />}
                   {locked && <Chip size="small" label={isAr ? 'مقفلة' : 'Locked'} color="default" />}
-                  {dates[id] && !done && (
+                  {(ms.dueDate || dates[id]) && !done && (
                     <Chip
                       size="small"
-                      label={`${isAr ? 'حتى' : 'by'} ${dates[id].toLocaleDateString(isAr ? 'ar-EG' : 'en-GB')}`}
+                      label={`${isAr ? 'حتى' : 'by'} ${new Date(ms.dueDate || dates[id]).toLocaleDateString(isAr ? 'ar-EG' : 'en-GB')}`}
                       variant="outlined"
-                      color="warning"
+                      color={ms.dueDate ? 'secondary' : 'warning'}
                     />
                   )}
                   {completedAt && (

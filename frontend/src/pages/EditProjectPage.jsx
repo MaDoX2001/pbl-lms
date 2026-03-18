@@ -52,6 +52,7 @@ const EditProjectPage = () => {
       {
         title: '',
         description: '',
+        dueDate: '',
         points: 0,
         tasks: [{ title: '', description: '' }],
       },
@@ -106,12 +107,13 @@ const EditProjectPage = () => {
               .map((milestone) => ({
                 title: milestone.title || '',
                 description: milestone.description || '',
+                dueDate: milestone.dueDate ? new Date(milestone.dueDate).toISOString().slice(0, 16) : '',
                 points: milestone.points || 0,
                 tasks: milestone.tasks?.length > 0
                   ? milestone.tasks.map((task) => ({ title: task.title || '', description: task.description || '' }))
                   : [{ title: '', description: '' }],
               }))
-          : [{ title: '', description: '', points: 0, tasks: [{ title: '', description: '' }] }],
+          : [{ title: '', description: '', dueDate: '', points: 0, tasks: [{ title: '', description: '' }] }],
       });
 
       // Fetch existing observation cards
@@ -187,7 +189,7 @@ const EditProjectPage = () => {
       ...prev,
       milestones: [
         ...prev.milestones,
-        { title: '', description: '', points: 0, tasks: [{ title: '', description: '' }] },
+        { title: '', description: '', dueDate: '', points: 0, tasks: [{ title: '', description: '' }] },
       ],
     }));
   };
@@ -264,6 +266,7 @@ const EditProjectPage = () => {
           .map((milestone, index) => ({
             title: (milestone.title || '').trim(),
             description: (milestone.description || '').trim(),
+            dueDate: milestone.dueDate ? new Date(milestone.dueDate).toISOString() : undefined,
             order: index + 1,
             points: Number(milestone.points || 0),
             tasks: (milestone.tasks || [])
@@ -591,7 +594,7 @@ const EditProjectPage = () => {
                   </Box>
 
                   <Grid container spacing={2}>
-                    <Grid item xs={12} md={8}>
+                    <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
                         label="عنوان المرحلة"
@@ -600,7 +603,18 @@ const EditProjectPage = () => {
                         disabled={loading}
                       />
                     </Grid>
-                    <Grid item xs={12} md={4}>
+                    <Grid item xs={12} md={3}>
+                      <TextField
+                        fullWidth
+                        type="datetime-local"
+                        label="موعد تسليم المرحلة"
+                        value={milestone.dueDate || ''}
+                        onChange={(e) => handleMilestoneChange(milestoneIndex, 'dueDate', e.target.value)}
+                        disabled={loading}
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={3}>
                       <TextField
                         fullWidth
                         type="number"
