@@ -50,13 +50,13 @@ Write-Host "Project created with ID: $projectId" -ForegroundColor Green
 Write-Host "`n=== Creating Group Phase Observation Card ===" -ForegroundColor Cyan
 $groupCard = $groupCardJson | ConvertFrom-Json
 $groupCard | Add-Member -MemberType NoteProperty -Name "projectId" -Value $projectId
-$groupResponse = Invoke-ApiCall "Post" "assessment/observation-card" $groupCard
+Invoke-ApiCall "Post" "assessment/observation-card" $groupCard | Out-Null
 Write-Host "Group observation card created" -ForegroundColor Green
 
 Write-Host "`n=== Creating Individual + Oral Phase Observation Card ===" -ForegroundColor Cyan
 $individualCard = $individualCardJson | ConvertFrom-Json
 $individualCard | Add-Member -MemberType NoteProperty -Name "projectId" -Value $projectId
-$individualResponse = Invoke-ApiCall "Post" "assessment/observation-card" $individualCard
+Invoke-ApiCall "Post" "assessment/observation-card" $individualCard | Out-Null
 Write-Host "Individual observation card created" -ForegroundColor Green
 
 Write-Host "`nProject 11 setup complete" -ForegroundColor Green
