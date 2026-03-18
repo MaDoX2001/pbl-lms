@@ -23,7 +23,7 @@ const estimateDates = (milestones, deadline) => {
   );
 };
 
-const MilestoneTimeline = ({ milestones = [], deadline = null, completedIds = new Set() }) => {
+const MilestoneTimeline = ({ milestones = [], deadline = null, completedIds = new Set(), milestoneProgress = {} }) => {
   const { language } = useAppSettings();
   const isAr = language === 'ar';
 
@@ -51,6 +51,8 @@ const MilestoneTimeline = ({ milestones = [], deadline = null, completedIds = ne
         // Lock it if the previous milestone is not done (optional UX)
         const prevDone = idx === 0 ? true : completedIds.has(String(sorted[idx - 1]._id));
         const locked = !done && !prevDone && idx > 0;
+        const active = !done && !locked;
+        const completedAt = milestoneProgress[id]?.completedAt ? new Date(milestoneProgress[id].completedAt) : null;
 
         return (
           <Box
@@ -101,12 +103,22 @@ const MilestoneTimeline = ({ milestones = [], deadline = null, completedIds = ne
                     <Chip size="small" label={`${ms.points} ${isAr ? 'نقطة' : 'pts'}`} color="info" variant="outlined" />
                   )}
                   {done && <Chip size="small" label={isAr ? 'مكتمل ✓' : 'Done ✓'} color="success" />}
+                  {active && <Chip size="small" label={isAr ? 'نشطة الآن' : 'Active now'} color="primary" />}
+                  {locked && <Chip size="small" label={isAr ? 'مقفلة' : 'Locked'} color="default" />}
                   {dates[id] && !done && (
                     <Chip
                       size="small"
                       label={`${isAr ? 'حتى' : 'by'} ${dates[id].toLocaleDateString(isAr ? 'ar-EG' : 'en-GB')}`}
                       variant="outlined"
                       color="warning"
+                    />
+                  )}
+                  {completedAt && (
+                    <Chip
+                      size="small"
+                      label={`${isAr ? 'أنجزت في' : 'Completed on'} ${completedAt.toLocaleDateString(isAr ? 'ar-EG' : 'en-GB')}`}
+                      variant="outlined"
+                      color="success"
                     />
                   )}
                 </Box>

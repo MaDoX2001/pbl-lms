@@ -370,10 +370,16 @@ ${userText}`
 
     try {
       const placeholderKey = makeKey();
-      setMessages([...newMessages, { role: 'assistant', content: '', loading: true, suggestions: [], _key: placeholderKey }]);
+      setMessages([...newMessages, { role: 'assistant', content: '', loading: true, suggestions: [], projectProgress: null, _key: placeholderKey }]);
 
       const res = await api.post('/ai/chat', { message: fullText, history, summary });
-      const { text, suggestions: finalSuggestions = [], guardTriggered: finalGuardTriggered = false, agentAction } = res.data;
+      const {
+        text,
+        suggestions: finalSuggestions = [],
+        projectProgress = null,
+        guardTriggered: finalGuardTriggered = false,
+        agentAction,
+      } = res.data;
 
       setMessages(prev => {
         const updated = [...prev];
@@ -384,6 +390,7 @@ ${userText}`
             content: text,
             loading: false,
             suggestions: finalSuggestions,
+            projectProgress,
             guardTriggered: finalGuardTriggered,
             actions: agentAction ? [{ name: agentAction.name, result: agentAction.result }] : [],
           };
@@ -391,7 +398,7 @@ ${userText}`
         return updated;
       });
 
-      const updatedMessages = [...newMessages, { role: 'assistant', content: text, suggestions: finalSuggestions, guardTriggered: finalGuardTriggered, _key: placeholderKey }];
+      const updatedMessages = [...newMessages, { role: 'assistant', content: text, suggestions: finalSuggestions, projectProgress, guardTriggered: finalGuardTriggered, _key: placeholderKey }];
       newMsgCountRef.current += 2;
       if (newMsgCountRef.current >= 6 && newMsgCountRef.current % 6 === 0) {
         triggerSummarize(updatedMessages.slice(-12, -6), summary);
@@ -631,6 +638,34 @@ ${userText}`
                       border: '1px solid', borderColor: 'warning.main',
                     }}
                   />
+                )}
+                {/* Project progress panel for student replies */}
+                {msg.role === 'assistant' && !msg.error && msg.projectProgress && (
+                  <Paper
+                    variant="outlined"
+                    sx={{
+                      mt: 0.75,
+                      p: 1,
+                      ...(isRTL ? { mr: 0.5 } : { ml: 0.5 }),
+                      borderColor: 'info.light',
+                      bgcolor: 'info.50',
+                    }}
+                  >
+                    <Typography variant="caption" fontWeight={700} color="info.dark" sx={{ display: 'block', mb: 0.5 }}>
+                      {language === 'ar' ? 'حالة مشروعك الحالية' : 'Current project status'}
+                    </Typography>
+                    <Typography variant="caption" sx={{ display: 'block', mb: 0.5 }}>
+                      {language === 'ar' ? 'المشروع:' : 'Project:'} {msg.projectProgress.projectTitle}
+                    </Typography>
+                    <Typography variant="caption" sx={{ display: 'block', mb: 0.5 }}>
+                      {language === 'ar' ? 'تم إنجاز:' : 'Completed:'} {msg.projectProgress.completedMilestones?.length || 0}
+                    </Typography>
+                    {!!msg.projectProgress.pendingMilestones?.length && (
+                      <Typography variant="caption" sx={{ display: 'block' }}>
+                        {language === 'ar' ? 'التالي:' : 'Next:'} {msg.projectProgress.pendingMilestones[0]}
+                      </Typography>
+                    )}
+                  </Paper>
                 )}
                 {/* Suggestion chips below assistant messages */}
                 {msg.role === 'assistant' && !msg.error && msg.suggestions?.length > 0 && (

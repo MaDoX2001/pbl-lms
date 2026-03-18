@@ -68,6 +68,8 @@ const TeamProjectPage = () => {
   const [uploading, setUploading] = useState(false);
   const [evaluationStatus, setEvaluationStatus] = useState(null);
   const [badgePopup, setBadgePopup] = useState({ open: false, badge: null });
+  const [completedMilestoneIds, setCompletedMilestoneIds] = useState(new Set());
+  const [milestoneProgressMap, setMilestoneProgressMap] = useState({});
 
   useEffect(() => {
     fetchData();
@@ -106,6 +108,29 @@ const TeamProjectPage = () => {
           setSubmissions(submissionsResponse.data.data);
         } catch (subErr) {
           console.error('Submissions fetch error:', subErr);
+        }
+      }
+
+      // Load student milestone progress (for timeline states and completion dates)
+      if (user?.role === 'student') {
+        try {
+          const progressRes = await api.get(`/progress/${projectId}`);
+          const items = progressRes.data?.data?.milestoneProgress || [];
+          const completed = new Set(
+            items.filter(item => item.completed).map(item => String(item.milestoneId))
+          );
+          const progressMeta = {};
+          items.forEach(item => {
+            progressMeta[String(item.milestoneId)] = {
+              completed: !!item.completed,
+              completedAt: item.completedAt || null,
+            };
+          });
+          setCompletedMilestoneIds(completed);
+          setMilestoneProgressMap(progressMeta);
+        } catch (_) {
+          setCompletedMilestoneIds(new Set());
+          setMilestoneProgressMap({});
         }
       }
 
@@ -295,7 +320,8 @@ const TeamProjectPage = () => {
           <MilestoneTimeline
             milestones={project.milestones}
             deadline={project.deadline}
-            completedIds={new Set()}
+            completedIds={completedMilestoneIds}
+            milestoneProgress={milestoneProgressMap}
           />
         </Paper>
       )}

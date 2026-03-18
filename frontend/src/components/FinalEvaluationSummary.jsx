@@ -19,10 +19,12 @@ import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   EmojiEvents as TrophyIcon,
-  Print as PrintIcon
+  Print as PrintIcon,
+  PictureAsPdf as PictureAsPdfIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 import { useAppSettings } from '../context/AppSettingsContext';
+import jsPDF from 'jspdf';
 
 const VERBAL_GRADE_CONFIG = {
   excellent: { color: '#4caf50', threshold: 85 },
@@ -122,6 +124,33 @@ const FinalEvaluationSummary = ({ projectId, studentId, showActions = false, onR
 
   const handlePrint = () => window.print();
 
+  const handleExportPdf = () => {
+    const doc = new jsPDF();
+    const lines = [
+      'PBL LMS - Final Evaluation Summary',
+      `Project: ${project?.title || '-'}`,
+      `Student ID: ${studentId}`,
+      '',
+      `Group Score: ${finalEval.groupScore ?? '-'} / 100`,
+      `Individual Score: ${finalEval.individualScore ?? '-'} / 100`,
+      `Final Score: ${finalEval.finalScore ?? '-'} / 200`,
+      `Final Percentage: ${Number(finalEval.finalPercentage || 0).toFixed(2)}%`,
+      `Verbal Grade: ${verbalGradeLabel}`,
+      `Status: ${isPassed ? 'Passed' : 'Failed'}`,
+      `Attempt: ${finalEval.attemptNumber || 1}`,
+      '',
+      `Generated At: ${new Date().toLocaleString()}`,
+    ];
+
+    let y = 20;
+    lines.forEach((line) => {
+      doc.text(line, 14, y);
+      y += 8;
+    });
+
+    doc.save(`final-evaluation-${projectId}-${studentId}.pdf`);
+  };
+
   return (
     <Paper sx={{ p: 3 }} className="final-evaluation-printable">
       {/* Print styles */}
@@ -138,6 +167,11 @@ const FinalEvaluationSummary = ({ projectId, studentId, showActions = false, onR
           {t('finalEvaluationTitle')}
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Tooltip title="تصدير PDF" className="no-print">
+            <IconButton onClick={handleExportPdf} size="small" sx={{ mr: 1 }}>
+              <PictureAsPdfIcon />
+            </IconButton>
+          </Tooltip>
           <Tooltip title="طباعة / PDF" className="no-print">
             <IconButton onClick={handlePrint} size="small" sx={{ mr: 1 }}>
               <PrintIcon />

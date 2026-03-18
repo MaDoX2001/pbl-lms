@@ -436,7 +436,7 @@ const executeAgentFunction = async (name, args = {}) => {
 };
 
 // Build dynamic context from user's real data
-// Returns { context: string, currentProjectContext: string }
+// Returns { context: string, currentProjectContext: string, projectProgress: object|null }
 const buildUserContext = async (user) => {
   if (!user) return { context: '', currentProjectContext: '' };
 
@@ -450,6 +450,7 @@ const buildUserContext = async (user) => {
   const levelMap = { beginner: 'مبتدئ', intermediate: 'متوسط', advanced: 'متقدم', expert: 'خبير' };
   let context = `\n--- بيانات المستخدم ---\nالاسم: ${user.name}\nالدور: ${user.role === 'student' ? 'طالب' : user.role === 'teacher' ? 'معلم' : 'مدير'}\n`;
   let currentProjectContext = '';
+  let projectProgress = null;
 
   if (user.role === 'student') {
     try {
@@ -543,6 +544,14 @@ const buildUserContext = async (user) => {
             .map(pm => pm.title)
             .filter(Boolean)
             .slice(0, 4); // next 4 upcoming milestones
+
+          projectProgress = {
+            projectTitle: proj.title,
+            status: currentProgress.status,
+            completedMilestones,
+            pendingMilestones,
+            nextMilestone: pendingMilestones[0] || null,
+          };
 
           if (completedMilestones.length > 0) {
             block += `\n\nCompleted milestones:\n${completedMilestones.map(t => `• ${t}`).join('\n')}`;
@@ -689,7 +698,7 @@ const buildUserContext = async (user) => {
   }
 
   context += `--- نهاية البيانات ---\n`;
-  const result = { context, currentProjectContext };
+  const result = { context, currentProjectContext, projectProgress };
   console.log(`[buildUserContext] role=${user.role} contextLen=${context.length}`);
 
   // Cache for 5 min for all roles
@@ -782,7 +791,7 @@ const chat = async (req, res) => {
       ? ADMIN_SYSTEM_PROMPT
       : (user?.role === 'teacher' ? TEACHER_SYSTEM_PROMPT_AGENTIC : STUDENT_SYSTEM_PROMPT);
 
-    const { context: userContext, currentProjectContext } = await buildUserContext(user);
+    const { context: userContext, currentProjectContext, projectProgress } = await buildUserContext(user);
 
     const processedMessage = containsArduinoCode(message) ? wrapArduinoCode(message) : message;
 
@@ -813,11 +822,7 @@ const chat = async (req, res) => {
       parts: [{ text: m.content }],
     }));
 
-    const QUESTION_RE = /[?\u061F]|^(\u0643\u064A\u0641|\u0645\u0627 |\u0647\u0644 |\u0644\u0645\u0627\u0630\u0627|\u0645\u062A\u0649|\u0623\u064A\u0646|\u0627\u0634\u0631\u062D|\u0648\u0636\u062D|\u0628\u064A\u0646 |how |what |why |when |where |is |are |can |could |should |do |does |explain|show |tell )/i;
-    const isQuestion = QUESTION_RE.test(message.trim().slice(0, 100)) || message.trim().length < 80;
-    const suggestionPromise = isQuestion
-      ? generateSuggestions(message, currentProjectContext, user?.role).catch(() => [])
-      : Promise.resolve([]);
+    const suggestionPromise = generateSuggestions(message, currentProjectContext, user?.role).catch(() => []);
 
     for (let modelIndex = 0; modelIndex < AI_MODELS.length; modelIndex++) {
       const modelName = AI_MODELS[modelIndex];
@@ -872,6 +877,7 @@ const chat = async (req, res) => {
             success: true,
             text: fullText,
             suggestions,
+            projectProgress: user?.role === 'student' ? projectProgress : null,
             guardTriggered,
             agentAction: agentActionResult || undefined,
             model: modelName,
