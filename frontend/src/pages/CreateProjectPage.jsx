@@ -47,7 +47,15 @@ const CreateProjectPage = () => {
     isPublished: false,
     showObjectives: true,
     components: [''],
-    showComponents: true
+    showComponents: true,
+    milestones: [
+      {
+        title: '',
+        description: '',
+        points: 0,
+        tasks: [{ title: '', description: '' }],
+      },
+    ],
   });
 
   // Observation cards state
@@ -113,6 +121,72 @@ const CreateProjectPage = () => {
     setFormData({ ...formData, components: formData.components.filter((_, i) => i !== index) });
   };
 
+  const handleAddMilestone = () => {
+    setFormData((prev) => ({
+      ...prev,
+      milestones: [
+        ...prev.milestones,
+        { title: '', description: '', points: 0, tasks: [{ title: '', description: '' }] },
+      ],
+    }));
+  };
+
+  const handleDeleteMilestone = (milestoneIndex) => {
+    setFormData((prev) => ({
+      ...prev,
+      milestones: prev.milestones.filter((_, i) => i !== milestoneIndex),
+    }));
+  };
+
+  const handleMilestoneChange = (milestoneIndex, field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      milestones: prev.milestones.map((milestone, i) =>
+        i === milestoneIndex ? { ...milestone, [field]: value } : milestone
+      ),
+    }));
+  };
+
+  const handleAddTask = (milestoneIndex) => {
+    setFormData((prev) => ({
+      ...prev,
+      milestones: prev.milestones.map((milestone, i) =>
+        i === milestoneIndex
+          ? {
+              ...milestone,
+              tasks: [...(milestone.tasks || []), { title: '', description: '' }],
+            }
+          : milestone
+      ),
+    }));
+  };
+
+  const handleTaskChange = (milestoneIndex, taskIndex, field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      milestones: prev.milestones.map((milestone, i) => {
+        if (i !== milestoneIndex) return milestone;
+        const updatedTasks = (milestone.tasks || []).map((task, ti) =>
+          ti === taskIndex ? { ...task, [field]: value } : task
+        );
+        return { ...milestone, tasks: updatedTasks };
+      }),
+    }));
+  };
+
+  const handleDeleteTask = (milestoneIndex, taskIndex) => {
+    setFormData((prev) => ({
+      ...prev,
+      milestones: prev.milestones.map((milestone, i) => {
+        if (i !== milestoneIndex) return milestone;
+        return {
+          ...milestone,
+          tasks: (milestone.tasks || []).filter((_, ti) => ti !== taskIndex),
+        };
+      }),
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -125,6 +199,20 @@ const CreateProjectPage = () => {
         ...formData,
         objectives: formData.objectives.filter(obj => obj.trim() !== ''),
         components: formData.components.filter(c => c.trim() !== ''),
+        milestones: (formData.milestones || [])
+          .map((milestone, index) => ({
+            title: (milestone.title || '').trim(),
+            description: (milestone.description || '').trim(),
+            order: index + 1,
+            points: Number(milestone.points || 0),
+            tasks: (milestone.tasks || [])
+              .map((task) => ({
+                title: (task.title || '').trim(),
+                description: (task.description || '').trim(),
+              }))
+              .filter((task) => task.title),
+          }))
+          .filter((milestone) => milestone.title),
         estimatedDuration: formData.estimatedDuration ? Number(formData.estimatedDuration) : undefined,
         points: formData.points ? Number(formData.points) : 100
       };
@@ -409,6 +497,102 @@ const CreateProjectPage = () => {
             </Grid>
 
             {/* Learning Scenario & Strategy */}
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2, mb: 2 }}>
+                <Typography variant="h6">
+                  مراحل المشروع وخطة التنفيذ
+                </Typography>
+                <Button startIcon={<AddIcon />} onClick={handleAddMilestone} disabled={loading}>
+                  إضافة مرحلة
+                </Button>
+              </Box>
+
+              {formData.milestones.map((milestone, milestoneIndex) => (
+                <Paper key={milestoneIndex} variant="outlined" sx={{ p: 2, mb: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography variant="subtitle1" fontWeight={700}>
+                      المرحلة {milestoneIndex + 1}
+                    </Typography>
+                    <IconButton
+                      color="error"
+                      onClick={() => handleDeleteMilestone(milestoneIndex)}
+                      disabled={loading || formData.milestones.length === 1}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </Box>
+
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={8}>
+                      <TextField
+                        fullWidth
+                        label="عنوان المرحلة"
+                        value={milestone.title}
+                        onChange={(e) => handleMilestoneChange(milestoneIndex, 'title', e.target.value)}
+                        disabled={loading}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        fullWidth
+                        type="number"
+                        label="نقاط المرحلة"
+                        value={milestone.points}
+                        onChange={(e) => handleMilestoneChange(milestoneIndex, 'points', e.target.value)}
+                        disabled={loading}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        label="وصف المرحلة"
+                        value={milestone.description}
+                        onChange={(e) => handleMilestoneChange(milestoneIndex, 'description', e.target.value)}
+                        disabled={loading}
+                      />
+                    </Grid>
+                  </Grid>
+
+                  <Box sx={{ mt: 2, mb: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="subtitle2" fontWeight={600}>مهام المرحلة</Typography>
+                    <Button size="small" startIcon={<AddIcon />} onClick={() => handleAddTask(milestoneIndex)} disabled={loading}>
+                      إضافة مهمة
+                    </Button>
+                  </Box>
+
+                  {(milestone.tasks || []).map((task, taskIndex) => (
+                    <Box key={taskIndex} sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'flex-start' }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label={`المهمة ${taskIndex + 1}`}
+                        value={task.title}
+                        onChange={(e) => handleTaskChange(milestoneIndex, taskIndex, 'title', e.target.value)}
+                        disabled={loading}
+                      />
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="وصف المهمة"
+                        value={task.description}
+                        onChange={(e) => handleTaskChange(milestoneIndex, taskIndex, 'description', e.target.value)}
+                        disabled={loading}
+                      />
+                      <IconButton
+                        color="error"
+                        onClick={() => handleDeleteTask(milestoneIndex, taskIndex)}
+                        disabled={loading || (milestone.tasks || []).length === 1}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Box>
+                  ))}
+                </Paper>
+              ))}
+            </Grid>
+
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 {t('learningScenarioAndStrategy')}

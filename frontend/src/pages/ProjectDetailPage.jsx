@@ -501,6 +501,49 @@ const ProjectDetailPage = () => {
             </Paper>
           )}
 
+          {/* Milestones */}
+          {project.milestones?.length > 0 && (
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h5" gutterBottom fontWeight={600}>
+                مراحل المشروع وخطة التنفيذ
+              </Typography>
+              <List>
+                {[...project.milestones]
+                  .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                  .map((milestone, index) => (
+                    <ListItem key={milestone._id || index} sx={{ display: 'block', px: 0 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                        <CheckCircleIcon color="primary" />
+                        <Typography variant="subtitle1" fontWeight={700}>
+                          {index + 1}. {milestone.title}
+                        </Typography>
+                        {milestone.points > 0 && (
+                          <Chip size="small" label={`${milestone.points} ${t('pointsUnit')}`} color="info" variant="outlined" />
+                        )}
+                      </Box>
+                      {milestone.description && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.25, mr: 4 }}>
+                          {milestone.description}
+                        </Typography>
+                      )}
+                      {milestone.tasks?.length > 0 && (
+                        <List dense sx={{ mr: 4, mb: 1 }}>
+                          {milestone.tasks.map((task, taskIndex) => (
+                            <ListItem key={task._id || taskIndex} sx={{ py: 0.25 }}>
+                              <ListItemText
+                                primary={`- ${task.title}`}
+                                secondary={task.description || ''}
+                              />
+                            </ListItem>
+                          ))}
+                        </List>
+                      )}
+                    </ListItem>
+                  ))}
+              </List>
+            </Paper>
+          )}
+
           {/* Final Report Note */}
           {project.finalReportNote && (
             <Paper sx={{ p: 3, mb: 3, bgcolor: '#f5f5f5' }}>
