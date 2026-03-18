@@ -78,12 +78,24 @@ const ProjectCard = ({ project, onCoverUpdated }) => {
         <CardMedia
           component="div"
           sx={{
-            height: 180,
+            height: { xs: 210, sm: 230 },
             background: cardImage
               ? `url(${cardImage})`
               : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
+          }}
+        />
+        <Chip
+          label={difficultyLabel[project.difficulty]}
+          size="small"
+          color={difficultyColor[project.difficulty]}
+          sx={{
+            position: 'absolute',
+            right: 12,
+            bottom: -12,
+            zIndex: 2,
+            boxShadow: 2,
           }}
         />
         {canManage && (
@@ -110,14 +122,7 @@ const ProjectCard = ({ project, onCoverUpdated }) => {
           </>
         )}
       </Box>
-      <CardContent sx={{ flexGrow: 1 }}>
-        <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          <Chip 
-            label={difficultyLabel[project.difficulty]} 
-            size="small" 
-            color={difficultyColor[project.difficulty]} 
-          />
-        </Box>
+      <CardContent sx={{ flexGrow: 1, pt: 3 }}>
 
         <Typography gutterBottom variant="h6" component="div" fontWeight={600}>
           {project.title}
