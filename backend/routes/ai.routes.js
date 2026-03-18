@@ -4,12 +4,15 @@ const rateLimit = require('express-rate-limit');
 const { chat, getHistory, clearHistory, summarize, saveSummary, getSummary, teacherAnalytics, getRemedialActivities, getProjectIdeas } = require('../controllers/ai.controller');
 const { protect } = require('../middleware/auth.middleware');
 
+const AI_CHAT_WINDOW_SECONDS = Number(process.env.AI_CHAT_RATE_WINDOW_SECONDS || 60);
+const AI_CHAT_MAX_REQUESTS = Number(process.env.AI_CHAT_RATE_MAX || 60);
+
 // Per-user rate limiter: max 10 chat requests per minute per authenticated user.
 // Keyed by user._id so one user can't exhaust the Gemini quota for everyone else.
 // protect must run first so req.user is available for keyGenerator.
 const aiChatLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 10,
+  windowMs: AI_CHAT_WINDOW_SECONDS * 1000,
+  max: AI_CHAT_MAX_REQUESTS,
   keyGenerator: (req) => req.user?._id?.toString() || req.ip,
   message: { success: false, message: 'طلبات كثيرة جداً، انتظر دقيقة ثم حاول.' },
   standardHeaders: true,

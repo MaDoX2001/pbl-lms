@@ -22,8 +22,8 @@ const envModels = (process.env.AI_MODELS || '')
 
 const AI_MODELS = envModels.length > 0 ? envModels : DEFAULT_AI_MODELS;
 
-const MAX_INPUT_CHARS = Number(process.env.AI_MAX_INPUT_CHARS || 4000);
-const MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS || 1400);
+const MAX_INPUT_CHARS = Number(process.env.AI_MAX_INPUT_CHARS || 12000);
+const MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS || 3500);
 
 // Lightweight in-memory cache for buildUserContext results.
 // Avoids 3 redundant MongoDB round-trips per message;
@@ -950,8 +950,8 @@ const summarize = async (req, res) => {
     }
 
     // Guard: cap message count and total text size to prevent oversized summarization prompts
-    const MAX_SUMMARIZE_MESSAGES = 20;
-    const MAX_SUMMARIZE_CHARS = 8000;
+    const MAX_SUMMARIZE_MESSAGES = Number(process.env.AI_MAX_SUMMARIZE_MESSAGES || 40);
+    const MAX_SUMMARIZE_CHARS = Number(process.env.AI_MAX_SUMMARIZE_CHARS || 20000);
     const cappedMessages = messages.slice(-MAX_SUMMARIZE_MESSAGES);
     const rawText = cappedMessages.map(m => m.content || '').join('');
     if (rawText.length > MAX_SUMMARIZE_CHARS) {
