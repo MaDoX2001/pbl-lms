@@ -11,7 +11,7 @@ import api from '../services/api';
 
 const ProjectCard = ({ project, onCoverUpdated }) => {
   const navigate = useNavigate();
-  const { t } = useAppSettings();
+  const { t, direction } = useAppSettings();
   const reduxUser = useSelector((state) => state.auth?.user);
   const [updatingCover, setUpdatingCover] = React.useState(false);
   const coverInputRef = React.useRef(null);
@@ -92,7 +92,7 @@ const ProjectCard = ({ project, onCoverUpdated }) => {
           color={difficultyColor[project.difficulty]}
           sx={{
             position: 'absolute',
-            right: 12,
+            ...(direction === 'rtl' ? { right: 12 } : { left: 12 }),
             bottom: -12,
             zIndex: 2,
             boxShadow: 2,
