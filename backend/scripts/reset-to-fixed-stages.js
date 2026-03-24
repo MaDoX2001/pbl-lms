@@ -9,7 +9,12 @@ dotenv.config();
 
 const run = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
+    const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
+    if (!mongoUri) {
+      throw new Error('MONGO_URI أو MONGODB_URI غير مضبوط في البيئة');
+    }
+
+    await mongoose.connect(mongoUri);
     console.log('Connected to MongoDB');
 
     const projects = await Project.find({}).select('_id milestones');
