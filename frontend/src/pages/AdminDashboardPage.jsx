@@ -131,7 +131,7 @@ function AdminDashboardPage() {
                 </Typography>
                 <Typography variant="h3">{stats.projects.published}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {t('publishedCountStats', { count: stats.projects.published })} | إجمالي: {stats.projects.total}
+                  {t('publishedCountStats', { count: stats.projects.published })} | الإجمالي الحالي: {stats.projects.total}
                 </Typography>
               </CardContent>
             </Card>
