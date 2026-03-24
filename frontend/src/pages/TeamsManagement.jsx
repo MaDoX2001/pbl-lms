@@ -86,10 +86,12 @@ const TeamsManagement = () => {
     if (team) {
       setEditMode(true);
       setCurrentTeam(team);
+      // Extract user objects from team.members structure
+      const memberUsers = team.members.map(m => m.user || m).filter(Boolean);
       setFormData({
         name: team.name,
         description: team.description || '',
-        members: team.members
+        members: memberUsers
       });
     } else {
       setEditMode(false);
