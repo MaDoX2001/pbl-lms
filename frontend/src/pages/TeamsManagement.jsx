@@ -215,10 +215,10 @@ const TeamsManagement = () => {
                   <TableCell>
                     <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                       {team.members.map((member) => (
-                        <Tooltip key={member._id} title={member.email}>
+                        <Tooltip key={member._id} title={member?.email || ''}>
                           <Chip
-                            avatar={<Avatar>{member.name.charAt(0)}</Avatar>}
-                            label={member.name}
+                            avatar={<Avatar>{(member?.name || '?').charAt(0)}</Avatar>}
+                            label={member?.name || 'Unknown'}
                             size="small"
                             variant="outlined"
                           />
@@ -313,9 +313,9 @@ const TeamsManagement = () => {
               renderTags={(value, getTagProps) =>
                 value.map((option, index) => (
                   <Chip
-                    label={option.name}
+                    label={option?.name || 'Unknown'}
                     {...getTagProps({ index })}
-                    avatar={<Avatar>{option.name.charAt(0)}</Avatar>}
+                    avatar={<Avatar>{(option?.name || '?').charAt(0)}</Avatar>}
                   />
                 ))
               }
