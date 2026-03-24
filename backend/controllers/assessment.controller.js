@@ -74,10 +74,51 @@ exports.createOrUpdateObservationCard = async (req, res) => {
   }
 };
 
+// @desc    Update observation card sections by card id
+// @route   PUT /api/assessment/observation-card/:cardId
+// @access  Private (Teacher/Admin)
+exports.updateObservationCard = async (req, res) => {
+  try {
+    const { cardId } = req.params;
+    const { sections } = req.body;
+
+    const observationCard = await ObservationCard.findById(cardId).populate('project', 'instructor');
+    if (!observationCard) {
+      return res.status(404).json({
+        success: false,
+        message: 'بطاقة الملاحظة غير موجودة'
+      });
+    }
+
+    const projectInstructorId = observationCard.project?.instructor?.toString();
+    if (projectInstructorId && projectInstructorId !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'غير مصرح لك بتعديل بطاقة الملاحظة'
+      });
+    }
+
+    observationCard.sections = sections;
+    await observationCard.save();
+
+    res.json({
+      success: true,
+      message: 'تم تحديث بطاقة الملاحظة بنجاح',
+      data: observationCard
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في تحديث بطاقة الملاحظة',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Get observation card by phase
 // @route   GET /api/assessment/observation-card/:projectId/:phase
 // @access  Private
-exports.getObservationCard = async (req, res) => {
+exports.getObservationCardByPhase = async (req, res) => {
   try {
     const { projectId, phase } = req.params;
 

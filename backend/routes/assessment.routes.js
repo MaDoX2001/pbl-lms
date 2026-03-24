@@ -3,6 +3,8 @@ const router = express.Router();
 const { protect, authorize } = require('../middleware/auth.middleware');
 const {
   createOrUpdateObservationCard,
+  updateObservationCard,
+  getObservationCardByPhase,
   getObservationCard,
   evaluateGroup,
   getGroupStatus,
@@ -23,7 +25,9 @@ const {
 // OBSERVATION CARD ROUTES
 // ============================================================================
 router.post('/observation-card', protect, authorize('teacher', 'admin'), createOrUpdateObservationCard);
-router.get('/observation-card/:projectId/:phase', protect, getObservationCard);
+router.put('/observation-card/:cardId', protect, authorize('teacher', 'admin'), updateObservationCard);
+router.get('/observation-card/:projectId/:phase', protect, getObservationCardByPhase);
+router.get('/observation-card/:projectId', protect, getObservationCard);
 
 // ============================================================================
 // PHASE 1: GROUP ASSESSMENT ROUTES

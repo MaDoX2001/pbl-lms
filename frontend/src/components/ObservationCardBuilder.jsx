@@ -136,6 +136,13 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
           setError(t('allCriteriaNamesRequired'));
           return;
         }
+        const hasEmptyOptionDescription = (criterion.options || []).some(
+          (option) => !(option.description || '').trim()
+        );
+        if (hasEmptyOptionDescription) {
+          setError('يجب إدخال وصف لكل درجة تقييم في جميع المعايير');
+          return;
+        }
       }
     }
 
