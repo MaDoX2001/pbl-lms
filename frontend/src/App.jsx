@@ -12,7 +12,6 @@ import PrivateRoute from './components/PrivateRoute';
 // Import pages
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
 import PublicRegisterPage from './pages/PublicRegisterPage';
 import ProjectsPage from './pages/ProjectsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
@@ -101,7 +100,7 @@ function App() {
               {/* Public routes */}
               <Route path="/" element={<HomePage />} />
               <Route path="/login" element={!isAuthenticated ? <LoginPage /> : <Navigate to="/dashboard" />} />
-              <Route path="/register" element={!isAuthenticated ? <RegisterPage /> : <Navigate to="/dashboard" />} />
+              <Route path="/register" element={!isAuthenticated ? <PublicRegisterPage /> : <Navigate to="/dashboard" />} />
               <Route path="/signup" element={!isAuthenticated ? <PublicRegisterPage /> : <Navigate to="/dashboard" />} />
               <Route path="/verify-email" element={<EmailVerificationPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
