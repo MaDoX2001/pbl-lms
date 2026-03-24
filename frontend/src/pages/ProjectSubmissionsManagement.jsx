@@ -49,6 +49,8 @@ const ProjectSubmissionsManagement = () => {
 
   const [project, setProject] = useState(null);
   const [submissions, setSubmissions] = useState([]);
+  const [stageBoard, setStageBoard] = useState([]);
+  const [stageLoading, setStageLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [feedbackDialog, setFeedbackDialog] = useState({
     open: false,
@@ -77,9 +79,34 @@ const ProjectSubmissionsManagement = () => {
       const submissionsResponse = await api.get(`/team-submissions/project/${projectId}`);
       setSubmissions(submissionsResponse.data.data);
 
+      // Stage progress board by team
+      setStageLoading(true);
+      const teamsResponse = await api.get(`/team-projects/project/${projectId}`);
+      const enrollments = teamsResponse.data.data || [];
+
+      const progressRows = await Promise.all(
+        enrollments.map(async (enrollment) => {
+          try {
+            const progressRes = await api.get(`/team-submissions/progress/${enrollment.team._id}/${projectId}`);
+            return {
+              team: enrollment.team,
+              progress: progressRes.data.data
+            };
+          } catch (_) {
+            return {
+              team: enrollment.team,
+              progress: null
+            };
+          }
+        })
+      );
+      setStageBoard(progressRows);
+      setStageLoading(false);
+
       setLoading(false);
     } catch (err) {
       toast.error(err.response?.data?.message || t('genericLoadError'));
+      setStageLoading(false);
       setLoading(false);
     }
   };
@@ -201,6 +228,62 @@ const ProjectSubmissionsManagement = () => {
         <Typography variant="body1" color="text.secondary">
           {t('totalSubmissionsWithCount', { count: submissions.length })}
         </Typography>
+      </Paper>
+
+      {/* Stage Tracking Board */}
+      <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h5" gutterBottom>
+          لوحة متابعة المراحل
+        </Typography>
+        <Divider sx={{ mb: 2 }} />
+
+        {stageLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+            <CircularProgress />
+          </Box>
+        ) : stageBoard.length === 0 ? (
+          <Alert severity="info">لا توجد فرق مسجلة في هذا المشروع بعد.</Alert>
+        ) : (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {stageBoard.map((row) => {
+              const completed = row.progress?.completed || {};
+              const stageChips = [
+                { key: 'design', label: 'التصميم' },
+                { key: 'wiring', label: 'الموصل' },
+                { key: 'programming', label: 'البرمجة' },
+                { key: 'testing', label: 'المختبر' },
+                { key: 'final_delivery', label: 'النهائي' }
+              ];
+
+              return (
+                <Card key={row.team._id} variant="outlined">
+                  <CardContent>
+                    <Typography variant="h6" sx={{ mb: 1 }}>{row.team.name}</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                      الأعضاء: {(row.team.members || []).map((m) => m.name).join('، ')}
+                    </Typography>
+
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+                      {stageChips.map((s) => (
+                        <Chip
+                          key={s.key}
+                          label={`${s.label}: ${completed[s.key] ? 'مكتمل' : 'غير مكتمل'}`}
+                          color={completed[s.key] ? 'success' : 'default'}
+                          variant={completed[s.key] ? 'filled' : 'outlined'}
+                          size="small"
+                        />
+                      ))}
+                    </Box>
+
+                    <Typography variant="caption" color="text.secondary">
+                      برمجة: {row.progress?.programmingSubmittedCount || 0}/{row.progress?.programmingRequiredCount || 0}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </Box>
+        )}
       </Paper>
 
       {/* Submissions by Team */}

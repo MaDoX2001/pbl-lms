@@ -476,6 +476,57 @@ exports.getSupportResource = async (req, res) => {
   }
 };
 
+// @desc    Update support resource metadata
+// @route   PUT /api/resources/support/:id
+// @access  Private (owner or admin)
+exports.updateSupportResource = async (req, res) => {
+  try {
+    const { title, description, category, difficulty, tags } = req.body;
+    const resource = await Resource.findById(req.params.id);
+
+    if (!resource) {
+      return res.status(404).json({
+        success: false,
+        message: 'المصدر غير موجود'
+      });
+    }
+
+    const isOwner = resource.uploadedBy.toString() === req.user.id;
+    const isAdmin = req.user.role === 'admin';
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'غير مصرح لك بتعديل هذا المصدر'
+      });
+    }
+
+    if (title !== undefined) resource.title = title;
+    if (description !== undefined) resource.description = description;
+    if (category !== undefined) resource.category = category;
+    if (difficulty !== undefined) resource.difficulty = difficulty;
+    if (tags !== undefined) {
+      resource.tags = Array.isArray(tags)
+        ? tags
+        : String(tags).split(',').map((t) => t.trim()).filter(Boolean);
+    }
+
+    await resource.save();
+    await resource.populate('uploadedBy', 'name avatar email');
+
+    res.json({
+      success: true,
+      message: 'تم تحديث المصدر بنجاح',
+      data: resource
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في تحديث المصدر',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Delete my support resource
 // @route   DELETE /api/resources/support/:id
 // @access  Private

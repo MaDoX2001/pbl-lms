@@ -26,6 +26,7 @@ import {
   Delete as DeleteIcon,
   CloudUpload as CloudUploadIcon,
   Search as SearchIcon,
+  Edit as EditIcon,
   AddPhotoAlternate as AddPhotoIcon,
   PlayCircle as PlayCircleIcon,
   Close as CloseIcon
@@ -54,6 +55,15 @@ const ResourcesPage = () => {
   const [favorites, setFavorites] = useState([]);
   // id of the resource currently having its thumbnail updated (for loading state)
   const [updatingThumbFor, setUpdatingThumbFor] = useState(null);
+  const [editDialog, setEditDialog] = useState({
+    open: false,
+    resourceId: null,
+    title: '',
+    description: '',
+    category: t('catOtherValue'),
+    difficulty: t('difficultyIntermediateValue'),
+    tags: ''
+  });
   const thumbnailInputRef = React.useRef(null);
   const targetResourceIdRef = React.useRef(null);
   // video player popup
@@ -207,6 +217,44 @@ const ResourcesPage = () => {
   const handleUpdateThumbnail = (resourceId) => {
     targetResourceIdRef.current = resourceId;
     thumbnailInputRef.current?.click();
+  };
+
+  const handleOpenEditDialog = (resource) => {
+    setEditDialog({
+      open: true,
+      resourceId: resource._id,
+      title: resource.title || '',
+      description: resource.description || '',
+      category: resource.category || t('catOtherValue'),
+      difficulty: resource.difficulty || t('difficultyIntermediateValue'),
+      tags: (resource.tags || []).join(', ')
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    try {
+      await api.put(`/resources/support/${editDialog.resourceId}`, {
+        title: editDialog.title,
+        description: editDialog.description,
+        category: editDialog.category,
+        difficulty: editDialog.difficulty,
+        tags: editDialog.tags
+      });
+
+      setEditDialog({
+        open: false,
+        resourceId: null,
+        title: '',
+        description: '',
+        category: t('catOtherValue'),
+        difficulty: t('difficultyIntermediateValue'),
+        tags: ''
+      });
+      fetchResources();
+    } catch (err) {
+      console.error('Error updating resource:', err);
+      setError(err.response?.data?.message || t('genericError'));
+    }
   };
 
   const handleThumbnailFileChange = async (e) => {
@@ -556,6 +604,11 @@ const ResourcesPage = () => {
                                 </IconButton>
                               </span>
                             </Tooltip>
+                            <Tooltip title={t('edit') || 'تعديل'}>
+                              <IconButton size="small" color="info" onClick={() => handleOpenEditDialog(resource)}>
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
                             <Tooltip title={t('delete')}>
                               <IconButton size="small" color="error" onClick={() => handleDelete(resource._id)}>
                                 <DeleteIcon />
@@ -587,6 +640,61 @@ const ResourcesPage = () => {
           fetchResources();
         }}
       />
+
+      <Dialog open={editDialog.open} onClose={() => setEditDialog((prev) => ({ ...prev, open: false }))} maxWidth="sm" fullWidth>
+        <DialogTitle>{t('edit') || 'تعديل المصدر'}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <TextField
+              label={t('title')}
+              value={editDialog.title}
+              onChange={(e) => setEditDialog((prev) => ({ ...prev, title: e.target.value }))}
+              fullWidth
+            />
+            <TextField
+              label={t('description')}
+              value={editDialog.description}
+              onChange={(e) => setEditDialog((prev) => ({ ...prev, description: e.target.value }))}
+              multiline
+              rows={3}
+              fullWidth
+            />
+            <TextField
+              select
+              label={t('category')}
+              value={editDialog.category}
+              onChange={(e) => setEditDialog((prev) => ({ ...prev, category: e.target.value }))}
+              fullWidth
+            >
+              {categories.filter((c) => c.value !== 'all').map((c) => (
+                <MenuItem key={c.value} value={c.value}>{c.label}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label={t('difficulty')}
+              value={editDialog.difficulty}
+              onChange={(e) => setEditDialog((prev) => ({ ...prev, difficulty: e.target.value }))}
+              fullWidth
+            >
+              {difficulties.filter((d) => d.value !== 'all').map((d) => (
+                <MenuItem key={d.value} value={d.value}>{d.label}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label={t('tags') || 'الوسوم'}
+              value={editDialog.tags}
+              onChange={(e) => setEditDialog((prev) => ({ ...prev, tags: e.target.value }))}
+              helperText="افصل الوسوم بفاصلة"
+              fullWidth
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditDialog((prev) => ({ ...prev, open: false }))}>{t('cancel')}</Button>
+          <Button variant="contained" onClick={handleSaveEdit}>{t('save')}</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Hidden file input for thumbnail updates */}
       <input

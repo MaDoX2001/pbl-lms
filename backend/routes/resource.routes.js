@@ -12,6 +12,7 @@ const {
   uploadSupportResource,
   getSupportResources,
   getSupportResource,
+  updateSupportResource,
   deleteSupportResource,
   rateSupportResource,
   downloadSupportResource,
@@ -67,6 +68,9 @@ router.get('/support', getSupportResources);
 
 // Get specific support resource - increment views
 router.get('/support/:id', getSupportResource);
+
+// Update support resource metadata
+router.put('/support/:id', protect, authorize('teacher', 'admin'), updateSupportResource);
 
 // Download support resource - increment downloads
 router.put('/support/:id/download', downloadSupportResource);
