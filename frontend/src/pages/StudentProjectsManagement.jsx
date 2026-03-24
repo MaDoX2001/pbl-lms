@@ -101,28 +101,32 @@ const StudentProjectsManagement = () => {
                 const memberStatuses = [];
                 for (const member of team.members || []) {
                   try {
-                    const phase2Res = await api.get(`/assessment/individual-status/${projectId}/${member._id}`);
+                    const memberId = member.user?._id || member._id;
+                    const memberName = member.user?.name || member.name || 'Unknown';
+                    const phase2Res = await api.get(`/assessment/individual-status/${projectId}/${memberId}`);
                     const phase2Complete = phase2Res.data.data?.phase2Complete || false;
                     
                     // Check final evaluation
                     let finalEval = null;
                     try {
-                      const finalRes = await api.get(`/assessment/final/${projectId}/${member._id}`);
+                      const finalRes = await api.get(`/assessment/final/${projectId}/${memberId}`);
                       finalEval = finalRes.data.data;
                     } catch (err) {
                       // Final eval doesn't exist yet
                     }
 
                     memberStatuses.push({
-                      studentId: member._id,
-                      studentName: member.name,
+                      studentId: memberId,
+                      studentName: memberName,
                       phase2Complete,
                       finalEval
                     });
                   } catch (err) {
+                    const memberId = member.user?._id || member._id;
+                    const memberName = member.user?.name || member.name || 'Unknown';
                     memberStatuses.push({
-                      studentId: member._id,
-                      studentName: member.name,
+                      studentId: memberId,
+                      studentName: memberName,
                       phase2Complete: false,
                       finalEval: null
                     });
@@ -270,9 +274,9 @@ const StudentProjectsManagement = () => {
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                       {team.members?.map((member) => (
                         <Chip
-                          key={member._id}
+                          key={member.user?._id || member._id}
                           icon={<PersonIcon />}
-                          label={member.name}
+                          label={member.user?.name || member.name || 'Unknown'}
                           size="small"
                           variant="outlined"
                           color="primary"
@@ -378,8 +382,10 @@ const StudentProjectsManagement = () => {
                                   </TableHead>
                                   <TableBody>
                                     {team.members?.map((member) => {
+                                      const memberId = member.user?._id || member._id;
+                                      const memberName = member.user?.name || member.name || 'Unknown';
                                       const memberStatus = status.memberStatuses.find(
-                                        m => m.studentId === member._id
+                                        m => m.studentId === memberId
                                       ) || {
                                         phase2Complete: false,
                                         finalEval: null
@@ -390,11 +396,11 @@ const StudentProjectsManagement = () => {
                                       const hasFinalEval = !!memberStatus.finalEval;
 
                                       return (
-                                        <TableRow key={member._id}>
+                                        <TableRow key={memberId}>
                                           <TableCell>
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                               <PersonIcon fontSize="small" color="action" />
-                                              {member.name}
+                                              {memberName}
                                             </Box>
                                           </TableCell>
                                           <TableCell align="center">
@@ -428,7 +434,7 @@ const StudentProjectsManagement = () => {
                                                 size="small"
                                                 color="secondary"
                                                 disabled={phase2Blocked}
-                                                onClick={() => handlePhase2Evaluation(project._id, member._id, enrollment._id)}
+                                                onClick={() => handlePhase2Evaluation(project._id, memberId, enrollment._id)}
                                               >
                                                 {memberStatus.phase2Complete ? t('reEvaluate') : t('individualEvaluationTitleShort')}
                                               </Button>
@@ -437,7 +443,7 @@ const StudentProjectsManagement = () => {
                                                   variant="outlined"
                                                   size="small"
                                                   color="primary"
-                                                  onClick={() => handleFinalize(project._id, member._id)}
+                                                  onClick={() => handleFinalize(project._id, memberId)}
                                                 >
                                                   {t('calculateFinal')}
                                                 </Button>
@@ -456,7 +462,7 @@ const StudentProjectsManagement = () => {
                                                 <Button
                                                   variant="text"
                                                   size="small"
-                                                  onClick={() => handleViewFinalEvaluation(project._id, member._id)}
+                                                  onClick={() => handleViewFinalEvaluation(project._id, memberId)}
                                                 >
                                                   {t('view')}
                                                 </Button>
@@ -465,7 +471,7 @@ const StudentProjectsManagement = () => {
                                                     variant="outlined"
                                                     size="small"
                                                     color="warning"
-                                                    onClick={() => handleAllowRetry(project._id, member._id)}
+                                                    onClick={() => handleAllowRetry(project._id, memberId)}
                                                   >
                                                     {t('allowRetry')}
                                                   </Button>
