@@ -2,6 +2,7 @@ const Project = require('../models/Project.model');
 const User = require('../models/User.model');
 const Progress = require('../models/Progress.model');
 const cloudinaryService = require('../services/cloudinary.service');
+const { normalizeProjectMilestones } = require('../utils/stagedSubmissionConfig');
 
 // @desc    Get all projects
 // @route   GET /api/projects
@@ -95,6 +96,7 @@ exports.createProject = async (req, res) => {
   try {
     // Add instructor from logged-in user
     req.body.instructor = req.user.id;
+    req.body.milestones = normalizeProjectMilestones(req.body.milestones || []);
     
     const project = await Project.create(req.body);
     
@@ -134,6 +136,10 @@ exports.updateProject = async (req, res) => {
       });
     }
     
+    if (Object.prototype.hasOwnProperty.call(req.body, 'milestones')) {
+      req.body.milestones = normalizeProjectMilestones(req.body.milestones || []);
+    }
+
     project = await Project.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true

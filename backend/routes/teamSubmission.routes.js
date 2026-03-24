@@ -8,7 +8,8 @@ const {
   addFeedback,
   addGrade,
   deleteSubmission,
-  uploadMiddleware
+  uploadMiddleware,
+  getStageProgress
 } = require('../controllers/teamSubmission.controller');
 const {
   submitWokwiLink,
@@ -36,6 +37,9 @@ router.get('/wokwi/:teamId/:projectId', protect, getWokwiHistory);
 
 // Get all submissions for a specific team's project
 router.get('/team/:teamId/project/:projectId', protect, getTeamProjectSubmissions);
+
+// Get stage progress (completion + programming per-member counts)
+router.get('/progress/:teamId/:projectId', protect, getStageProgress);
 
 // Get all submissions for a project (all teams) - Teacher/Admin
 router.get('/project/:projectId', protect, getProjectSubmissions);

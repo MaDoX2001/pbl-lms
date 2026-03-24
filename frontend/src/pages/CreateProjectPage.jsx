@@ -24,6 +24,34 @@ import ObservationCardBuilder from '../components/ObservationCardBuilder';
 import ObservationCardStatus from '../components/ObservationCardStatus';
 import { useAppSettings } from '../context/AppSettingsContext';
 
+const FIXED_MILESTONES = [
+  {
+    stageKey: 'design',
+    title: 'تسليم التصميم (Designer Lead)',
+    description: 'وصف فكرة النظام، المدخلات والمخرجات، ومخطط مبدئي للدائرة.'
+  },
+  {
+    stageKey: 'wiring',
+    title: 'تسليم الموصل (Builder Lead)',
+    description: 'تنفيذ التوصيلات على Wokwi والتحقق من صحة التوصيل.'
+  },
+  {
+    stageKey: 'programming',
+    title: 'تسليم الكود (Programmer - إلزامي لكل طالب)',
+    description: 'كل طالب يسلّم كود يطبق منطق المشروع.'
+  },
+  {
+    stageKey: 'testing',
+    title: 'تسليم المختبر (Tester Lead)',
+    description: 'اختبار النظام وتوثيق النتائج والأخطاء والتحسينات.'
+  },
+  {
+    stageKey: 'final_delivery',
+    title: 'التسليم النهائي (Final Delivery)',
+    description: 'نسخة نهائية بعد الفيدباك وتصحيح الملاحظات.'
+  }
+];
+
 const CreateProjectPage = () => {
   const navigate = useNavigate();
   const { t } = useAppSettings();
@@ -48,15 +76,14 @@ const CreateProjectPage = () => {
     showObjectives: true,
     components: [''],
     showComponents: true,
-    milestones: [
-      {
-        title: '',
-        description: '',
-        dueDate: '',
-        points: 0,
-        tasks: [{ title: '', description: '' }],
-      },
-    ],
+    milestones: FIXED_MILESTONES.map((m) => ({
+      stageKey: m.stageKey,
+      title: m.title,
+      description: m.description,
+      dueDate: '',
+      points: 0,
+      tasks: [{ title: '', description: '' }]
+    })),
   });
 
   // Observation cards state
@@ -123,20 +150,11 @@ const CreateProjectPage = () => {
   };
 
   const handleAddMilestone = () => {
-    setFormData((prev) => ({
-      ...prev,
-      milestones: [
-        ...prev.milestones,
-        { title: '', description: '', dueDate: '', points: 0, tasks: [{ title: '', description: '' }] },
-      ],
-    }));
+    toast.info('عدد المراحل ثابت ولا يمكن إضافة مراحل جديدة');
   };
 
   const handleDeleteMilestone = (milestoneIndex) => {
-    setFormData((prev) => ({
-      ...prev,
-      milestones: prev.milestones.filter((_, i) => i !== milestoneIndex),
-    }));
+    toast.info('عدد المراحل ثابت ولا يمكن حذف أي مرحلة');
   };
 
   const handleMilestoneChange = (milestoneIndex, field, value) => {
@@ -202,6 +220,7 @@ const CreateProjectPage = () => {
         components: formData.components.filter(c => c.trim() !== ''),
         milestones: (formData.milestones || [])
           .map((milestone, index) => ({
+            stageKey: milestone.stageKey,
             title: (milestone.title || '').trim(),
             description: (milestone.description || '').trim(),
             dueDate: milestone.dueDate ? new Date(milestone.dueDate).toISOString() : undefined,
@@ -518,7 +537,7 @@ const CreateProjectPage = () => {
                     <IconButton
                       color="error"
                       onClick={() => handleDeleteMilestone(milestoneIndex)}
-                      disabled={loading || formData.milestones.length === 1}
+                      disabled={true}
                     >
                       <DeleteIcon />
                     </IconButton>
@@ -531,7 +550,7 @@ const CreateProjectPage = () => {
                         label="عنوان المرحلة"
                         value={milestone.title}
                         onChange={(e) => handleMilestoneChange(milestoneIndex, 'title', e.target.value)}
-                        disabled={loading}
+                        disabled
                       />
                     </Grid>
                     <Grid item xs={12} md={3}>
@@ -563,7 +582,7 @@ const CreateProjectPage = () => {
                         label="وصف المرحلة"
                         value={milestone.description}
                         onChange={(e) => handleMilestoneChange(milestoneIndex, 'description', e.target.value)}
-                        disabled={loading}
+                        disabled
                       />
                     </Grid>
                   </Grid>

@@ -54,6 +54,7 @@ function ArduinoSimulatorPage() {
       await api.post('/team-submissions/wokwi', {
         teamId: myTeam.data.data._id,
         projectId: selectedProject,
+        stageKey: 'wiring',
         wokwiLink: wokwiLink.trim(),
         notes: notes.trim()
       });

@@ -19,6 +19,10 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
   Divider,
   List,
   ListItem,
@@ -63,7 +67,8 @@ const TeamProjectPage = () => {
   const [openUploadDialog, setOpenUploadDialog] = useState(false);
   const [uploadForm, setUploadForm] = useState({
     file: null,
-    description: ''
+    description: '',
+    stageKey: 'design'
   });
   const [uploading, setUploading] = useState(false);
   const [evaluationStatus, setEvaluationStatus] = useState(null);
@@ -210,6 +215,7 @@ const TeamProjectPage = () => {
       formData.append('teamId', team._id);
       formData.append('projectId', projectId);
       formData.append('description', uploadForm.description);
+      formData.append('stageKey', uploadForm.stageKey);
 
       await api.post('/team-submissions', formData, {
         headers: {
@@ -219,7 +225,7 @@ const TeamProjectPage = () => {
 
       toast.success(t('submissionUploadSuccess'));
       setOpenUploadDialog(false);
-      setUploadForm({ file: null, description: '' });
+      setUploadForm({ file: null, description: '', stageKey: 'design' });
       fetchData();
     } catch (err) {
       toast.error(err.response?.data?.message || t('uploadFileError'));
@@ -501,6 +507,21 @@ const TeamProjectPage = () => {
             variant="contained"
             disabled={!uploadForm.file || uploading}
           >
+
+            <FormControl fullWidth>
+              <InputLabel id="stage-key-label">مرحلة التسليم</InputLabel>
+              <Select
+                labelId="stage-key-label"
+                label="مرحلة التسليم"
+                value={uploadForm.stageKey}
+                onChange={(e) => setUploadForm({ ...uploadForm, stageKey: e.target.value })}
+              >
+                <MenuItem value="design">تسليم التصميم</MenuItem>
+                <MenuItem value="programming">تسليم الكود</MenuItem>
+                <MenuItem value="testing">تسليم المختبر</MenuItem>
+                <MenuItem value="final_delivery">التسليم النهائي</MenuItem>
+              </Select>
+            </FormControl>
             {uploading ? <CircularProgress size={24} /> : t('upload')}
           </Button>
         </DialogActions>

@@ -4,6 +4,12 @@ const Project = require('../models/Project.model');
 const TeamProject = require('../models/TeamProject.model');
 const cloudinary = require('../services/cloudinary.service');
 const multer = require('multer');
+const {
+  STAGE_TO_REQUIRED_ROLE,
+  FILE_ALLOWED_STAGES,
+  WOKWI_ALLOWED_STAGES,
+  STAGE_ORDER
+} = require('../utils/stagedSubmissionConfig');
 
 /**
  * TeamSubmission Controller
@@ -29,18 +35,93 @@ const upload = multer({
 // Export upload middleware
 exports.uploadMiddleware = upload.single('file');
 
+const getTeamMemberIds = (team) => {
+  return (team.members || []).map((member) => (member.user?._id || member.user || member).toString());
+};
+
+const getStudentRoleInProject = (enrollment, userId) => {
+  const hit = (enrollment.memberRoles || []).find(
+    (mr) => mr.user.toString() === userId.toString()
+  );
+  return hit ? hit.role : null;
+};
+
+const buildStageProgress = (submissions, teamMemberIds) => {
+  const byStage = STAGE_ORDER.reduce((acc, key) => {
+    acc[key] = submissions.filter((s) => s.stageKey === key);
+    return acc;
+  }, {});
+
+  const programmingSubmitters = new Set(byStage.programming.map((s) => s.submittedBy.toString()));
+  const programmingCompleted = teamMemberIds.every((id) => programmingSubmitters.has(id));
+
+  return {
+    completed: {
+      design: byStage.design.length > 0,
+      wiring: byStage.wiring.length > 0,
+      programming: programmingCompleted,
+      testing: byStage.testing.length > 0,
+      final_delivery: byStage.final_delivery.length > 0
+    },
+    byStage,
+    programmingSubmitters: Array.from(programmingSubmitters)
+  };
+};
+
+const isStageUnlocked = (stageKey, completed) => {
+  if (stageKey === 'design') return true;
+  if (stageKey === 'wiring') return completed.design;
+  if (stageKey === 'programming') return completed.wiring;
+  if (stageKey === 'testing') return completed.programming;
+  if (stageKey === 'final_delivery') return completed.testing;
+  return false;
+};
+
+const enforceStagePermissions = ({ stageKey, enrollment, userId, completed }) => {
+  if (!isStageUnlocked(stageKey, completed)) {
+    return {
+      allowed: false,
+      status: 403,
+      message: 'هذه المرحلة غير متاحة الآن. يجب إكمال المراحل السابقة أولاً.'
+    };
+  }
+
+  const requiredRole = STAGE_TO_REQUIRED_ROLE[stageKey];
+  if (!requiredRole) {
+    return { allowed: true };
+  }
+
+  const studentRole = getStudentRoleInProject(enrollment, userId);
+  if (studentRole !== requiredRole) {
+    return {
+      allowed: false,
+      status: 403,
+      message: 'غير مصرح لك بالتسليم في هذه المرحلة لأن الدور لا يطابق دورك في المشروع.'
+    };
+  }
+
+  return { allowed: true };
+};
+
 // @desc    Submit a file for a project
 // @route   POST /api/team-submissions
 // @access  Private (team members only)
 exports.createSubmission = async (req, res) => {
   try {
-    const { teamId, projectId, description } = req.body;
+    const { teamId, projectId, description, stageKey } = req.body;
 
     // Validate inputs
-    if (!teamId || !projectId) {
+    if (!teamId || !projectId || !stageKey) {
       return res.status(400).json({
         success: false,
-        message: 'معرف الفريق والمشروع مطلوبان'
+        message: 'معرف الفريق والمشروع والمرحلة مطلوبون'
+      });
+    }
+
+    if (!FILE_ALLOWED_STAGES.has(stageKey)) {
+      return res.status(400).json({
+        success: false,
+        message: 'هذه المرحلة لا تدعم رفع ملف. استخدم نوع التسليم المناسب.'
       });
     }
 
@@ -105,6 +186,23 @@ exports.createSubmission = async (req, res) => {
       });
     }
 
+    const existingSubmissions = await TeamSubmission.find({
+      team: teamId,
+      project: projectId
+    }).select('stageKey submittedBy');
+
+    const teamMemberIds = getTeamMemberIds(team);
+    const stageProgress = buildStageProgress(existingSubmissions, teamMemberIds);
+    const permission = enforceStagePermissions({
+      stageKey,
+      enrollment,
+      userId: req.user._id,
+      completed: stageProgress.completed
+    });
+    if (!permission.allowed) {
+      return res.status(permission.status || 403).json({ success: false, message: permission.message });
+    }
+
     // Upload to Cloudinary
     const folder = `pbl-lms/team-submissions/team-${teamId}`;
     const uploadResult = await cloudinary.uploadFile(
@@ -117,6 +215,7 @@ exports.createSubmission = async (req, res) => {
     const submission = await TeamSubmission.create({
       team: teamId,
       project: projectId,
+      stageKey,
       fileUrl: uploadResult.url,
       fileName: req.file.originalname,
       description,
@@ -137,6 +236,54 @@ exports.createSubmission = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'حدث خطأ في رفع التسليم',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get stage progress for a team's project
+// @route   GET /api/team-submissions/progress/:teamId/:projectId
+// @access  Private (team member, teacher, admin)
+exports.getStageProgress = async (req, res) => {
+  try {
+    const { teamId, projectId } = req.params;
+
+    const team = await Team.findById(teamId);
+    if (!team) {
+      return res.status(404).json({ success: false, message: 'الفريق غير موجود' });
+    }
+
+    if (req.user.role === 'student') {
+      const isMember = team.members.some(
+        (m) => (m.user?._id || m.user || m).toString() === req.user._id.toString()
+      );
+      if (!isMember) {
+        return res.status(403).json({ success: false, message: 'غير مصرح لك' });
+      }
+    }
+
+    const enrollment = await TeamProject.findOne({ team: teamId, project: projectId });
+    if (!enrollment) {
+      return res.status(404).json({ success: false, message: 'الفريق غير مسجل في هذا المشروع' });
+    }
+
+    const submissions = await TeamSubmission.find({ team: teamId, project: projectId })
+      .select('stageKey submittedBy submissionType submittedAt');
+    const teamMemberIds = getTeamMemberIds(team);
+    const progress = buildStageProgress(submissions, teamMemberIds);
+
+    res.json({
+      success: true,
+      data: {
+        completed: progress.completed,
+        programmingRequiredCount: teamMemberIds.length,
+        programmingSubmittedCount: progress.programmingSubmitters.length
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'حدث خطأ في جلب حالة المراحل',
       error: error.message
     });
   }
@@ -437,12 +584,19 @@ exports.deleteSubmission = async (req, res) => {
   // @access  Private (team members only)
   exports.submitWokwiLink = async (req, res) => {
     try {
-      const { teamId, projectId, wokwiLink, notes } = req.body;
+      const { teamId, projectId, wokwiLink, notes, stageKey = 'wiring' } = req.body;
 
       if (!teamId || !projectId || !wokwiLink) {
         return res.status(400).json({
           success: false,
           message: 'الفريق والمشروع ورابط Wokwi مطلوبون'
+        });
+      }
+
+      if (!WOKWI_ALLOWED_STAGES.has(stageKey)) {
+        return res.status(400).json({
+          success: false,
+          message: 'تسليم Wokwi مسموح فقط في مرحلة الموصل'
         });
       }
 
@@ -483,9 +637,27 @@ exports.deleteSubmission = async (req, res) => {
         return res.status(400).json({ success: false, message: 'الفريق غير مسجل في هذا المشروع' });
       }
 
+      const existingSubmissions = await TeamSubmission.find({
+        team: teamId,
+        project: projectId
+      }).select('stageKey submittedBy');
+
+      const teamMemberIds = getTeamMemberIds(team);
+      const stageProgress = buildStageProgress(existingSubmissions, teamMemberIds);
+      const permission = enforceStagePermissions({
+        stageKey,
+        enrollment,
+        userId: req.user._id,
+        completed: stageProgress.completed
+      });
+      if (!permission.allowed) {
+        return res.status(permission.status || 403).json({ success: false, message: permission.message });
+      }
+
       const submission = await TeamSubmission.create({
         team: teamId,
         project: projectId,
+        stageKey,
         submissionType: 'wokwi',
         wokwiLink,
         notes: notes || '',

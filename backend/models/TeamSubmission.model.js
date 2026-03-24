@@ -22,6 +22,13 @@ const teamSubmissionSchema = new mongoose.Schema({
     required: [true, 'المشروع مطلوب']
   },
 
+  stageKey: {
+    type: String,
+    enum: ['design', 'wiring', 'programming', 'testing', 'final_delivery'],
+    required: true,
+    default: 'design'
+  },
+
   // Type: 'file' or 'wokwi'
   submissionType: {
     type: String,
@@ -111,5 +118,6 @@ teamSubmissionSchema.index({ status: 1 });
 teamSubmissionSchema.index({ submittedAt: -1 });
 teamSubmissionSchema.index({ team: 1, project: 1, submissionType: 1, submittedAt: -1 });
 teamSubmissionSchema.index({ team: 1, project: 1, createdAt: -1 });
+teamSubmissionSchema.index({ team: 1, project: 1, stageKey: 1, submittedAt: -1 });
 
 module.exports = mongoose.model('TeamSubmission', teamSubmissionSchema);

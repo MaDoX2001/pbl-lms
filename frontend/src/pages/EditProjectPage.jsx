@@ -24,6 +24,34 @@ import ObservationCardBuilder from '../components/ObservationCardBuilder';
 import ObservationCardStatus from '../components/ObservationCardStatus';
 import { useAppSettings } from '../context/AppSettingsContext';
 
+const FIXED_MILESTONES = [
+  {
+    stageKey: 'design',
+    title: 'تسليم التصميم (Designer Lead)',
+    description: 'وصف فكرة النظام، المدخلات والمخرجات، ومخطط مبدئي للدائرة.'
+  },
+  {
+    stageKey: 'wiring',
+    title: 'تسليم الموصل (Builder Lead)',
+    description: 'تنفيذ التوصيلات على Wokwi والتحقق من صحة التوصيل.'
+  },
+  {
+    stageKey: 'programming',
+    title: 'تسليم الكود (Programmer - إلزامي لكل طالب)',
+    description: 'كل طالب يسلّم كود يطبق منطق المشروع.'
+  },
+  {
+    stageKey: 'testing',
+    title: 'تسليم المختبر (Tester Lead)',
+    description: 'اختبار النظام وتوثيق النتائج والأخطاء والتحسينات.'
+  },
+  {
+    stageKey: 'final_delivery',
+    title: 'التسليم النهائي (Final Delivery)',
+    description: 'نسخة نهائية بعد الفيدباك وتصحيح الملاحظات.'
+  }
+];
+
 const EditProjectPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -48,15 +76,14 @@ const EditProjectPage = () => {
     showObjectives: true,
     components: [''],
     showComponents: true,
-    milestones: [
-      {
-        title: '',
-        description: '',
-        dueDate: '',
-        points: 0,
-        tasks: [{ title: '', description: '' }],
-      },
-    ],
+    milestones: FIXED_MILESTONES.map((m) => ({
+      stageKey: m.stageKey,
+      title: m.title,
+      description: m.description,
+      dueDate: '',
+      points: 0,
+      tasks: [{ title: '', description: '' }]
+    })),
   });
 
   // Observation cards state
@@ -101,19 +128,20 @@ const EditProjectPage = () => {
         showObjectives: project.showObjectives !== undefined ? project.showObjectives : true,
         components: project.components?.length > 0 ? project.components : [''],
         showComponents: project.showComponents !== undefined ? project.showComponents : true,
-        milestones: project.milestones?.length > 0
-          ? [...project.milestones]
-              .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-              .map((milestone) => ({
-                title: milestone.title || '',
-                description: milestone.description || '',
-                dueDate: milestone.dueDate ? new Date(milestone.dueDate).toISOString().slice(0, 16) : '',
-                points: milestone.points || 0,
-                tasks: milestone.tasks?.length > 0
-                  ? milestone.tasks.map((task) => ({ title: task.title || '', description: task.description || '' }))
-                  : [{ title: '', description: '' }],
-              }))
-          : [{ title: '', description: '', dueDate: '', points: 0, tasks: [{ title: '', description: '' }] }],
+        milestones: FIXED_MILESTONES.map((fixed, index) => {
+          const existing = [...(project.milestones || [])]
+            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))[index] || {};
+          return {
+            stageKey: fixed.stageKey,
+            title: fixed.title,
+            description: fixed.description,
+            dueDate: existing.dueDate ? new Date(existing.dueDate).toISOString().slice(0, 16) : '',
+            points: existing.points || 0,
+            tasks: existing.tasks?.length > 0
+              ? existing.tasks.map((task) => ({ title: task.title || '', description: task.description || '' }))
+              : [{ title: '', description: '' }],
+          };
+        }),
       });
 
       // Fetch existing observation cards
@@ -185,20 +213,11 @@ const EditProjectPage = () => {
   };
 
   const handleAddMilestone = () => {
-    setFormData((prev) => ({
-      ...prev,
-      milestones: [
-        ...prev.milestones,
-        { title: '', description: '', dueDate: '', points: 0, tasks: [{ title: '', description: '' }] },
-      ],
-    }));
+    toast.info('عدد المراحل ثابت ولا يمكن إضافة مراحل جديدة');
   };
 
   const handleDeleteMilestone = (milestoneIndex) => {
-    setFormData((prev) => ({
-      ...prev,
-      milestones: prev.milestones.filter((_, i) => i !== milestoneIndex),
-    }));
+    toast.info('عدد المراحل ثابت ولا يمكن حذف أي مرحلة');
   };
 
   const handleMilestoneChange = (milestoneIndex, field, value) => {
@@ -264,6 +283,7 @@ const EditProjectPage = () => {
         components: formData.components.filter(c => c.trim() !== ''),
         milestones: (formData.milestones || [])
           .map((milestone, index) => ({
+            stageKey: milestone.stageKey,
             title: (milestone.title || '').trim(),
             description: (milestone.description || '').trim(),
             dueDate: milestone.dueDate ? new Date(milestone.dueDate).toISOString() : undefined,
@@ -587,7 +607,7 @@ const EditProjectPage = () => {
                     <IconButton
                       color="error"
                       onClick={() => handleDeleteMilestone(milestoneIndex)}
-                      disabled={loading || formData.milestones.length === 1}
+                      disabled={true}
                     >
                       <DeleteIcon />
                     </IconButton>
@@ -600,7 +620,7 @@ const EditProjectPage = () => {
                         label="عنوان المرحلة"
                         value={milestone.title}
                         onChange={(e) => handleMilestoneChange(milestoneIndex, 'title', e.target.value)}
-                        disabled={loading}
+                        disabled
                       />
                     </Grid>
                     <Grid item xs={12} md={3}>
@@ -632,7 +652,7 @@ const EditProjectPage = () => {
                         label="وصف المرحلة"
                         value={milestone.description}
                         onChange={(e) => handleMilestoneChange(milestoneIndex, 'description', e.target.value)}
-                        disabled={loading}
+                        disabled
                       />
                     </Grid>
                   </Grid>

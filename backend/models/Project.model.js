@@ -49,6 +49,10 @@ const projectSchema = new mongoose.Schema({
     default: true
   },
   milestones: [{
+    stageKey: {
+      type: String,
+      enum: ['design', 'wiring', 'programming', 'testing', 'final_delivery']
+    },
     title: {
       type: String,
       required: true
