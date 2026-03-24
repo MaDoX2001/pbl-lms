@@ -8,6 +8,7 @@
     "dev": "nodemon server.js",
     "test": "jest --coverage",
     "lint": "eslint .",
+    "backup:pre-reset": "node scripts/backup-before-stage-reset.js",
     "reset:stages": "node scripts/reset-to-fixed-stages.js"
   },
   "keywords": [
