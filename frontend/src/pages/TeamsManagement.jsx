@@ -135,7 +135,7 @@ const TeamsManagement = () => {
       const payload = {
         name: formData.name,
         description: formData.description,
-        members: formData.members.map(m => m._id)
+        members: formData.members.map(m => m.user?._id || m._id)
       };
 
       if (editMode) {
