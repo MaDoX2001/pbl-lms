@@ -398,17 +398,6 @@ const ProfilePage = () => {
                   primaryTypographyProps={{ fontWeight: 600 }}
                 />
               </ListItem>
-              <Divider component="li" />
-              <ListItem>
-                <ListItemIcon>
-                  <CalendarToday color="primary" />
-                </ListItemIcon>
-                <ListItemText 
-                  primary={t('registrationDate')}
-                  secondary={new Date(user?.createdAt).toLocaleDateString('ar-EG')}
-                  primaryTypographyProps={{ fontWeight: 600 }}
-                />
-              </ListItem>
             </List>
           </Paper>
         </Grid>
