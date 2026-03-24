@@ -165,7 +165,6 @@ function AdminDashboardPage() {
                 <TableCell>{t('email')}</TableCell>
                 <TableCell>{t('role')}</TableCell>
                 <TableCell>{t('status')}</TableCell>
-                <TableCell>{t('joinDate')}</TableCell>
                 <TableCell>{t('actions')}</TableCell>
               </TableRow>
             </TableHead>
@@ -193,7 +192,6 @@ function AdminDashboardPage() {
                       );
                     })()}
                   </TableCell>
-                  <TableCell>{new Date(user.createdAt).toLocaleDateString('ar-EG')}</TableCell>
                   <TableCell>
                     {user.role !== 'admin' && (
                       <>
