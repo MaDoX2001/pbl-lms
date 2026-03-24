@@ -118,7 +118,7 @@ function AdminDashboardPage() {
                 </Typography>
                 <Typography variant="h3">{stats.users.total}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {t('studentsCountStats', { count: stats.users.students })} | {t('teachersCountStats', { count: stats.users.teachers })}
+                  {t('studentsCountStats', { count: stats.users.students })} | {t('teachersCountStats', { count: stats.users.educators ?? (stats.users.teachers + (stats.users.admins || 0)) })}
                 </Typography>
               </CardContent>
             </Card>
@@ -129,9 +129,9 @@ function AdminDashboardPage() {
                 <Typography color="text.secondary" gutterBottom>
                   {t('projects')}
                 </Typography>
-                <Typography variant="h3">{stats.projects.total}</Typography>
+                <Typography variant="h3">{stats.projects.published}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {t('publishedCountStats', { count: stats.projects.published })}
+                  {t('publishedCountStats', { count: stats.projects.published })} | إجمالي: {stats.projects.total}
                 </Typography>
               </CardContent>
             </Card>
@@ -142,7 +142,7 @@ function AdminDashboardPage() {
                 <Typography color="text.secondary" gutterBottom>
                   {t('pendingApproval')}
                 </Typography>
-                <Typography variant="h3">{users.filter(u => !u.isApproved).length}</Typography>
+                <Typography variant="h3">{stats.users.pendingApproval ?? users.filter((u) => u.role !== 'admin' && !u.isApproved).length}</Typography>
                 <Typography variant="body2" color="text.secondary">
                   {t('users')}
                 </Typography>
@@ -182,11 +182,16 @@ function AdminDashboardPage() {
                     />
                   </TableCell>
                   <TableCell>
+                    {(() => {
+                      const isApprovedUser = user.role === 'admin' ? true : user.isApproved;
+                      return (
                     <Chip
-                      label={user.isApproved ? t('approved') : t('pendingApproval')}
-                      color={user.isApproved ? 'success' : 'warning'}
+                      label={isApprovedUser ? t('approved') : t('pendingApproval')}
+                      color={isApprovedUser ? 'success' : 'warning'}
                       size="small"
                     />
+                      );
+                    })()}
                   </TableCell>
                   <TableCell>{new Date(user.createdAt).toLocaleDateString('ar-EG')}</TableCell>
                   <TableCell>

@@ -200,6 +200,8 @@ exports.getDashboardStats = async (req, res) => {
     const totalUsers = await User.countDocuments();
     const totalStudents = await User.countDocuments({ role: 'student' });
     const totalTeachers = await User.countDocuments({ role: 'teacher' });
+    const totalAdmins = await User.countDocuments({ role: 'admin' });
+    const pendingUserApprovals = await User.countDocuments({ role: { $ne: 'admin' }, isApproved: false });
     const totalProjects = await Project.countDocuments();
     const publishedProjects = await Project.countDocuments({ isPublished: true });
     const pendingInvitations = await Invitation.countDocuments({ used: false, expiresAt: { $gt: new Date() } });
@@ -212,7 +214,9 @@ exports.getDashboardStats = async (req, res) => {
           total: totalUsers,
           students: totalStudents,
           teachers: totalTeachers,
-          admins: await User.countDocuments({ role: 'admin' })
+          admins: totalAdmins,
+          educators: totalTeachers + totalAdmins,
+          pendingApproval: pendingUserApprovals
         },
         projects: {
           total: totalProjects,
