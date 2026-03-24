@@ -78,7 +78,8 @@ const ProjectCard = ({ project, onCoverUpdated }) => {
         <CardMedia
           component="div"
           sx={{
-            height: { xs: 210, sm: 230 },
+            width: '100%',
+            aspectRatio: '16 / 9',
             background: cardImage
               ? `url(${cardImage})`
               : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
