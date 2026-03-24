@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import {
@@ -47,6 +47,20 @@ import BadgeCelebrationPopup from '../components/BadgeCelebrationPopup';
 import MilestoneTimeline from '../components/MilestoneTimeline';
 import { useAppSettings } from '../context/AppSettingsContext';
 
+const STAGE_META = {
+  design: { label: 'تسليم التصميم', requiredRole: 'system_designer' },
+  wiring: { label: 'تسليم الموصل', requiredRole: 'hardware_engineer' },
+  programming: { label: 'تسليم الكود', requiredRole: null },
+  testing: { label: 'تسليم المختبر', requiredRole: 'tester' },
+  final_delivery: { label: 'التسليم النهائي', requiredRole: 'tester' }
+};
+
+const ROLE_LABEL = {
+  system_designer: 'Designer Lead',
+  hardware_engineer: 'Builder Lead',
+  tester: 'Tester Lead'
+};
+
 /**
  * TeamProjectPage Component
  * 
@@ -62,6 +76,7 @@ const TeamProjectPage = () => {
 
   const [project, setProject] = useState(null);
   const [team, setTeam] = useState(null);
+  const [teamEnrollment, setTeamEnrollment] = useState(null);
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openUploadDialog, setOpenUploadDialog] = useState(false);
@@ -75,6 +90,7 @@ const TeamProjectPage = () => {
   const [badgePopup, setBadgePopup] = useState({ open: false, badge: null });
   const [completedMilestoneIds, setCompletedMilestoneIds] = useState(new Set());
   const [milestoneProgressMap, setMilestoneProgressMap] = useState({});
+  const [stageProgress, setStageProgress] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -93,13 +109,25 @@ const TeamProjectPage = () => {
       if (projectData.isTeamProject) {
         try {
           const teamResponse = await api.get('/teams/my-team');
-          setTeam(teamResponse.data.data);
+          const teamData = teamResponse.data.data;
+          setTeam(teamData);
 
           // Get team submissions
           const submissionsResponse = await api.get(
-            `/team-submissions/team/${teamResponse.data.data._id}/project/${projectId}`
+            `/team-submissions/team/${teamData._id}/project/${projectId}`
           );
           setSubmissions(submissionsResponse.data.data);
+
+          // Get enrollment (for role in current project)
+          const enrollmentsResponse = await api.get(`/team-projects/team/${teamData._id}`);
+          const enrollment = (enrollmentsResponse.data.data || []).find(
+            (e) => String(e.project?._id) === String(projectId)
+          );
+          setTeamEnrollment(enrollment || null);
+
+          // Get backend stage progress (sequence + programming coverage)
+          const stageRes = await api.get(`/team-submissions/progress/${teamData._id}/${projectId}`);
+          setStageProgress(stageRes.data?.data || null);
         } catch (teamErr) {
           console.error('Team fetch error:', teamErr);
           toast.warning(t('teamNotFoundForProject'));
@@ -201,7 +229,47 @@ const TeamProjectPage = () => {
     setUploadForm({ ...uploadForm, file: e.target.files[0] });
   };
 
+  const myProjectRole = useMemo(() => {
+    const roles = teamEnrollment?.memberRoles || [];
+    const mine = roles.find((r) => String(r.user?._id || r.user) === String(user?._id));
+    return mine?.role || null;
+  }, [teamEnrollment, user?._id]);
+
+  const getStageLockReason = (stageKey) => {
+    if (!stageKey) return 'اختر مرحلة التسليم أولاً';
+
+    if (project?.deadline && new Date() > new Date(project.deadline)) {
+      return 'انتهى موعد تسليم المشروع';
+    }
+
+    const stage = STAGE_META[stageKey];
+    if (!stage) return 'مرحلة غير صالحة';
+
+    if (!stageProgress?.completed) {
+      return 'جاري تحميل حالة المراحل...';
+    }
+
+    const requiredRole = stage.requiredRole;
+    if (requiredRole && myProjectRole !== requiredRole) {
+      return `هذه المرحلة مخصصة لدور ${ROLE_LABEL[requiredRole] || requiredRole}`;
+    }
+
+    const completed = stageProgress.completed;
+    if (stageKey === 'wiring' && !completed.design) return 'يجب إكمال مرحلة التصميم أولاً';
+    if (stageKey === 'programming' && !completed.wiring) return 'يجب إكمال مرحلة الموصل أولاً';
+    if (stageKey === 'testing' && !completed.programming) return 'يجب أن يسلّم كل أعضاء الفريق في مرحلة البرمجة أولاً';
+    if (stageKey === 'final_delivery' && !completed.testing) return 'يجب إكمال مرحلة المختبر أولاً';
+
+    return '';
+  };
+
   const handleUploadSubmit = async () => {
+    const lockReason = getStageLockReason(uploadForm.stageKey);
+    if (lockReason) {
+      toast.error(lockReason);
+      return;
+    }
+
     if (!uploadForm.file) {
       toast.error(t('fileRequired'));
       return;
@@ -361,6 +429,17 @@ const TeamProjectPage = () => {
       {/* Upload Section */}
       {user.role === 'student' && (
         <Box sx={{ mb: 3 }}>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            دورك في هذا المشروع: <strong>{myProjectRole ? (ROLE_LABEL[myProjectRole] || myProjectRole) : 'غير محدد بعد'}</strong>
+            {!myProjectRole && ' — اختر دورك من لوحة الفريق أولاً'}
+          </Alert>
+
+          {stageProgress && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              تقدم البرمجة: {stageProgress.programmingSubmittedCount}/{stageProgress.programmingRequiredCount} طالب سلّم.
+            </Alert>
+          )}
+
           {project.deadline && new Date() > new Date(project.deadline) ? (
             <Alert severity="warning" sx={{ mb: 2 }}>
               {t('projectDeadlinePassed')}
@@ -402,6 +481,9 @@ const TeamProjectPage = () => {
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
                         {t('dateWithValue', { date: new Date(submission.submittedAt).toLocaleString('ar-EG') })}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        المرحلة: {STAGE_META[submission.stageKey]?.label || submission.stageKey || 'غير محدد'}
                       </Typography>
                     </Box>
                     <Chip
@@ -473,6 +555,26 @@ const TeamProjectPage = () => {
         <DialogTitle>{t('uploadNewSubmission')}</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+            <FormControl fullWidth>
+              <InputLabel id="stage-key-label">مرحلة التسليم</InputLabel>
+              <Select
+                labelId="stage-key-label"
+                label="مرحلة التسليم"
+                value={uploadForm.stageKey}
+                onChange={(e) => setUploadForm({ ...uploadForm, stageKey: e.target.value })}
+              >
+                {Object.entries(STAGE_META).map(([key, meta]) => (
+                  <MenuItem key={key} value={key} disabled={!!getStageLockReason(key)}>
+                    {meta.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {!!getStageLockReason(uploadForm.stageKey) && (
+              <Alert severity="warning">{getStageLockReason(uploadForm.stageKey)}</Alert>
+            )}
+
             <Button
               variant="outlined"
               component="label"
@@ -505,23 +607,8 @@ const TeamProjectPage = () => {
           <Button
             onClick={handleUploadSubmit}
             variant="contained"
-            disabled={!uploadForm.file || uploading}
+            disabled={!uploadForm.file || uploading || !!getStageLockReason(uploadForm.stageKey)}
           >
-
-            <FormControl fullWidth>
-              <InputLabel id="stage-key-label">مرحلة التسليم</InputLabel>
-              <Select
-                labelId="stage-key-label"
-                label="مرحلة التسليم"
-                value={uploadForm.stageKey}
-                onChange={(e) => setUploadForm({ ...uploadForm, stageKey: e.target.value })}
-              >
-                <MenuItem value="design">تسليم التصميم</MenuItem>
-                <MenuItem value="programming">تسليم الكود</MenuItem>
-                <MenuItem value="testing">تسليم المختبر</MenuItem>
-                <MenuItem value="final_delivery">التسليم النهائي</MenuItem>
-              </Select>
-            </FormControl>
             {uploading ? <CircularProgress size={24} /> : t('upload')}
           </Button>
         </DialogActions>
