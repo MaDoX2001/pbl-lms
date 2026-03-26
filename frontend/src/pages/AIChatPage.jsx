@@ -104,7 +104,7 @@ const ActionCard = ({ name, result }) => {
 };
 
 // Render message content: parse ```code``` blocks
-const MessageContent = ({ content, isUser, streaming = false }) => {
+const MessageContent = ({ content, streaming = false, isRTL = false }) => {
   const [copied, setCopied] = useState(null);
 
   const copyCode = useCallback((code, index) => {
@@ -159,7 +159,12 @@ const MessageContent = ({ content, isUser, streaming = false }) => {
           );
         }
         return (
-          <Typography key={i} variant="body2" dir="auto" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.8 }}>
+          <Typography
+            key={i}
+            variant="body2"
+            dir={isRTL ? 'rtl' : 'ltr'}
+            sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.8, textAlign: 'inherit' }}
+          >
             {part}
           </Typography>
         );
@@ -172,7 +177,7 @@ const MessageContent = ({ content, isUser, streaming = false }) => {
             width: '2px',
             height: '0.85em',
             bgcolor: 'text.primary',
-            ml: 0.25,
+            ...(isRTL ? { mr: 0.25 } : { ml: 0.25 }),
             verticalAlign: 'middle',
             animation: 'cursorBlink 1s step-end infinite',
             '@keyframes cursorBlink': { '50%': { opacity: 0 } },
@@ -186,7 +191,9 @@ const MessageContent = ({ content, isUser, streaming = false }) => {
 const AIChatPage = () => {
   const { t, direction, language } = useAppSettings();
   const { user } = useSelector((state) => state.auth);
-  const isRTL = direction === 'rtl';
+  const isRTL = language === 'ar';
+  const pageDirection = isRTL ? 'rtl' : 'ltr';
+  const pageTextAlign = isRTL ? 'right' : 'left';
   const isTeacher = user?.role === 'teacher' || user?.role === 'admin';
 
   const [messages, setMessages] = useState(() => {
@@ -443,7 +450,7 @@ ${userText}`
   };
 
   return (
-    <Box sx={{ height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column', direction: 'rtl', textAlign: 'right' }}>
+    <Box sx={{ height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column', direction: pageDirection, textAlign: pageTextAlign }}>
       {/* Header */}
       <Box sx={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -473,15 +480,15 @@ ${userText}`
             <CircularProgress />
           </Box>
         ) : messages.length === 0 ? (
-          <Box sx={{ textAlign: 'right', mt: 6 }}>
+          <Box sx={{ textAlign: pageTextAlign, mt: 6 }}>
             <SmartToyIcon sx={{ fontSize: 64, color: 'primary.main', opacity: 0.5, mb: 2 }} />
             <Typography variant="h6" fontWeight={600} gutterBottom>{t('aiWelcome')}</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>{t('aiWelcomeDesc')}</Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'flex-start' }}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: isRTL ? 'flex-start' : 'flex-end' }}>
               {suggestions.map((s, i) => (
                 <Chip
                   key={i}
-                  label={<span dir="rtl">{s}</span>}
+                  label={<span dir={pageDirection}>{s}</span>}
                   onClick={() => sendMessage(s)}
                   variant="outlined"
                   color="primary"
@@ -491,7 +498,7 @@ ${userText}`
             </Box>
 
             {/* AI Quick Tool Buttons */}
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, justifyContent: 'flex-start', mt: 3 }}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, justifyContent: isRTL ? 'flex-start' : 'flex-end', mt: 3 }}>
               {isTeacher ? (
                 <Button
                   variant="outlined"
@@ -586,7 +593,7 @@ ${userText}`
                     </Box>
                   )}
                   {msg.role === 'user' ? (
-                    <Typography variant="body2" dir="rtl" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, textAlign: 'right' }}>
+                    <Typography variant="body2" dir={pageDirection} sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, textAlign: pageTextAlign }}>
                       {msg.content}
                     </Typography>
                   ) : (
@@ -598,7 +605,7 @@ ${userText}`
                           ))}
                         </Box>
                       )}
-                      <MessageContent content={msg.content} streaming={!!msg.loading} />
+                      <MessageContent content={msg.content} streaming={!!msg.loading} isRTL={isRTL} />
                     </>
                   )}
                 </Paper>
@@ -676,7 +683,7 @@ ${userText}`
                     {msg.suggestions.map((s, si) => (
                       <Chip
                         key={si}
-                        label={<span dir="rtl">{s}</span>}
+                        label={<span dir={pageDirection}>{s}</span>}
                         size="small"
                         variant="outlined"
                         color="primary"
@@ -686,7 +693,7 @@ ${userText}`
                           cursor: 'pointer',
                           fontSize: '0.71rem',
                           height: 26,
-                          direction: 'rtl',
+                          direction: pageDirection,
                           '&:hover': { bgcolor: 'primary.light', color: 'white', borderColor: 'primary.light' },
                         }}
                       />
@@ -761,9 +768,9 @@ ${userText}`
           size="small"
           autoComplete="off"
           sx={{
-            '& .MuiInputBase-root': { borderRadius: 3, direction: 'rtl' },
-            '& .MuiInputBase-input': { textAlign: 'right' },
-            '& textarea': { textAlign: 'right' },
+            '& .MuiInputBase-root': { borderRadius: 3, direction: pageDirection },
+            '& .MuiInputBase-input': { textAlign: pageTextAlign },
+            '& textarea': { textAlign: pageTextAlign },
           }}
         />
         <IconButton
@@ -798,7 +805,7 @@ ${userText}`
 
       {/* Teacher Analytics Dialog */}
       <Dialog open={analyticsDialog} onClose={() => setAnalyticsDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ textAlign: 'right' }}>تقرير تحليلي لأداء الطلاب بالذكاء الاصطناعي</DialogTitle>
+        <DialogTitle sx={{ textAlign: pageTextAlign }}>تقرير تحليلي لأداء الطلاب بالذكاء الاصطناعي</DialogTitle>
         <DialogContent dividers>
           <FormControl fullWidth sx={{ mb: 2 }}>
             <InputLabel id="analytics-project-label">اختر المشروع</InputLabel>
@@ -815,7 +822,7 @@ ${userText}`
           </FormControl>
           {analyticsLoading && <Box sx={{ textAlign: 'center', py: 3 }}><CircularProgress /></Box>}
           {analyticsResult && (
-            <Paper variant="outlined" sx={{ p: 2, whiteSpace: 'pre-line', lineHeight: 2, direction: 'rtl', textAlign: 'right' }}>
+            <Paper variant="outlined" sx={{ p: 2, whiteSpace: 'pre-line', lineHeight: 2, direction: pageDirection, textAlign: pageTextAlign }}>
               <Typography variant="body2">{analyticsResult}</Typography>
             </Paper>
           )}
@@ -835,11 +842,11 @@ ${userText}`
 
       {/* Remedial Activities Dialog */}
       <Dialog open={remedialDialog} onClose={() => setRemedialDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ textAlign: 'right' }}>أنشطة علاجية مقترحة بالذكاء الاصطناعي</DialogTitle>
+        <DialogTitle sx={{ textAlign: pageTextAlign }}>أنشطة علاجية مقترحة بالذكاء الاصطناعي</DialogTitle>
         <DialogContent dividers>
           {remedialLoading && <Box sx={{ textAlign: 'center', py: 3 }}><CircularProgress /></Box>}
           {remedialResult && (
-            <Paper variant="outlined" sx={{ p: 2, whiteSpace: 'pre-line', lineHeight: 2, direction: 'rtl', textAlign: 'right' }}>
+            <Paper variant="outlined" sx={{ p: 2, whiteSpace: 'pre-line', lineHeight: 2, direction: pageDirection, textAlign: pageTextAlign }}>
               <Typography variant="body2">{remedialResult}</Typography>
             </Paper>
           )}
@@ -854,11 +861,11 @@ ${userText}`
 
       {/* Project Ideas Dialog */}
       <Dialog open={ideasDialog} onClose={() => setIdeasDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ textAlign: 'right' }}>أفكار مشاريع Arduino المقترحة</DialogTitle>
+        <DialogTitle sx={{ textAlign: pageTextAlign }}>أفكار مشاريع Arduino المقترحة</DialogTitle>
         <DialogContent dividers>
           {ideasLoading && <Box sx={{ textAlign: 'center', py: 3 }}><CircularProgress /></Box>}
           {ideasResult && (
-            <Paper variant="outlined" sx={{ p: 2, whiteSpace: 'pre-line', lineHeight: 2, direction: 'rtl', textAlign: 'right' }}>
+            <Paper variant="outlined" sx={{ p: 2, whiteSpace: 'pre-line', lineHeight: 2, direction: pageDirection, textAlign: pageTextAlign }}>
               <Typography variant="body2">{ideasResult}</Typography>
             </Paper>
           )}
