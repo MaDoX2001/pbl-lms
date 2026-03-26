@@ -68,6 +68,14 @@ const ProjectDetailPage = () => {
   const [homeworkDialogOpen, setHomeworkDialogOpen] = useState(false);
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [projectSubmitDialogOpen, setProjectSubmitDialogOpen] = useState(false);
+  const [projectSubmitting, setProjectSubmitting] = useState(false);
+  const [projectSubmissionData, setProjectSubmissionData] = useState({
+    submissionUrl: '',
+    codeSubmission: '',
+    demoUrl: '',
+    notes: '',
+  });
   const [loadingMaterials, setLoadingMaterials] = useState(false);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
   const [teamsLinkDialogOpen, setTeamsLinkDialogOpen] = useState(false);
@@ -308,6 +316,25 @@ const ProjectDetailPage = () => {
   const handleJoinTeams = () => {
     if (project.teamsLink) {
       window.open(project.teamsLink, '_blank');
+    }
+  };
+
+  const handleSubmitIndividualProject = async () => {
+    try {
+      setProjectSubmitting(true);
+      await api.post(`/progress/${id}/submit`, projectSubmissionData);
+      toast.success(t('projectSubmitSuccess'));
+      setProjectSubmitDialogOpen(false);
+      setProjectSubmissionData({
+        submissionUrl: '',
+        codeSubmission: '',
+        demoUrl: '',
+        notes: '',
+      });
+    } catch (error) {
+      toast.error(error.response?.data?.message || t('projectSubmitFailed'));
+    } finally {
+      setProjectSubmitting(false);
     }
   };
 
@@ -621,6 +648,22 @@ const ProjectDetailPage = () => {
               </>
             )}
 
+            {/* Individual project submission button for enrolled students */}
+            {user?.role === 'student' && isEnrolled && !project.isTeamProject && (
+              <>
+                <Divider sx={{ my: 2 }} />
+                <Button
+                  variant="contained"
+                  color="success"
+                  fullWidth
+                  startIcon={<CloudUploadIcon />}
+                  onClick={() => setProjectSubmitDialogOpen(true)}
+                >
+                  {t('submit')}
+                </Button>
+              </>
+            )}
+
             {/* Edit Teams Link for Admin/Owner */}
             {canManageProject && (
               <>
@@ -914,6 +957,52 @@ const ProjectDetailPage = () => {
           fetchMySubmissions();
         }}
       />
+
+      <Dialog open={projectSubmitDialogOpen} onClose={() => !projectSubmitting && setProjectSubmitDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{t('submit')}</DialogTitle>
+        <DialogContent>
+          <TextField
+            margin="normal"
+            fullWidth
+            label="رابط التسليم"
+            value={projectSubmissionData.submissionUrl}
+            onChange={(e) => setProjectSubmissionData((prev) => ({ ...prev, submissionUrl: e.target.value }))}
+          />
+          <TextField
+            margin="normal"
+            fullWidth
+            label="رابط الكود (اختياري)"
+            value={projectSubmissionData.codeSubmission}
+            onChange={(e) => setProjectSubmissionData((prev) => ({ ...prev, codeSubmission: e.target.value }))}
+          />
+          <TextField
+            margin="normal"
+            fullWidth
+            label="رابط العرض / الفيديو (اختياري)"
+            value={projectSubmissionData.demoUrl}
+            onChange={(e) => setProjectSubmissionData((prev) => ({ ...prev, demoUrl: e.target.value }))}
+          />
+          <TextField
+            margin="normal"
+            fullWidth
+            multiline
+            rows={4}
+            label="ملاحظات"
+            value={projectSubmissionData.notes}
+            onChange={(e) => setProjectSubmissionData((prev) => ({ ...prev, notes: e.target.value }))}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setProjectSubmitDialogOpen(false)} disabled={projectSubmitting}>{t('cancel')}</Button>
+          <Button
+            variant="contained"
+            onClick={handleSubmitIndividualProject}
+            disabled={projectSubmitting || !projectSubmissionData.submissionUrl.trim()}
+          >
+            {projectSubmitting ? t('submitting') : t('submit')}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <CreateAssignmentDialog
         open={assignmentDialogOpen}
