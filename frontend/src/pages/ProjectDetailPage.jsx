@@ -648,22 +648,6 @@ const ProjectDetailPage = () => {
               </>
             )}
 
-            {/* Individual project submission button for enrolled students */}
-            {user?.role === 'student' && isEnrolled && !project.isTeamProject && (
-              <>
-                <Divider sx={{ my: 2 }} />
-                <Button
-                  variant="contained"
-                  color="success"
-                  fullWidth
-                  startIcon={<CloudUploadIcon />}
-                  onClick={() => setProjectSubmitDialogOpen(true)}
-                >
-                  {t('submit')}
-                </Button>
-              </>
-            )}
-
             {/* Edit Teams Link for Admin/Owner */}
             {canManageProject && (
               <>
@@ -841,6 +825,18 @@ const ProjectDetailPage = () => {
             </Button>
           )}
         </Box>
+        {user?.role === 'student' && isEnrolled && !project.isTeamProject && (
+          <Box sx={{ mb: 2 }}>
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<CloudUploadIcon />}
+              onClick={() => setProjectSubmitDialogOpen(true)}
+            >
+              {t('submit')}
+            </Button>
+          </Box>
+        )}
         <Divider sx={{ mb: 2 }} />
         
         {loadingAssignments ? (
