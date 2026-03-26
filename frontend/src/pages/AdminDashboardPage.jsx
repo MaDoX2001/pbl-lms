@@ -59,8 +59,22 @@ function AdminDashboardPage() {
 
   const fetchUsers = async () => {
     try {
-      const response = await api.get('/admin/users');
-      setUsers(response.data.data);
+      const pageSize = 100;
+      let page = 1;
+      let totalPages = 1;
+      const allUsers = [];
+
+      do {
+        const response = await api.get('/admin/users', {
+          params: { page, limit: pageSize },
+        });
+
+        allUsers.push(...(response.data.data || []));
+        totalPages = Number(response.data.totalPages) || 1;
+        page += 1;
+      } while (page <= totalPages);
+
+      setUsers(allUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
     }
