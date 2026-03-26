@@ -55,6 +55,9 @@ const SUGGESTIONS_EN_TEACHER = [
 let _keySeq = 0;
 const makeKey = () => `${Date.now()}-${++_keySeq}`;
 
+const ARABIC_CHAR_REGEX = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/;
+const detectTextRTL = (text = '') => ARABIC_CHAR_REGEX.test(text);
+
 // Map function names to Arabic labels
 const ACTION_LABELS = {
   list_students: 'عرض قائمة الطلاب',
@@ -238,6 +241,9 @@ const AIChatPage = () => {
   const suggestions = isTeacher
     ? (language === 'ar' ? SUGGESTIONS_AR_TEACHER : SUGGESTIONS_EN_TEACHER)
     : (language === 'ar' ? SUGGESTIONS_AR_STUDENT : SUGGESTIONS_EN_STUDENT);
+  const inputIsRTL = input.trim() ? detectTextRTL(input) : isRTL;
+  const inputDirection = inputIsRTL ? 'rtl' : 'ltr';
+  const inputTextAlign = inputIsRTL ? 'right' : 'left';
 
   // All roles: load messages + summary from DB on mount.
   // DB is the source of truth — wins over localStorage for summary.
@@ -534,6 +540,12 @@ ${userText}`
           </Box>
         ) : (
           messages.map((msg, i) => (
+            (() => {
+              const messageIsRTL = detectTextRTL(msg.content || '');
+              const messageDirection = messageIsRTL ? 'rtl' : 'ltr';
+              const messageTextAlign = messageIsRTL ? 'right' : 'left';
+
+              return (
             <Box
               key={msg._key || i}
               sx={{
@@ -563,7 +575,8 @@ ${userText}`
                     borderRadius: msg.role === 'user'
                       ? (isRTL ? '16px 4px 16px 16px' : '4px 16px 16px 16px')
                       : (isRTL ? '4px 16px 16px 16px' : '16px 4px 16px 16px'),
-                    textAlign: isRTL ? 'right' : 'left',
+                    direction: messageDirection,
+                    textAlign: messageTextAlign,
                   }}
                 >
                   {/* Quoted reply preview inside bubble */}
@@ -593,7 +606,7 @@ ${userText}`
                     </Box>
                   )}
                   {msg.role === 'user' ? (
-                    <Typography variant="body2" dir={pageDirection} sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, textAlign: pageTextAlign }}>
+                    <Typography variant="body2" dir={messageDirection} sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, textAlign: messageTextAlign }}>
                       {msg.content}
                     </Typography>
                   ) : (
@@ -605,7 +618,7 @@ ${userText}`
                           ))}
                         </Box>
                       )}
-                      <MessageContent content={msg.content} streaming={!!msg.loading} isRTL={isRTL} />
+                      <MessageContent content={msg.content} streaming={!!msg.loading} isRTL={messageIsRTL} />
                     </>
                   )}
                 </Paper>
@@ -702,6 +715,8 @@ ${userText}`
                 )}
               </Box>
             </Box>
+              );
+            })()
           ))
         )}
 
@@ -768,9 +783,9 @@ ${userText}`
           size="small"
           autoComplete="off"
           sx={{
-            '& .MuiInputBase-root': { borderRadius: 3, direction: pageDirection },
-            '& .MuiInputBase-input': { textAlign: pageTextAlign },
-            '& textarea': { textAlign: pageTextAlign },
+            '& .MuiInputBase-root': { borderRadius: 3, direction: inputDirection },
+            '& .MuiInputBase-input': { textAlign: inputTextAlign },
+            '& textarea': { textAlign: inputTextAlign },
           }}
         />
         <IconButton
