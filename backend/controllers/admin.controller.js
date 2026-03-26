@@ -220,7 +220,7 @@ exports.getDashboardStats = async (req, res) => {
           pendingApproval: pendingUserApprovals
         },
         projects: {
-          total: publishedProjects,
+          total: allProjectRecords,
           published: publishedProjects,
           draft: draftProjects,
           allRecords: allProjectRecords
