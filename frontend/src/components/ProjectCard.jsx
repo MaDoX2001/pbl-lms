@@ -15,6 +15,7 @@ const ProjectCard = ({ project, onCoverUpdated }) => {
   const reduxUser = useSelector((state) => state.auth?.user);
   const [updatingCover, setUpdatingCover] = React.useState(false);
   const coverInputRef = React.useRef(null);
+  const canSeePublishStatus = reduxUser && (reduxUser.role === 'admin' || reduxUser.role === 'teacher');
 
   const canManage = reduxUser && (reduxUser.role === 'admin' ||
     (reduxUser.role === 'teacher' && (
@@ -99,6 +100,20 @@ const ProjectCard = ({ project, onCoverUpdated }) => {
             boxShadow: 2,
           }}
         />
+        {canSeePublishStatus && (
+          <Chip
+            label={project.isPublished ? t('published') : t('draftUnpublished')}
+            size="small"
+            color={project.isPublished ? 'success' : 'default'}
+            sx={{
+              position: 'absolute',
+              insetInlineEnd: 12,
+              bottom: -12,
+              zIndex: 2,
+              boxShadow: 2,
+            }}
+          />
+        )}
         {canManage && (
           <>
             <Tooltip title={t('updateThumbnail') || 'تحديث صورة الغلاف'}>
