@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Container,
   Paper,
@@ -42,6 +42,16 @@ function AdminDashboardPage() {
   const [users, setUsers] = useState([]);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+
+  const sortedUsers = useMemo(() => {
+    return [...users].sort((a, b) => {
+      const aPending = a.role !== 'admin' && !a.isApproved;
+      const bPending = b.role !== 'admin' && !b.isApproved;
+
+      if (aPending === bPending) return 0;
+      return aPending ? -1 : 1;
+    });
+  }, [users]);
 
   useEffect(() => {
     fetchStats();
@@ -183,7 +193,7 @@ function AdminDashboardPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {users.map((user) => (
+              {sortedUsers.map((user) => (
                 <TableRow key={user._id}>
                   <TableCell>{user.name}</TableCell>
                   <TableCell>{user.email}</TableCell>
