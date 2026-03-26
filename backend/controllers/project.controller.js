@@ -10,9 +10,13 @@ const { normalizeProjectMilestones } = require('../utils/stagedSubmissionConfig'
 exports.getAllProjects = async (req, res) => {
   try {
     const { difficulty, category, search, sort } = req.query;
-    
+
+    // Teacher/Admin should see all projects (published and unpublished).
+    // Guests and students only see published projects.
+    const canViewUnpublished = req.user && (req.user.role === 'teacher' || req.user.role === 'admin');
+
     // Build query
-    let query = { isPublished: true };
+    let query = canViewUnpublished ? {} : { isPublished: true };
     
     if (difficulty) {
       query.difficulty = difficulty;

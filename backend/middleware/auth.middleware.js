@@ -1,6 +1,33 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User.model');
 
+// Optional auth - attach user if valid token is provided, otherwise continue as guest
+exports.optionalAuth = async (req, res, next) => {
+  try {
+    let token;
+
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+
+    if (!token) {
+      return next();
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id);
+
+    if (user && user.isActive) {
+      req.user = user;
+    }
+
+    next();
+  } catch (error) {
+    // Ignore invalid token for optional auth and proceed as guest
+    next();
+  }
+};
+
 // Protect routes - verify JWT token
 exports.protect = async (req, res, next) => {
   try {
