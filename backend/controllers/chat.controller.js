@@ -476,6 +476,16 @@ exports.getOrCreateTeamTeachersConversation = async (req, res) => {
       await conversation.populate('team', 'name');
       
       console.log('Created new team+teachers conversation:', conversation._id);
+    } else {
+      // Ensure current teacher/admin is a participant in existing conversation
+      const participantIds = conversation.participants.map((p) =>
+        (p?._id || p).toString()
+      );
+      if (!participantIds.includes(req.user.id.toString())) {
+        conversation.participants.push(req.user.id);
+        await conversation.save();
+        await conversation.populate('participants', 'name avatar email role');
+      }
     }
 
     res.json({

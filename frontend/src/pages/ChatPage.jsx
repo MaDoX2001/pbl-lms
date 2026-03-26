@@ -62,8 +62,11 @@ const ChatPage = () => {
   const [chatType, setChatType] = useState('direct'); // direct, team, team_teachers, general
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [newChatDialogOpen, setNewChatDialogOpen] = useState(false);
+  const [teamTeachersDialogOpen, setTeamTeachersDialogOpen] = useState(false);
   const [users, setUsers] = useState([]);
+  const [teams, setTeams] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState([]);
+  const [selectedTeam, setSelectedTeam] = useState(null);
   const [groupName, setGroupName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
@@ -96,12 +99,15 @@ const ChatPage = () => {
       socketService.connect(token);
       fetchConversations();
       fetchUsers();
+      if (user?.role === 'teacher' || user?.role === 'admin') {
+        fetchTeams();
+      }
     }
 
     return () => {
       socketService.disconnect();
     };
-  }, [token]);
+  }, [token, user?.role]);
 
   useEffect(() => {
     fetchConversations();
@@ -297,6 +303,15 @@ const ChatPage = () => {
     }
   };
 
+  const fetchTeams = async () => {
+    try {
+      const response = await api.get('/teams');
+      setTeams(response.data.data || []);
+    } catch (error) {
+      console.error('Error fetching teams:', error);
+    }
+  };
+
   const markAsRead = async (conversationId) => {
     try {
       await api.put(`/chat/conversations/${conversationId}/read`);
@@ -426,11 +441,23 @@ const ChatPage = () => {
     }
   };
 
-  const handleOpenTeamTeachersChat = async () => {
+  const handleOpenTeamTeachersChat = async (teamIdOverride) => {
     try {
-      const response = await api.post('/chat/conversations/team-teachers');
+      const payload = (user?.role === 'teacher' || user?.role === 'admin')
+        ? { teamId: teamIdOverride || selectedTeam?._id }
+        : {};
+
+      if ((user?.role === 'teacher' || user?.role === 'admin') && !payload.teamId) {
+        toast.error(t('selectTeams'));
+        return;
+      }
+
+      const response = await api.post('/chat/conversations/team-teachers', payload);
       const conversation = response.data.data;
       setSelectedConversation(conversation);
+      setTeamTeachersDialogOpen(false);
+      setSelectedTeam(null);
+      setChatType('team_teachers');
       fetchConversations();
     } catch (error) {
       const errorMsg = error.response?.data?.message || t('openTeamTeachersChatFailed');
@@ -600,14 +627,12 @@ const ChatPage = () => {
                     iconPosition="start"
                   />
                 )}
-                {user?.role === 'student' && (
-                  <Tab 
-                    value="team_teachers" 
-                    label={t('teamTeachers')} 
-                    icon={<GroupsIcon />}
-                    iconPosition="start"
-                  />
-                )}
+                <Tab 
+                  value="team_teachers" 
+                  label={t('teamTeachers')} 
+                  icon={<GroupsIcon />}
+                  iconPosition="start"
+                />
                 <Tab 
                   value="general" 
                   label={t('general')} 
@@ -661,6 +686,16 @@ const ChatPage = () => {
                   variant="contained"
                   startIcon={<GroupsIcon />}
                   onClick={handleOpenTeamTeachersChat}
+                >
+                  {t('openTeamTeachersChat')}
+                </Button>
+              )}
+              {chatType === 'team_teachers' && (user?.role === 'teacher' || user?.role === 'admin') && filteredConversations.length === 0 && (
+                <Button
+                  fullWidth
+                  variant="contained"
+                  startIcon={<GroupsIcon />}
+                  onClick={() => setTeamTeachersDialogOpen(true)}
                 >
                   {t('openTeamTeachersChat')}
                 </Button>
@@ -993,6 +1028,32 @@ const ChatPage = () => {
             ))}
           </List>
         </DialogContent>
+      </Dialog>
+
+      <Dialog open={teamTeachersDialogOpen} onClose={() => setTeamTeachersDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{t('openTeamTeachersChat')}</DialogTitle>
+        <DialogContent>
+          <Autocomplete
+            options={teams}
+            getOptionLabel={(option) => option?.name || ''}
+            value={selectedTeam}
+            onChange={(e, newValue) => setSelectedTeam(newValue)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={t('selectTeams')}
+                placeholder={t('searchTeam')}
+                sx={{ mt: 1 }}
+              />
+            )}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTeamTeachersDialogOpen(false)}>{t('cancel')}</Button>
+          <Button variant="contained" onClick={() => handleOpenTeamTeachersChat()}>
+            {t('openTeamTeachersChat')}
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* Create Group Dialog */}
