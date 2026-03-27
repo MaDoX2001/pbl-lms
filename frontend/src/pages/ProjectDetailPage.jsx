@@ -1122,9 +1122,7 @@ const ProjectDetailPage = () => {
             })}
           </Grid>
           )
-        ) : (
-          <Alert severity="info">هذا المشروع يعتمد على تسليم المشروع فقط ولا يستخدم تسليمات الواجبات.</Alert>
-        )}
+        ) : null}
       </Paper>
 
       {/* Upload Dialogs */}
