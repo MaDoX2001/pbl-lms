@@ -46,6 +46,7 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import EditIcon from '@mui/icons-material/Edit';
 import GroupsIcon from '@mui/icons-material/Groups';
+import GradeIcon from '@mui/icons-material/Grade';
 import { toast } from 'react-toastify';
 import { fetchProjectById } from '../redux/slices/projectSlice';
 import { enrollInProject } from '../redux/slices/projectSlice';
@@ -87,13 +88,14 @@ const ProjectDetailPage = () => {
   const [selectedTeams, setSelectedTeams] = useState([]);
   const [selectAllTeams, setSelectAllTeams] = useState(false);
   const [teamRegisterDialogOpen, setTeamRegisterDialogOpen] = useState(false);
-  const [countdown, setCountdown] = useState('');
+  const [countdownTimer, setCountdownTimer] = useState('');
   const [studentProjectSubmission, setStudentProjectSubmission] = useState(null);
+  const [studentEvaluationScore, setStudentEvaluationScore] = useState(null);
   const [projectSubmissionsForReview, setProjectSubmissionsForReview] = useState([]);
+  const [projectSubmissionScoresForReview, setProjectSubmissionScoresForReview] = useState({});
   const [loadingProjectSubmissions, setLoadingProjectSubmissions] = useState(false);
   const [showIndividualSubmissions, setShowIndividualSubmissions] = useState(false);
   const [feedbackBySubmission, setFeedbackBySubmission] = useState({});
-  const [scoreBySubmission, setScoreBySubmission] = useState({});
   const [allowResubmitBySubmission, setAllowResubmitBySubmission] = useState({});
   const [savingFeedbackBySubmission, setSavingFeedbackBySubmission] = useState({});
   const [showOtherSubmissionsByStudent, setShowOtherSubmissionsByStudent] = useState({});
@@ -170,11 +172,23 @@ const ProjectDetailPage = () => {
       const progressData = response.data?.data;
       if (progressData && ['submitted', 'reviewed', 'completed'].includes(progressData.status)) {
         setStudentProjectSubmission(progressData);
+        
+        // Also fetch the evaluation score from EvaluationAttempt
+        try {
+          const scoreResponse = await api.get(`/assessment/individual-status/${id}/${user._id}`);
+          if (scoreResponse.data?.data?.latestScore !== null && scoreResponse.data?.data?.latestScore !== undefined) {
+            setStudentEvaluationScore(scoreResponse.data.data.latestScore);
+          }
+        } catch (err) {
+          // Silent fail if evaluation data not available yet
+        }
       } else {
         setStudentProjectSubmission(null);
+        setStudentEvaluationScore(null);
       }
     } catch (error) {
       setStudentProjectSubmission(null);
+      setStudentEvaluationScore(null);
     }
   };
 
@@ -185,16 +199,27 @@ const ProjectDetailPage = () => {
       const submissions = response.data?.data || [];
       setProjectSubmissionsForReview(submissions);
 
+      // Fetch evaluation scores for each student
+      const scoresData = {};
       const feedbackDrafts = {};
-      const scoreDrafts = {};
       const allowResubmitDrafts = {};
-      submissions.forEach((submission) => {
+      
+      for (const submission of submissions) {
         feedbackDrafts[submission._id] = submission.feedback?.comments || '';
-        scoreDrafts[submission._id] = submission.feedback?.score || '';
         allowResubmitDrafts[submission._id] = Boolean(submission.resubmissionAllowed);
-      });
+        
+        try {
+          const scoreResponse = await api.get(`/assessment/individual-status/${id}/${submission.student._id}`);
+          if (scoreResponse.data?.data?.latestScore !== null && scoreResponse.data?.data?.latestScore !== undefined) {
+            scoresData[submission._id] = scoreResponse.data.data.latestScore;
+          }
+        } catch (err) {
+          // Silent fail if evaluation not available
+        }
+      }
+      
+      setProjectSubmissionScoresForReview(scoresData);
       setFeedbackBySubmission(feedbackDrafts);
-      setScoreBySubmission(scoreDrafts);
       setAllowResubmitBySubmission(allowResubmitDrafts);
     } catch (error) {
       setProjectSubmissionsForReview([]);
@@ -448,16 +473,8 @@ const ProjectDetailPage = () => {
   const handleSaveReviewerFeedback = async (submissionId) => {
     try {
       setSavingFeedbackBySubmission((prev) => ({ ...prev, [submissionId]: true }));
-      const scoreValue = scoreBySubmission[submissionId];
-      const scoreNum = scoreValue ? parseInt(scoreValue) : undefined;
-      if (scoreNum !== undefined && (scoreNum < 0 || scoreNum > 100)) {
-        toast.error('الدرجة يجب أن تكون بين 0 و 100');
-        setSavingFeedbackBySubmission((prev) => ({ ...prev, [submissionId]: false }));
-        return;
-      }
       await api.put(`/progress/${submissionId}/feedback`, {
         comments: feedbackBySubmission[submissionId] || '',
-        score: scoreNum,
         allowResubmission: Boolean(allowResubmitBySubmission[submissionId])
       });
       toast.success('تم حفظ تعليق المراجع بنجاح');
@@ -1065,12 +1082,12 @@ const ProjectDetailPage = () => {
                       الملاحظات:\n{studentProjectSubmission.notes}
                     </Typography>
                   )}
-                  {studentEvaluationDone && (
-                    <Paper sx={{ p: 2, mt: 2, backgroundColor: studentProjectSubmission.feedback?.score >= 60 ? 'success.light' : 'error.light' }}>
+                  {studentEvaluationDone && studentEvaluationScore !== null && (
+                    <Paper sx={{ p: 2, mt: 2, backgroundColor: studentEvaluationScore >= 60 ? 'success.light' : 'error.light' }}>
                       <Typography variant="h6" sx={{ mb: 1 }}>
-                        <strong>الدرجة: {studentProjectSubmission.feedback?.score || '—'} / 100</strong>
+                        <strong>الدرجة: {studentEvaluationScore} / 100</strong>
                       </Typography>
-                      {studentProjectSubmission.feedback?.score >= 60 ? (
+                      {studentEvaluationScore >= 60 ? (
                         <Chip label="نجح" size="small" color="success" sx={{ mb: 1 }} />
                       ) : (
                         <Chip label="رسب" size="small" color="error" sx={{ mb: 1 }} />
@@ -1128,15 +1145,26 @@ const ProjectDetailPage = () => {
                               <Typography variant="subtitle2" fontWeight={700}>
                                 {submission.student?.name || 'طالب'}
                               </Typography>
-                              <Chip
-                                size="small"
-                                color={submission.status === 'completed' ? 'success' : submission.status === 'reviewed' ? 'info' : 'warning'}
-                                label={
-                                  submission.status === 'completed' ? 'مكتمل'
-                                    : submission.status === 'reviewed' ? 'تمت المراجعة'
-                                    : 'تم التسليم'
-                                }
-                              />
+                              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                {projectSubmissionScoresForReview[submission._id] !== undefined && (
+                                  <Chip
+                                    size="small"
+                                    icon={<GradeIcon />}
+                                    label={`الدرجة: ${projectSubmissionScoresForReview[submission._id]}/100`}
+                                    color={projectSubmissionScoresForReview[submission._id] >= 60 ? 'success' : 'error'}
+                                    variant="outlined"
+                                  />
+                                )}
+                                <Chip
+                                  size="small"
+                                  color={submission.status === 'completed' ? 'success' : submission.status === 'reviewed' ? 'info' : 'warning'}
+                                  label={
+                                    submission.status === 'completed' ? 'مكتمل'
+                                      : submission.status === 'reviewed' ? 'تمت المراجعة'
+                                      : 'تم التسليم'
+                                  }
+                                />
+                              </Box>
                             </Box>
 
                             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -1166,18 +1194,6 @@ const ProjectDetailPage = () => {
                               <strong>الملاحظات:</strong>{'\n'}{submission.notes || '—'}
                             </Typography>
 
-                            <TextField
-                              fullWidth
-                              type="number"
-                              label="الدرجة (0-100)"
-                              value={scoreBySubmission[submission._id] || ''}
-                              onChange={(e) => setScoreBySubmission((prev) => ({
-                                ...prev,
-                                [submission._id]: e.target.value
-                              }))}
-                              inputProps={{ min: 0, max: 100 }}
-                              sx={{ mb: 1 }}
-                            />
                             <TextField
                               fullWidth
                               multiline

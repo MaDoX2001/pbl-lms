@@ -243,16 +243,9 @@ exports.submitProject = async (req, res) => {
 exports.addReviewerFeedback = async (req, res) => {
   try {
     const { progressId } = req.params;
-    const { comments, allowResubmission, score } = req.body;
+    const { comments, allowResubmission } = req.body;
 
-    if (score !== undefined && (score < 0 || score > 100)) {
-      return res.status(400).json({
-        success: false,
-        message: 'الدرجة يجب أن تكون بين 0 و 100'
-      });
-    }
-
-    const progress = await Progress.findById(progressId).populate('project');
+    const progress = await Progress.findById(progressId).populate('project student');
     if (!progress) {
       return res.status(404).json({
         success: false,
@@ -267,12 +260,22 @@ exports.addReviewerFeedback = async (req, res) => {
       });
     }
 
+    // Get the latest individual evaluation to retrieve the actual score from observation card
+    const latestEvaluation = await EvaluationAttempt.findOne({
+      project: progress.project._id,
+      student: progress.student._id,
+      phase: 'individual_oral',
+      isLatestAttempt: true
+    });
+
+    const scoreFromEvaluation = latestEvaluation?.calculatedScore || null;
+
     const reviewedAt = new Date();
     progress.feedback = {
       ...(progress.feedback || {}),
       reviewer: req.user.id,
       comments: comments || '',
-      score: score !== undefined && score !== null ? parseInt(score) : undefined,
+      score: scoreFromEvaluation,
       reviewedAt
     };
     progress.status = 'reviewed';
@@ -281,7 +284,7 @@ exports.addReviewerFeedback = async (req, res) => {
     progress.feedbackHistory = progress.feedbackHistory || [];
     progress.feedbackHistory.push({
       reviewer: req.user.id,
-      score: score !== undefined && score !== null ? parseInt(score) : undefined,
+      score: scoreFromEvaluation,
       comments: comments || '',
       reviewedAt,
       allowResubmission: Boolean(allowResubmission)
