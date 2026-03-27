@@ -86,6 +86,9 @@ const ProjectDetailPage = () => {
   const [selectAllTeams, setSelectAllTeams] = useState(false);
   const [teamRegisterDialogOpen, setTeamRegisterDialogOpen] = useState(false);
   const [countdown, setCountdown] = useState('');
+  const [studentProjectSubmission, setStudentProjectSubmission] = useState(null);
+  const [projectSubmissionsForReview, setProjectSubmissionsForReview] = useState([]);
+  const [loadingProjectSubmissions, setLoadingProjectSubmissions] = useState(false);
 
   useEffect(() => {
     if (!project?.deadline) { setCountdown(''); return; }
@@ -150,6 +153,32 @@ const ProjectDetailPage = () => {
       setMySubmissions(response.data.submissions || []);
     } catch (error) {
       console.error('Error fetching submissions:', error);
+    }
+  };
+
+  const fetchStudentProjectSubmission = async () => {
+    try {
+      const response = await api.get(`/progress/${id}`);
+      const progressData = response.data?.data;
+      if (progressData && ['submitted', 'reviewed', 'completed'].includes(progressData.status)) {
+        setStudentProjectSubmission(progressData);
+      } else {
+        setStudentProjectSubmission(null);
+      }
+    } catch (error) {
+      setStudentProjectSubmission(null);
+    }
+  };
+
+  const fetchProjectSubmissionsForReview = async () => {
+    try {
+      setLoadingProjectSubmissions(true);
+      const response = await api.get(`/progress/project/${id}/submissions`);
+      setProjectSubmissionsForReview(response.data?.data || []);
+    } catch (error) {
+      setProjectSubmissionsForReview([]);
+    } finally {
+      setLoadingProjectSubmissions(false);
     }
   };
 
@@ -350,6 +379,10 @@ const ProjectDetailPage = () => {
       });
       setWiringImageFile(null);
       setProjectSubmissionFile(null);
+      fetchStudentProjectSubmission();
+      if (user?.role === 'teacher' || user?.role === 'admin') {
+        fetchProjectSubmissionsForReview();
+      }
     } catch (error) {
       toast.error(error.response?.data?.message || t('projectSubmitFailed'));
     } finally {
@@ -390,6 +423,18 @@ const ProjectDetailPage = () => {
 
     setWiringImageFile(file);
   };
+
+  useEffect(() => {
+    if (!id || !project || project.isTeamProject === true) return;
+
+    if (user?.role === 'student') {
+      fetchStudentProjectSubmission();
+    }
+
+    if (user?.role === 'teacher' || user?.role === 'admin') {
+      fetchProjectSubmissionsForReview();
+    }
+  }, [id, project, user?.role]);
 
   if (loading || !project) {
     return (
@@ -902,6 +947,89 @@ const ProjectDetailPage = () => {
           </Box>
         )}
         <Divider sx={{ mb: 2 }} />
+
+        {!isTeamProject && user?.role === 'student' && (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
+              تسليمك في هذا المشروع
+            </Typography>
+            {studentProjectSubmission ? (
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    تاريخ التسليم: {studentProjectSubmission.submittedAt ? new Date(studentProjectSubmission.submittedAt).toLocaleString('ar-EG') : '—'}
+                  </Typography>
+                  {studentProjectSubmission.submissionUrl && (
+                    <Typography variant="body2" sx={{ mb: 1 }}>
+                      رابط التسليم: <a href={studentProjectSubmission.submissionUrl} target="_blank" rel="noopener noreferrer">{studentProjectSubmission.submissionUrl}</a>
+                    </Typography>
+                  )}
+                  {studentProjectSubmission.wiringImageUrl && (
+                    <Box sx={{ mb: 1.5 }}>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>صورة التوصيل:</Typography>
+                      <Box component="img" src={studentProjectSubmission.wiringImageUrl} alt="wiring" sx={{ maxWidth: '100%', borderRadius: 1, border: '1px solid', borderColor: 'divider' }} />
+                    </Box>
+                  )}
+                  {studentProjectSubmission.submissionFiles?.length > 0 && (
+                    <Typography variant="body2" sx={{ mb: 1 }}>
+                      ملف إضافي: <a href={studentProjectSubmission.submissionFiles[studentProjectSubmission.submissionFiles.length - 1].url} target="_blank" rel="noopener noreferrer">تحميل الملف</a>
+                    </Typography>
+                  )}
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                    الكود:\n{studentProjectSubmission.codeSubmission || '—'}
+                  </Typography>
+                  {studentProjectSubmission.notes && (
+                    <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
+                      الملاحظات:\n{studentProjectSubmission.notes}
+                    </Typography>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <Alert severity="info">لم يتم تسليم المشروع الفردي بعد.</Alert>
+            )}
+          </Box>
+        )}
+
+        {!isTeamProject && (user?.role === 'teacher' || user?.role === 'admin') && (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
+              تسليمات الطلاب للمشروع الفردي
+            </Typography>
+            {loadingProjectSubmissions ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                <CircularProgress size={24} />
+              </Box>
+            ) : projectSubmissionsForReview.length === 0 ? (
+              <Alert severity="info">لا توجد تسليمات حتى الآن.</Alert>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                {projectSubmissionsForReview.map((submission) => (
+                  <Card key={submission._id} variant="outlined">
+                    <CardContent>
+                      <Typography variant="subtitle2" fontWeight={700}>
+                        {submission.student?.name || 'طالب'}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        {submission.submittedAt ? new Date(submission.submittedAt).toLocaleString('ar-EG') : '—'}
+                      </Typography>
+                      {submission.submissionUrl && (
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                          رابط التسليم: <a href={submission.submissionUrl} target="_blank" rel="noopener noreferrer">فتح الرابط</a>
+                        </Typography>
+                      )}
+                      {submission.wiringImageUrl && (
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                          صورة التوصيل: <a href={submission.wiringImageUrl} target="_blank" rel="noopener noreferrer">عرض الصورة</a>
+                        </Typography>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+            )}
+          </Box>
+        )}
         
         {loadingAssignments ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
