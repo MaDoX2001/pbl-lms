@@ -772,6 +772,7 @@ ${userText}`
           inputRef={inputRef}
           id="ai-chat-input"
           name="ai-chat-input"
+          dir={inputDirection}
           fullWidth
           multiline
           maxRows={4}
@@ -782,10 +783,14 @@ ${userText}`
           disabled={loading}
           size="small"
           autoComplete="off"
+          inputProps={{
+            dir: inputDirection,
+            style: { textAlign: inputTextAlign, direction: inputDirection },
+          }}
           sx={{
             '& .MuiInputBase-root': { borderRadius: 3, direction: inputDirection },
             '& .MuiInputBase-input': { textAlign: inputTextAlign },
-            '& textarea': { textAlign: inputTextAlign },
+            '& textarea': { textAlign: inputTextAlign, direction: inputDirection },
           }}
         />
         <IconButton
