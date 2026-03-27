@@ -456,6 +456,16 @@ const ProjectDetailPage = () => {
     || enrolledProjectIds.includes(project._id)
     || (user?._id ? enrolledStudentIds.includes(user._id) : false);
   const isTeamProject = project?.isTeamProject === true;
+  const totalRegisteredStudents = Array.isArray(project?.enrolledStudents)
+    ? project.enrolledStudents.length
+    : 0;
+  const submittedStudentIds = new Set(
+    (projectSubmissionsForReview || [])
+      .map((submission) => submission?.student?._id || submission?.studentId || submission?.student)
+      .filter(Boolean)
+      .map((studentId) => String(studentId))
+  );
+  const submittedStudentsCount = submittedStudentIds.size;
   // Admin can manage any project, Teacher can only manage their own projects
   const canManageProject = user && (
     user.role === 'admin' || 
@@ -936,13 +946,20 @@ const ProjectDetailPage = () => {
             </Button>
           )}
           {!isTeamProject && (user?.role === 'teacher' || user?.role === 'admin') && (
-            <Button
-              variant="contained"
-              startIcon={<AssessmentIcon />}
-              onClick={() => setShowIndividualSubmissions((prev) => !prev)}
-            >
-              {showIndividualSubmissions ? 'إخفاء تسليمات الطلاب' : 'عرض تسليمات الطلاب'}
-            </Button>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              <Chip
+                color="primary"
+                variant="outlined"
+                label={`سلم ${submittedStudentsCount} من ${totalRegisteredStudents}`}
+              />
+              <Button
+                variant="contained"
+                startIcon={<AssessmentIcon />}
+                onClick={() => setShowIndividualSubmissions((prev) => !prev)}
+              >
+                {showIndividualSubmissions ? 'إخفاء تسليمات الطلاب' : 'عرض تسليمات الطلاب'}
+              </Button>
+            </Box>
           )}
         </Box>
         {user?.role === 'student' && isEnrolled && !isTeamProject && (
