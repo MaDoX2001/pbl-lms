@@ -165,8 +165,8 @@ const MessageContent = ({ content, streaming = false, isRTL = false }) => {
           <Typography
             key={i}
             variant="body2"
-            dir="auto"
-            sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.8, textAlign: 'start', unicodeBidi: 'plaintext' }}
+            dir={isRTL ? 'rtl' : 'ltr'}
+            sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.8, textAlign: isRTL ? 'right' : 'left', unicodeBidi: 'plaintext' }}
           >
             {part}
           </Typography>
@@ -571,7 +571,8 @@ ${userText}`
                     borderRadius: msg.role === 'user'
                       ? (isRTL ? '16px 4px 16px 16px' : '4px 16px 16px 16px')
                       : (isRTL ? '4px 16px 16px 16px' : '16px 4px 16px 16px'),
-                    textAlign: 'start',
+                    direction: msg.role === 'assistant' ? (messageIsRTL ? 'rtl' : 'ltr') : 'inherit',
+                    textAlign: msg.role === 'assistant' ? (messageIsRTL ? 'right' : 'left') : 'start',
                     unicodeBidi: 'plaintext',
                   }}
                 >
