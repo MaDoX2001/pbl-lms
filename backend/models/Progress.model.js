@@ -64,6 +64,60 @@ const progressSchema = new mongoose.Schema({
     type: String,
     maxlength: [1000, 'الملاحظات لا يمكن أن تتجاوز 1000 حرف']
   },
+  submissionHistory: [{
+    attemptNumber: {
+      type: Number,
+      required: true
+    },
+    submittedAt: {
+      type: Date,
+      required: true
+    },
+    submissionUrl: String,
+    codeSubmission: String,
+    wiringImageUrl: String,
+    demoUrl: String,
+    notes: String,
+    submissionFiles: [{
+      filename: String,
+      url: String,
+      uploadedAt: {
+        type: Date,
+        default: Date.now
+      }
+    }],
+    feedback: {
+      reviewer: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      comments: String,
+      reviewedAt: Date,
+      allowResubmission: {
+        type: Boolean,
+        default: false
+      }
+    }
+  }],
+  feedbackHistory: [{
+    reviewer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    comments: String,
+    reviewedAt: {
+      type: Date,
+      default: Date.now
+    },
+    allowResubmission: {
+      type: Boolean,
+      default: false
+    }
+  }],
+  resubmissionAllowed: {
+    type: Boolean,
+    default: false
+  },
   feedback: {
     reviewer: {
       type: mongoose.Schema.Types.ObjectId,

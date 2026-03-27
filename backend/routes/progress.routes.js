@@ -8,7 +8,8 @@ const {
   updateMilestone,
   submitProject,
   reviewSubmission,
-  getProjectSubmissions
+  getProjectSubmissions,
+  addReviewerFeedback
 } = require('../controllers/progress.controller');
 
 const upload = multer({
@@ -35,6 +36,7 @@ router.post(
 
 // Teacher/Admin routes
 router.put('/:progressId/review', protect, authorize('teacher', 'admin'), reviewSubmission);
+router.put('/:progressId/feedback', protect, authorize('teacher', 'admin'), addReviewerFeedback);
 router.get('/project/:projectId/submissions', protect, authorize('teacher', 'admin'), getProjectSubmissions);
 
 module.exports = router;

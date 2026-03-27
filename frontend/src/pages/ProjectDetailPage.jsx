@@ -27,6 +27,7 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  Alert,
   Checkbox,
   FormControlLabel,
   Autocomplete,
@@ -91,6 +92,10 @@ const ProjectDetailPage = () => {
   const [projectSubmissionsForReview, setProjectSubmissionsForReview] = useState([]);
   const [loadingProjectSubmissions, setLoadingProjectSubmissions] = useState(false);
   const [showIndividualSubmissions, setShowIndividualSubmissions] = useState(false);
+  const [feedbackBySubmission, setFeedbackBySubmission] = useState({});
+  const [allowResubmitBySubmission, setAllowResubmitBySubmission] = useState({});
+  const [savingFeedbackBySubmission, setSavingFeedbackBySubmission] = useState({});
+  const [showOtherSubmissionsByStudent, setShowOtherSubmissionsByStudent] = useState({});
 
   useEffect(() => {
     if (!project?.deadline) { setCountdown(''); return; }
@@ -176,7 +181,17 @@ const ProjectDetailPage = () => {
     try {
       setLoadingProjectSubmissions(true);
       const response = await api.get(`/progress/project/${id}/submissions`);
-      setProjectSubmissionsForReview(response.data?.data || []);
+      const submissions = response.data?.data || [];
+      setProjectSubmissionsForReview(submissions);
+
+      const feedbackDrafts = {};
+      const allowResubmitDrafts = {};
+      submissions.forEach((submission) => {
+        feedbackDrafts[submission._id] = submission.feedback?.comments || '';
+        allowResubmitDrafts[submission._id] = Boolean(submission.resubmissionAllowed);
+      });
+      setFeedbackBySubmission(feedbackDrafts);
+      setAllowResubmitBySubmission(allowResubmitDrafts);
     } catch (error) {
       setProjectSubmissionsForReview([]);
     } finally {
@@ -424,6 +439,22 @@ const ProjectDetailPage = () => {
     }
 
     setWiringImageFile(file);
+  };
+
+  const handleSaveReviewerFeedback = async (submissionId) => {
+    try {
+      setSavingFeedbackBySubmission((prev) => ({ ...prev, [submissionId]: true }));
+      await api.put(`/progress/${submissionId}/feedback`, {
+        comments: feedbackBySubmission[submissionId] || '',
+        allowResubmission: Boolean(allowResubmitBySubmission[submissionId])
+      });
+      toast.success('تم حفظ تعليق المراجع بنجاح');
+      fetchProjectSubmissionsForReview();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'فشل حفظ تعليق المراجع');
+    } finally {
+      setSavingFeedbackBySubmission((prev) => ({ ...prev, [submissionId]: false }));
+    }
   };
 
   useEffect(() => {
@@ -970,7 +1001,7 @@ const ProjectDetailPage = () => {
               startIcon={<CloudUploadIcon />}
               onClick={() => setProjectSubmitDialogOpen(true)}
             >
-              {t('submit')}
+              {studentProjectSubmission?.resubmissionAllowed ? 'إعادة التسليم' : t('submit')}
             </Button>
           </Box>
         )}
@@ -1011,6 +1042,16 @@ const ProjectDetailPage = () => {
                       الملاحظات:\n{studentProjectSubmission.notes}
                     </Typography>
                   )}
+                  {studentProjectSubmission.feedback?.comments && (
+                    <Alert severity="info" sx={{ mt: 2, whiteSpace: 'pre-wrap' }}>
+                      <strong>تعليق المراجع:</strong>{'\n'}{studentProjectSubmission.feedback.comments}
+                    </Alert>
+                  )}
+                  {studentProjectSubmission.resubmissionAllowed && (
+                    <Alert severity="warning" sx={{ mt: 1 }}>
+                      تم فتح إعادة التسليم لك. راجع تعليق المراجع ثم أعد التسليم.
+                    </Alert>
+                  )}
                 </CardContent>
               </Card>
             ) : (
@@ -1032,101 +1073,196 @@ const ProjectDetailPage = () => {
               <Alert severity="info">لا توجد تسليمات حتى الآن.</Alert>
             ) : (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                {projectSubmissionsForReview.map((submission) => (
-                  <Card key={submission._id} variant="outlined">
-                    <CardContent>
-                      <Grid container spacing={2} alignItems="stretch">
-                        <Grid item xs={12} md={7}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                            <Typography variant="subtitle2" fontWeight={700}>
-                              {submission.student?.name || 'طالب'}
+                {projectSubmissionsForReview.map((submission) => {
+                  const submissionHistory = Array.isArray(submission.submissionHistory)
+                    ? submission.submissionHistory
+                    : [];
+                  const otherSubmissions = submissionHistory.length > 1
+                    ? submissionHistory.slice(0, -1).reverse()
+                    : [];
+                  const studentIdentifier = String(
+                    submission.student?._id || submission.studentId || submission.student || submission._id
+                  );
+
+                  return (
+                    <Card key={submission._id} variant="outlined">
+                      <CardContent>
+                        <Grid container spacing={2} alignItems="stretch">
+                          <Grid item xs={12} md={7}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                              <Typography variant="subtitle2" fontWeight={700}>
+                                {submission.student?.name || 'طالب'}
+                              </Typography>
+                              <Chip
+                                size="small"
+                                color={submission.status === 'completed' ? 'success' : submission.status === 'reviewed' ? 'info' : 'warning'}
+                                label={
+                                  submission.status === 'completed' ? 'مكتمل'
+                                    : submission.status === 'reviewed' ? 'تمت المراجعة'
+                                    : 'تم التسليم'
+                                }
+                              />
+                            </Box>
+
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                              البريد: {submission.student?.email || '—'}
                             </Typography>
-                            <Chip
-                              size="small"
-                              color={submission.status === 'completed' ? 'success' : submission.status === 'reviewed' ? 'info' : 'warning'}
-                              label={
-                                submission.status === 'completed' ? 'مكتمل'
-                                  : submission.status === 'reviewed' ? 'تمت المراجعة'
-                                  : 'تم التسليم'
-                              }
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                              تاريخ آخر تسليم: {submission.submittedAt ? new Date(submission.submittedAt).toLocaleString('ar-EG') : '—'}
+                            </Typography>
+
+                            {submission.submissionUrl && (
+                              <Typography variant="body2" sx={{ mb: 1 }}>
+                                رابط التسليم: <a href={submission.submissionUrl} target="_blank" rel="noopener noreferrer">فتح الرابط</a>
+                              </Typography>
+                            )}
+                            {submission.wiringImageUrl && (
+                              <Typography variant="body2" sx={{ mb: 1 }}>
+                                صورة التوصيل: <a href={submission.wiringImageUrl} target="_blank" rel="noopener noreferrer">عرض الصورة</a>
+                              </Typography>
+                            )}
+                            {submission.submissionFiles?.length > 0 && (
+                              <Typography variant="body2" sx={{ mb: 1 }}>
+                                الملف المرفوع: <a href={submission.submissionFiles[submission.submissionFiles.length - 1].url} target="_blank" rel="noopener noreferrer">تحميل الملف</a>
+                              </Typography>
+                            )}
+
+                            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mb: 1.5 }}>
+                              <strong>الملاحظات:</strong>{'\n'}{submission.notes || '—'}
+                            </Typography>
+
+                            <TextField
+                              fullWidth
+                              multiline
+                              minRows={2}
+                              label="تعليق المراجع للطالب"
+                              value={feedbackBySubmission[submission._id] || ''}
+                              onChange={(e) => setFeedbackBySubmission((prev) => ({
+                                ...prev,
+                                [submission._id]: e.target.value
+                              }))}
+                              sx={{ mb: 1 }}
                             />
-                          </Box>
 
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                            البريد: {submission.student?.email || '—'}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                            تاريخ التسليم: {submission.submittedAt ? new Date(submission.submittedAt).toLocaleString('ar-EG') : '—'}
-                          </Typography>
+                            <FormControlLabel
+                              sx={{ mb: 1 }}
+                              control={(
+                                <Checkbox
+                                  checked={Boolean(allowResubmitBySubmission[submission._id])}
+                                  onChange={(e) => setAllowResubmitBySubmission((prev) => ({
+                                    ...prev,
+                                    [submission._id]: e.target.checked
+                                  }))}
+                                />
+                              )}
+                              label="السماح بإعادة التسليم"
+                            />
 
-                          {submission.submissionUrl && (
-                            <Typography variant="body2" sx={{ mb: 1 }}>
-                              رابط التسليم: <a href={submission.submissionUrl} target="_blank" rel="noopener noreferrer">فتح الرابط</a>
-                            </Typography>
-                          )}
-                          {submission.wiringImageUrl && (
-                            <Typography variant="body2" sx={{ mb: 1 }}>
-                              صورة التوصيل: <a href={submission.wiringImageUrl} target="_blank" rel="noopener noreferrer">عرض الصورة</a>
-                            </Typography>
-                          )}
-                          {submission.submissionFiles?.length > 0 && (
-                            <Typography variant="body2" sx={{ mb: 1 }}>
-                              الملف المرفوع: <a href={submission.submissionFiles[submission.submissionFiles.length - 1].url} target="_blank" rel="noopener noreferrer">تحميل الملف</a>
-                            </Typography>
-                          )}
+                            <Grid container spacing={1} sx={{ mb: 1 }}>
+                              <Grid item xs={12} sm={6}>
+                                <Button
+                                  fullWidth
+                                  variant="outlined"
+                                  onClick={() => handleSaveReviewerFeedback(submission._id)}
+                                  disabled={Boolean(savingFeedbackBySubmission[submission._id])}
+                                >
+                                  {savingFeedbackBySubmission[submission._id] ? 'جارٍ الحفظ...' : 'حفظ الفيدباك'}
+                                </Button>
+                              </Grid>
+                              <Grid item xs={12} sm={6}>
+                                <Button
+                                  fullWidth
+                                  variant="contained"
+                                  startIcon={<AssessmentIcon />}
+                                  onClick={() => {
+                                    const studentId = submission.student?._id || submission.studentId || submission.student;
+                                    if (!studentId) return;
+                                    navigate(`/evaluate/individual/${id}/${studentId}/${submission._id}`);
+                                  }}
+                                  disabled={!(submission.student?._id || submission.studentId || submission.student)}
+                                >
+                                  تقييم هذا الطالب
+                                </Button>
+                              </Grid>
+                            </Grid>
 
-                          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mb: 2 }}>
-                            <strong>الملاحظات:</strong>{'\n'}{submission.notes || '—'}
-                          </Typography>
+                            {otherSubmissions.length > 0 && (
+                              <>
+                                <Button
+                                  size="small"
+                                  onClick={() => setShowOtherSubmissionsByStudent((prev) => ({
+                                    ...prev,
+                                    [studentIdentifier]: !prev[studentIdentifier]
+                                  }))}
+                                  sx={{ mb: 1 }}
+                                >
+                                  {showOtherSubmissionsByStudent[studentIdentifier]
+                                    ? 'إخفاء التسليمات الأخرى'
+                                    : `عرض التسليمات الأخرى (${otherSubmissions.length})`}
+                                </Button>
 
-                          <Button
-                            fullWidth
-                            variant="contained"
-                            startIcon={<AssessmentIcon />}
-                            onClick={() => {
-                              const studentId = submission.student?._id || submission.studentId || submission.student;
-                              if (!studentId) return;
-                              navigate(`/evaluate/individual/${id}/${studentId}/${submission._id}`);
-                            }}
-                            disabled={!(submission.student?._id || submission.studentId || submission.student)}
-                          >
-                            تقييم هذا الطالب
-                          </Button>
-                        </Grid>
+                                {showOtherSubmissionsByStudent[studentIdentifier] && (
+                                  <Box sx={{ border: '1px dashed', borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
+                                    {otherSubmissions.map((oldSubmission) => (
+                                      <Box key={`${submission._id}-${oldSubmission.attemptNumber}`} sx={{ mb: 1.5, '&:last-child': { mb: 0 } }}>
+                                        <Typography variant="body2" fontWeight={700}>
+                                          محاولة #{oldSubmission.attemptNumber}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                                          {oldSubmission.submittedAt ? new Date(oldSubmission.submittedAt).toLocaleString('ar-EG') : '—'}
+                                        </Typography>
+                                        {oldSubmission.submissionUrl && (
+                                          <Typography variant="body2">
+                                            الرابط: <a href={oldSubmission.submissionUrl} target="_blank" rel="noopener noreferrer">فتح</a>
+                                          </Typography>
+                                        )}
+                                        {oldSubmission.feedback?.comments && (
+                                          <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>
+                                            تعليق المراجع:\n{oldSubmission.feedback.comments}
+                                          </Typography>
+                                        )}
+                                      </Box>
+                                    ))}
+                                  </Box>
+                                )}
+                              </>
+                            )}
+                          </Grid>
 
-                        <Grid item xs={12} md={5}>
-                          <Box
-                            sx={{
-                              height: '100%',
-                              p: 1.5,
-                              borderRadius: 1,
-                              border: '1px solid',
-                              borderColor: 'divider',
-                              backgroundColor: 'background.default'
-                            }}
-                          >
-                            <Typography variant="body2" sx={{ mb: 1, fontWeight: 700 }}>
-                              الكود
-                            </Typography>
-                            <Typography
-                              variant="body2"
+                          <Grid item xs={12} md={5}>
+                            <Box
                               sx={{
-                                direction: 'ltr',
-                                textAlign: 'left',
-                                unicodeBidi: 'plaintext',
-                                whiteSpace: 'pre-wrap',
-                                fontFamily: 'Consolas, Monaco, "Courier New", monospace',
-                                fontSize: '0.8rem'
+                                height: '100%',
+                                p: 1.5,
+                                borderRadius: 1,
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                backgroundColor: 'background.default'
                               }}
                             >
-                              {submission.codeSubmission || '—'}
-                            </Typography>
-                          </Box>
+                              <Typography variant="body2" sx={{ mb: 1, fontWeight: 700 }}>
+                                الكود (آخر تسليم)
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  direction: 'ltr',
+                                  textAlign: 'left',
+                                  unicodeBidi: 'plaintext',
+                                  whiteSpace: 'pre-wrap',
+                                  fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+                                  fontSize: '0.8rem'
+                                }}
+                              >
+                                {submission.codeSubmission || '—'}
+                              </Typography>
+                            </Box>
+                          </Grid>
                         </Grid>
-                      </Grid>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </Box>
             )}
           </Box>

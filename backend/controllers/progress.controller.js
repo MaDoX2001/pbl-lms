@@ -166,6 +166,14 @@ exports.submitProject = async (req, res) => {
         message: 'لم يتم العثور على تقدم لهذا المشروع'
       });
     }
+
+    const previousAttemptsCount = progress.submissionHistory?.length || progress.attempts || 0;
+    if (previousAttemptsCount > 0 && !progress.resubmissionAllowed) {
+      return res.status(400).json({
+        success: false,
+        message: 'لا يمكن إعادة التسليم الآن. بانتظار موافقة المراجع على فتح إعادة التسليم.'
+      });
+    }
     
     // Update progress
     progress.status = 'submitted';
@@ -174,7 +182,8 @@ exports.submitProject = async (req, res) => {
     progress.codeSubmission = codeSubmission;
     progress.demoUrl = demoUrl;
     progress.notes = notes;
-    progress.attempts += 1;
+    progress.attempts = previousAttemptsCount + 1;
+    progress.resubmissionAllowed = false;
 
     const wiringFolder = `pbl-lms/wiring-images/project-${projectId}/student-${req.user.id}`;
     const wiringUploadResult = await cloudinaryService.uploadFile(
@@ -183,6 +192,7 @@ exports.submitProject = async (req, res) => {
       wiringFolder
     );
     progress.wiringImageUrl = wiringUploadResult.url;
+    progress.submissionFiles = [];
 
     if (extraSubmissionFile) {
       const folder = `pbl-lms/progress-submissions/project-${projectId}/student-${req.user.id}`;
@@ -192,13 +202,24 @@ exports.submitProject = async (req, res) => {
         folder
       );
 
-      progress.submissionFiles = progress.submissionFiles || [];
       progress.submissionFiles.push({
         filename: extraSubmissionFile.originalname,
         url: uploadResult.url,
         uploadedAt: new Date()
       });
     }
+
+    progress.submissionHistory = progress.submissionHistory || [];
+    progress.submissionHistory.push({
+      attemptNumber: progress.attempts,
+      submittedAt: progress.submittedAt,
+      submissionUrl: progress.submissionUrl,
+      codeSubmission: progress.codeSubmission,
+      wiringImageUrl: progress.wiringImageUrl,
+      demoUrl: progress.demoUrl,
+      notes: progress.notes,
+      submissionFiles: progress.submissionFiles || []
+    });
     
     await progress.save();
     
@@ -211,6 +232,75 @@ exports.submitProject = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'خطأ في تسليم المشروع',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Add reviewer feedback and optionally allow re-submission
+// @route   PUT /api/progress/:progressId/feedback
+// @access  Private (Teacher/Admin)
+exports.addReviewerFeedback = async (req, res) => {
+  try {
+    const { progressId } = req.params;
+    const { comments, allowResubmission } = req.body;
+
+    const progress = await Progress.findById(progressId).populate('project');
+    if (!progress) {
+      return res.status(404).json({
+        success: false,
+        message: 'التسليم غير موجود'
+      });
+    }
+
+    if (req.user.role !== 'admin' && progress.project?.instructor?.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'غير مصرح لك بإضافة تعليق على هذا التسليم'
+      });
+    }
+
+    const reviewedAt = new Date();
+    progress.feedback = {
+      ...(progress.feedback || {}),
+      reviewer: req.user.id,
+      comments: comments || '',
+      reviewedAt
+    };
+    progress.status = 'reviewed';
+    progress.resubmissionAllowed = Boolean(allowResubmission);
+
+    progress.feedbackHistory = progress.feedbackHistory || [];
+    progress.feedbackHistory.push({
+      reviewer: req.user.id,
+      comments: comments || '',
+      reviewedAt,
+      allowResubmission: Boolean(allowResubmission)
+    });
+
+    if (progress.submissionHistory?.length > 0) {
+      const latestAttempt = progress.submissionHistory[progress.submissionHistory.length - 1];
+      latestAttempt.feedback = {
+        reviewer: req.user.id,
+        comments: comments || '',
+        reviewedAt,
+        allowResubmission: Boolean(allowResubmission)
+      };
+    }
+
+    await progress.save();
+
+    res.json({
+      success: true,
+      message: Boolean(allowResubmission)
+        ? 'تم حفظ التعليق وفتح إعادة التسليم للطالب'
+        : 'تم حفظ التعليق بنجاح',
+      data: progress
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في حفظ تعليق المراجع',
       error: error.message
     });
   }
