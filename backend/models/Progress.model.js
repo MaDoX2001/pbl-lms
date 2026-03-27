@@ -54,6 +54,9 @@ const progressSchema = new mongoose.Schema({
   codeSubmission: {
     type: String
   },
+  wiringImageUrl: {
+    type: String
+  },
   demoUrl: {
     type: String
   },

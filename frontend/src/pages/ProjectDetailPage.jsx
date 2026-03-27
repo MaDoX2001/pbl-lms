@@ -73,9 +73,10 @@ const ProjectDetailPage = () => {
   const [projectSubmissionData, setProjectSubmissionData] = useState({
     submissionUrl: '',
     codeSubmission: '',
-    demoUrl: '',
+    wiringImageUrl: '',
     notes: '',
   });
+  const [projectSubmissionFile, setProjectSubmissionFile] = useState(null);
   const [loadingMaterials, setLoadingMaterials] = useState(false);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
   const [teamsLinkDialogOpen, setTeamsLinkDialogOpen] = useState(false);
@@ -324,20 +325,55 @@ const ProjectDetailPage = () => {
   const handleSubmitIndividualProject = async () => {
     try {
       setProjectSubmitting(true);
-      await api.post(`/progress/${id}/submit`, projectSubmissionData);
+      const formData = new FormData();
+      formData.append('submissionUrl', projectSubmissionData.submissionUrl || '');
+      formData.append('codeSubmission', projectSubmissionData.codeSubmission || '');
+      formData.append('wiringImageUrl', projectSubmissionData.wiringImageUrl || '');
+      formData.append('notes', projectSubmissionData.notes || '');
+
+      if (projectSubmissionFile) {
+        formData.append('submissionFile', projectSubmissionFile);
+      }
+
+      await api.post(`/progress/${id}/submit`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       toast.success(t('projectSubmitSuccess'));
       setProjectSubmitDialogOpen(false);
       setProjectSubmissionData({
         submissionUrl: '',
         codeSubmission: '',
-        demoUrl: '',
+        wiringImageUrl: '',
         notes: '',
       });
+      setProjectSubmissionFile(null);
     } catch (error) {
       toast.error(error.response?.data?.message || t('projectSubmitFailed'));
     } finally {
       setProjectSubmitting(false);
     }
+  };
+
+  const handleProjectFileChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const allowed = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'video/mp4',
+      'video/webm',
+      'video/quicktime',
+      'video/x-msvideo'
+    ];
+
+    if (!allowed.includes(file.type)) {
+      toast.error('الملف المسموح: Word أو PDF أو فيديو فقط');
+      return;
+    }
+
+    setProjectSubmissionFile(file);
   };
 
   if (loading || !project) {
@@ -987,9 +1023,9 @@ const ProjectDetailPage = () => {
           <TextField
             margin="normal"
             fullWidth
-            label="رابط العرض / الفيديو (اختياري)"
-            value={projectSubmissionData.demoUrl}
-            onChange={(e) => setProjectSubmissionData((prev) => ({ ...prev, demoUrl: e.target.value }))}
+            label="صورة التوصيل (رابط صورة)"
+            value={projectSubmissionData.wiringImageUrl}
+            onChange={(e) => setProjectSubmissionData((prev) => ({ ...prev, wiringImageUrl: e.target.value }))}
           />
           <TextField
             margin="normal"
@@ -1000,6 +1036,27 @@ const ProjectDetailPage = () => {
             value={projectSubmissionData.notes}
             onChange={(e) => setProjectSubmissionData((prev) => ({ ...prev, notes: e.target.value }))}
           />
+
+          <Box sx={{ mt: 2 }}>
+            <input
+              id="project-submit-file"
+              type="file"
+              accept=".pdf,.doc,.docx,.mp4,.webm,.mov,.avi"
+              style={{ display: 'none' }}
+              onChange={handleProjectFileChange}
+              disabled={projectSubmitting}
+            />
+            <label htmlFor="project-submit-file">
+              <Button variant="outlined" component="span" startIcon={<CloudUploadIcon />}>
+                رفع ملف (Word / PDF / Video)
+              </Button>
+            </label>
+            {projectSubmissionFile && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                الملف المختار: {projectSubmissionFile.name}
+              </Typography>
+            )}
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setProjectSubmitDialogOpen(false)} disabled={projectSubmitting}>{t('cancel')}</Button>

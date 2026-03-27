@@ -1,6 +1,7 @@
 const Progress = require('../models/Progress.model');
 const Project = require('../models/Project.model');
 const User = require('../models/User.model');
+const cloudinaryService = require('../services/cloudinary.service');
 
 // @desc    Get student progress for a project
 // @route   GET /api/progress/:projectId
@@ -134,7 +135,7 @@ exports.updateMilestone = async (req, res) => {
 exports.submitProject = async (req, res) => {
   try {
     const { projectId } = req.params;
-    const { submissionUrl, codeSubmission, demoUrl, notes } = req.body;
+    const { submissionUrl, codeSubmission, wiringImageUrl, demoUrl, notes } = req.body;
     
     const progress = await Progress.findOne({
       student: req.user.id,
@@ -153,9 +154,26 @@ exports.submitProject = async (req, res) => {
     progress.submittedAt = new Date();
     progress.submissionUrl = submissionUrl;
     progress.codeSubmission = codeSubmission;
+    progress.wiringImageUrl = wiringImageUrl;
     progress.demoUrl = demoUrl;
     progress.notes = notes;
     progress.attempts += 1;
+
+    if (req.file) {
+      const folder = `pbl-lms/progress-submissions/project-${projectId}/student-${req.user.id}`;
+      const uploadResult = await cloudinaryService.uploadFile(
+        req.file.buffer,
+        req.file.originalname,
+        folder
+      );
+
+      progress.submissionFiles = progress.submissionFiles || [];
+      progress.submissionFiles.push({
+        filename: req.file.originalname,
+        url: uploadResult.url,
+        uploadedAt: new Date()
+      });
+    }
     
     await progress.save();
     
