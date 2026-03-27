@@ -89,6 +89,7 @@ const ProjectDetailPage = () => {
   const [studentProjectSubmission, setStudentProjectSubmission] = useState(null);
   const [projectSubmissionsForReview, setProjectSubmissionsForReview] = useState([]);
   const [loadingProjectSubmissions, setLoadingProjectSubmissions] = useState(false);
+  const [showIndividualSubmissions, setShowIndividualSubmissions] = useState(false);
 
   useEffect(() => {
     if (!project?.deadline) { setCountdown(''); return; }
@@ -933,6 +934,15 @@ const ProjectDetailPage = () => {
               عرض تسليمات الفرق
             </Button>
           )}
+          {!isTeamProject && (user?.role === 'teacher' || user?.role === 'admin') && (
+            <Button
+              variant="contained"
+              startIcon={<AssessmentIcon />}
+              onClick={() => setShowIndividualSubmissions((prev) => !prev)}
+            >
+              {showIndividualSubmissions ? 'إخفاء تسليمات الطلاب' : 'عرض تسليمات الطلاب'}
+            </Button>
+          )}
         </Box>
         {user?.role === 'student' && isEnrolled && !isTeamProject && (
           <Box sx={{ mb: 2 }}>
@@ -991,7 +1001,7 @@ const ProjectDetailPage = () => {
           </Box>
         )}
 
-        {!isTeamProject && (user?.role === 'teacher' || user?.role === 'admin') && (
+        {!isTeamProject && (user?.role === 'teacher' || user?.role === 'admin') && showIndividualSubmissions && (
           <Box sx={{ mb: 3 }}>
             <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
               تسليمات الطلاب للمشروع الفردي
