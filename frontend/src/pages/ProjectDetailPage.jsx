@@ -1254,19 +1254,22 @@ const ProjectDetailPage = () => {
                               <Typography variant="body2" sx={{ mb: 1, fontWeight: 700 }}>
                                 الكود (آخر تسليم)
                               </Typography>
-                              <Typography
-                                variant="body2"
+                              <Box
+                                dir="ltr"
                                 sx={{
                                   direction: 'ltr',
                                   textAlign: 'left',
-                                  unicodeBidi: 'plaintext',
+                                  marginLeft: 0,
+                                  marginRight: 'auto',
+                                  unicodeBidi: 'isolate',
                                   whiteSpace: 'pre-wrap',
                                   fontFamily: 'Consolas, Monaco, "Courier New", monospace',
-                                  fontSize: '0.8rem'
+                                  fontSize: '0.8rem',
+                                  overflow: 'auto'
                                 }}
                               >
                                 {submission.codeSubmission || '—'}
-                              </Typography>
+                              </Box>
                             </Box>
                           </Grid>
                         </Grid>
