@@ -497,6 +497,11 @@ const ProjectDetailPage = () => {
       .map((studentId) => String(studentId))
   );
   const submittedStudentsCount = submittedStudentIds.size;
+  const studentEvaluationDone = Boolean(
+    studentProjectSubmission?.feedback?.reviewedAt
+      || studentProjectSubmission?.feedback?.comments
+      || ['reviewed', 'completed'].includes(studentProjectSubmission?.status)
+  );
   // Admin can manage any project, Teacher can only manage their own projects
   const canManageProject = user && (
     user.role === 'admin' || 
@@ -1018,6 +1023,12 @@ const ProjectDetailPage = () => {
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                     تاريخ التسليم: {studentProjectSubmission.submittedAt ? new Date(studentProjectSubmission.submittedAt).toLocaleString('ar-EG') : '—'}
                   </Typography>
+                  <Chip
+                    size="small"
+                    color={studentEvaluationDone ? 'success' : 'warning'}
+                    label={studentEvaluationDone ? 'تم تقييم التسليم من المعلم' : 'بانتظار تقييم المعلم'}
+                    sx={{ mb: 1 }}
+                  />
                   {studentProjectSubmission.submissionUrl && (
                     <Typography variant="body2" sx={{ mb: 1 }}>
                       رابط التسليم: <a href={studentProjectSubmission.submissionUrl} target="_blank" rel="noopener noreferrer">{studentProjectSubmission.submissionUrl}</a>
