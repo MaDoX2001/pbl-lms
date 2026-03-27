@@ -1018,47 +1018,95 @@ const ProjectDetailPage = () => {
                 {projectSubmissionsForReview.map((submission) => (
                   <Card key={submission._id} variant="outlined">
                     <CardContent>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                        <Typography variant="subtitle2" fontWeight={700}>
-                          {submission.student?.name || 'طالب'}
-                        </Typography>
-                        <Chip
-                          size="small"
-                          color={submission.status === 'completed' ? 'success' : submission.status === 'reviewed' ? 'info' : 'warning'}
-                          label={
-                            submission.status === 'completed' ? 'مكتمل'
-                              : submission.status === 'reviewed' ? 'تمت المراجعة'
-                              : 'تم التسليم'
-                          }
-                        />
-                      </Box>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        البريد: {submission.student?.email || '—'}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        تاريخ التسليم: {submission.submittedAt ? new Date(submission.submittedAt).toLocaleString('ar-EG') : '—'}
-                      </Typography>
-                      {submission.submissionUrl && (
-                        <Typography variant="body2" sx={{ mb: 1 }}>
-                          رابط التسليم: <a href={submission.submissionUrl} target="_blank" rel="noopener noreferrer">فتح الرابط</a>
-                        </Typography>
-                      )}
-                      {submission.wiringImageUrl && (
-                        <Typography variant="body2" sx={{ mb: 1 }}>
-                          صورة التوصيل: <a href={submission.wiringImageUrl} target="_blank" rel="noopener noreferrer">عرض الصورة</a>
-                        </Typography>
-                      )}
-                      {submission.submissionFiles?.length > 0 && (
-                        <Typography variant="body2" sx={{ mb: 1 }}>
-                          الملف المرفوع: <a href={submission.submissionFiles[submission.submissionFiles.length - 1].url} target="_blank" rel="noopener noreferrer">تحميل الملف</a>
-                        </Typography>
-                      )}
-                      <Typography variant="body2" sx={{ mt: 1, mb: 1, whiteSpace: 'pre-wrap' }}>
-                        <strong>الكود:</strong>{'\n'}{submission.codeSubmission || '—'}
-                      </Typography>
-                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                        <strong>الملاحظات:</strong>{'\n'}{submission.notes || '—'}
-                      </Typography>
+                      <Grid container spacing={2} alignItems="stretch">
+                        <Grid item xs={12} md={7}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                            <Typography variant="subtitle2" fontWeight={700}>
+                              {submission.student?.name || 'طالب'}
+                            </Typography>
+                            <Chip
+                              size="small"
+                              color={submission.status === 'completed' ? 'success' : submission.status === 'reviewed' ? 'info' : 'warning'}
+                              label={
+                                submission.status === 'completed' ? 'مكتمل'
+                                  : submission.status === 'reviewed' ? 'تمت المراجعة'
+                                  : 'تم التسليم'
+                              }
+                            />
+                          </Box>
+
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                            البريد: {submission.student?.email || '—'}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                            تاريخ التسليم: {submission.submittedAt ? new Date(submission.submittedAt).toLocaleString('ar-EG') : '—'}
+                          </Typography>
+
+                          {submission.submissionUrl && (
+                            <Typography variant="body2" sx={{ mb: 1 }}>
+                              رابط التسليم: <a href={submission.submissionUrl} target="_blank" rel="noopener noreferrer">فتح الرابط</a>
+                            </Typography>
+                          )}
+                          {submission.wiringImageUrl && (
+                            <Typography variant="body2" sx={{ mb: 1 }}>
+                              صورة التوصيل: <a href={submission.wiringImageUrl} target="_blank" rel="noopener noreferrer">عرض الصورة</a>
+                            </Typography>
+                          )}
+                          {submission.submissionFiles?.length > 0 && (
+                            <Typography variant="body2" sx={{ mb: 1 }}>
+                              الملف المرفوع: <a href={submission.submissionFiles[submission.submissionFiles.length - 1].url} target="_blank" rel="noopener noreferrer">تحميل الملف</a>
+                            </Typography>
+                          )}
+
+                          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mb: 2 }}>
+                            <strong>الملاحظات:</strong>{'\n'}{submission.notes || '—'}
+                          </Typography>
+
+                          <Button
+                            fullWidth
+                            variant="contained"
+                            startIcon={<AssessmentIcon />}
+                            onClick={() => {
+                              const studentId = submission.student?._id || submission.studentId || submission.student;
+                              if (!studentId) return;
+                              navigate(`/evaluate/individual/${id}/${studentId}/${submission._id}`);
+                            }}
+                            disabled={!(submission.student?._id || submission.studentId || submission.student)}
+                          >
+                            تقييم هذا الطالب
+                          </Button>
+                        </Grid>
+
+                        <Grid item xs={12} md={5}>
+                          <Box
+                            sx={{
+                              height: '100%',
+                              p: 1.5,
+                              borderRadius: 1,
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              backgroundColor: 'background.default'
+                            }}
+                          >
+                            <Typography variant="body2" sx={{ mb: 1, fontWeight: 700 }}>
+                              الكود
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                direction: 'ltr',
+                                textAlign: 'left',
+                                unicodeBidi: 'plaintext',
+                                whiteSpace: 'pre-wrap',
+                                fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+                                fontSize: '0.8rem'
+                              }}
+                            >
+                              {submission.codeSubmission || '—'}
+                            </Typography>
+                          </Box>
+                        </Grid>
+                      </Grid>
                     </CardContent>
                   </Card>
                 ))}
