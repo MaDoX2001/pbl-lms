@@ -923,14 +923,14 @@ const ProjectDetailPage = () => {
       {/* Project Submission Section */}
       <Paper sx={{ p: 3, mt: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">{!isTeamProject ? 'تسليم المشروع' : t('assignmentsTasks')}</Typography>
+          <Typography variant="h6">تسليم المشروع</Typography>
           {isTeamProject && (user?.role === 'teacher' || user?.role === 'admin') && (
             <Button
               variant="contained"
-              startIcon={<AssignmentIcon />}
-              onClick={() => setAssignmentDialogOpen(true)}
+              startIcon={<AssessmentIcon />}
+              onClick={() => navigate(`/projects/${id}/submissions`)}
             >
-              {t('createAssignment')}
+              عرض تسليمات الفرق
             </Button>
           )}
         </Box>
@@ -1031,98 +1031,12 @@ const ProjectDetailPage = () => {
           </Box>
         )}
         
-        {isTeamProject ? (
-          loadingAssignments ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : assignments.length === 0 ? (
-          <Typography color="text.secondary" align="center" py={3}>
-            {t('noAssignmentsYet')}
-          </Typography>
-        ) : (
-          <Grid container spacing={2}>
-            {assignments.map((assignment) => {
-              const submission = mySubmissions.find(
-                (s) => s.assignment.assignmentId === assignment._id
-              );
-              const isOverdue = assignment.dueDate && new Date() > new Date(assignment.dueDate);
-
-              return (
-                <Grid item xs={12} md={6} key={assignment._id}>
-                  <Card>
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        {assignment.title}
-                      </Typography>
-                      {assignment.description && (
-                        <Typography variant="body2" color="text.secondary" paragraph>
-                          {assignment.description}
-                        </Typography>
-                      )}
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
-                        {assignment.dueDate && (
-                          <Chip
-                            label={t('dueDateWithValue', { date: new Date(assignment.dueDate).toLocaleDateString('ar-SA') })}
-                            size="small"
-                            color={isOverdue ? 'error' : 'default'}
-                          />
-                        )}
-                        <Chip
-                          label={t('scoreWithValue', { score: assignment.maxScore })}
-                          size="small"
-                          color="primary"
-                        />
-                        {submission && (
-                          <Chip
-                            label={submission.status === 'graded' ? t('gradedWithValue', { score: submission.grade?.score }) : t('submitted')}
-                            size="small"
-                            color={submission.status === 'graded' ? 'success' : 'info'}
-                          />
-                        )}
-                      </Box>
-                    </CardContent>
-                    <CardActions>
-                      {user?.role === 'student' && !submission && (
-                        <Button
-                          size="small"
-                          variant="contained"
-                          onClick={() => handleSubmitHomework(assignment)}
-                          disabled={isOverdue && !assignment.allowLateSubmission}
-                        >
-                          {t('submitHomework')}
-                        </Button>
-                      )}
-                      {user?.role === 'student' && submission && (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          startIcon={<DownloadIcon />}
-                          onClick={() => handleDownloadSubmission(submission._id, submission.fileName)}
-                        >
-                          {t('downloadSubmission')}
-                        </Button>
-                      )}
-                      {(user?.role === 'teacher' || user?.role === 'admin') && (
-                        <>
-                          <Button size="small">{t('viewSubmissions')}</Button>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleDeleteAssignment(assignment._id)}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </>
-                      )}
-                    </CardActions>
-                  </Card>
-                </Grid>
-              );
-            })}
-          </Grid>
-          )
-        ) : null}
+        {isTeamProject && user?.role === 'student' && (
+          <Alert severity="info">
+            تسليم المشروع الجماعي يتم من صفحة الفريق.
+            <Button size="small" sx={{ ml: 1 }} onClick={() => navigate(`/team/project/${id}`)}>فتح صفحة الفريق</Button>
+          </Alert>
+        )}
       </Paper>
 
       {/* Upload Dialogs */}
@@ -1132,19 +1046,6 @@ const ProjectDetailPage = () => {
         projectId={id}
         onSuccess={() => {
           fetchCourseMaterials();
-        }}
-      />
-
-      <HomeworkSubmitDialog
-        open={homeworkDialogOpen}
-        onClose={() => {
-          setHomeworkDialogOpen(false);
-          setSelectedAssignment(null);
-        }}
-        projectId={id}
-        assignment={selectedAssignment}
-        onSuccess={() => {
-          fetchMySubmissions();
         }}
       />
 
@@ -1236,15 +1137,6 @@ const ProjectDetailPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
-      <CreateAssignmentDialog
-        open={assignmentDialogOpen}
-        onClose={() => setAssignmentDialogOpen(false)}
-        projectId={id}
-        onSuccess={() => {
-          fetchAssignments();
-        }}
-      />
 
       {/* Teams Link Dialog */}
       <Dialog open={teamsLinkDialogOpen} onClose={() => setTeamsLinkDialogOpen(false)} maxWidth="sm" fullWidth>
