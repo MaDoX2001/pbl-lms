@@ -184,7 +184,14 @@ const MessageContent = ({ content, streaming = false, isRTL = false }) => {
             key={i}
             variant="body2"
             dir={isRTL ? 'rtl' : 'ltr'}
-            sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.8, textAlign: isRTL ? 'right' : 'left', unicodeBidi: 'plaintext' }}
+            sx={{
+              whiteSpace: 'pre-wrap',
+              lineHeight: 1.8,
+              textAlign: isRTL ? 'right' : 'left',
+              unicodeBidi: 'isolate',
+              display: 'block',
+              width: '100%',
+            }}
           >
             {part}
           </Typography>
@@ -594,7 +601,7 @@ ${userText}`
                       : (isRTL ? '4px 16px 16px 16px' : '16px 4px 16px 16px'),
                     direction: msg.role === 'assistant' ? messageDirection : 'inherit',
                     textAlign: msg.role === 'assistant' ? (messageIsRTL ? 'right' : 'left') : 'start',
-                    unicodeBidi: 'plaintext',
+                    unicodeBidi: msg.role === 'assistant' ? 'isolate' : 'plaintext',
                   }}
                 >
                   {/* Quoted reply preview inside bubble */}
