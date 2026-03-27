@@ -159,12 +159,13 @@ exports.evaluateGroup = async (req, res) => {
     const { 
       projectId, 
       teamId, 
+      studentId,
       submissionId, 
       sectionEvaluations, 
       feedbackSummary 
     } = req.body;
 
-    // Verify project is team-based
+    // Verify project exists
     const project = await Project.findById(projectId);
     if (!project) {
       return res.status(404).json({
@@ -173,10 +174,17 @@ exports.evaluateGroup = async (req, res) => {
       });
     }
 
-    if (!project.isTeamProject) {
+    if (project.isTeamProject && !teamId) {
       return res.status(400).json({
         success: false,
-        message: 'هذا المشروع ليس مشروع جماعي'
+        message: 'معرف الفريق مطلوب للتقييم الجماعي'
+      });
+    }
+
+    if (!project.isTeamProject && !studentId) {
+      return res.status(400).json({
+        success: false,
+        message: 'معرف الطالب مطلوب للتقييم الجماعي في المشروع الفردي'
       });
     }
 
@@ -238,12 +246,14 @@ exports.evaluateGroup = async (req, res) => {
 
     const calculatedScore = totalScore;
 
-    // Get previous attempts count
-    const previousAttempts = await EvaluationAttempt.find({
+    const attemptQuery = {
       project: projectId,
-      team: teamId,
-      phase: 'group'
-    }).sort({ attemptNumber: -1 });
+      phase: 'group',
+      ...(project.isTeamProject ? { team: teamId } : { student: studentId })
+    };
+
+    // Get previous attempts count
+    const previousAttempts = await EvaluationAttempt.find(attemptQuery).sort({ attemptNumber: -1 });
 
     const attemptNumber = previousAttempts.length > 0 
       ? previousAttempts[0].attemptNumber + 1 
@@ -253,8 +263,8 @@ exports.evaluateGroup = async (req, res) => {
     await EvaluationAttempt.updateMany(
       { 
         project: projectId,
-        team: teamId,
         phase: 'group',
+        ...(project.isTeamProject ? { team: teamId } : { student: studentId }),
         isLatestAttempt: true
       },
       { isLatestAttempt: false }
@@ -264,7 +274,8 @@ exports.evaluateGroup = async (req, res) => {
     const groupEvaluation = await EvaluationAttempt.create({
       project: projectId,
       phase: 'group',
-      team: teamId,
+      team: project.isTeamProject ? teamId : undefined,
+      student: project.isTeamProject ? undefined : studentId,
       submission: submissionId,
       observationCard: observationCard._id,
       evaluator: req.user.id,
@@ -433,6 +444,7 @@ exports.evaluateIndividual = async (req, res) => {
         );
 
         const isRequired = criterionTemplate && (
+          !project.isTeamProject ||
           criterionTemplate.applicableRoles.includes('all') ||
           criterionTemplate.applicableRoles.includes(studentRole)
         );
@@ -525,6 +537,14 @@ exports.getIndividualStatus = async (req, res) => {
   try {
     const { projectId, studentId } = req.params;
 
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'المشروع غير موجود'
+      });
+    }
+
     const latestIndividualEval = await EvaluationAttempt.findOne({
       project: projectId,
       student: studentId,
@@ -532,7 +552,7 @@ exports.getIndividualStatus = async (req, res) => {
       isLatestAttempt: true
     });
 
-    if (!latestIndividualEval) {
+    if (project.isTeamProject && !latestIndividualEval) {
       return res.json({
         success: true,
         data: {
@@ -540,6 +560,33 @@ exports.getIndividualStatus = async (req, res) => {
           role: null,
           latestScore: null,
           attemptNumber: 0
+        }
+      });
+    }
+
+    if (!project.isTeamProject) {
+      const latestGroupEval = await EvaluationAttempt.findOne({
+        project: projectId,
+        student: studentId,
+        phase: 'group',
+        isLatestAttempt: true
+      });
+
+      const hasBothCards = Boolean(latestGroupEval && latestIndividualEval);
+      const combinedScore = hasBothCards
+        ? Number((((latestGroupEval.calculatedScore + latestIndividualEval.calculatedScore) / 2)).toFixed(2))
+        : null;
+
+      return res.json({
+        success: true,
+        data: {
+          phase2Complete: hasBothCards,
+          role: latestIndividualEval?.studentRole || null,
+          latestScore: combinedScore,
+          attemptNumber: latestIndividualEval?.attemptNumber || 0,
+          groupScore: latestGroupEval?.calculatedScore ?? null,
+          individualScore: latestIndividualEval?.calculatedScore ?? null,
+          feedbackSummary: latestIndividualEval?.feedbackSummary || ''
         }
       });
     }

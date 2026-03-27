@@ -41,14 +41,19 @@ const IndividualEvaluationPage = () => {
 
   const [loading, setLoading] = useState(true);
   const [observationCard, setObservationCard] = useState(null);
+  const [groupObservationCard, setGroupObservationCard] = useState(null);
   const [project, setProject] = useState(null);
   const [student, setStudent] = useState(null);
   const [studentRole, setStudentRole] = useState('');
   const [phase1Status, setPhase1Status] = useState(null);
   const [selections, setSelections] = useState({});
+  const [groupSelections, setGroupSelections] = useState({});
   const [feedbackSummary, setFeedbackSummary] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const isAllRolesMode = Boolean(project && !project.isTeamProject);
+  const canStartEvaluation = isAllRolesMode || Boolean(studentRole);
 
   useEffect(() => {
     fetchData();
@@ -94,9 +99,10 @@ const IndividualEvaluationPage = () => {
         });
         setStudent(studentRes.data.data);
         setPhase1Status({ phase1Complete: true }); // Skip Phase 1 for individual projects
+        setStudentRole('programmer'); // Stored role is required by schema, but all criteria are enforced for individual projects
       }
       
-      // Fetch observation card
+      // Fetch phase 2 observation card
       const cardRes = await axios.get(`/api/assessment/observation-card/${projectId}/individual_oral`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
@@ -116,6 +122,28 @@ const IndividualEvaluationPage = () => {
         });
       });
       setSelections(initialSelections);
+
+      // For individual projects, evaluate by both cards (group + individual)
+      if (!projectRes.data.data.isTeamProject) {
+        const groupCardRes = await axios.get(`/api/assessment/observation-card/${projectId}/group`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+        setGroupObservationCard(groupCardRes.data.data);
+
+        const initialGroupSelections = {};
+        groupCardRes.data.data.sections.forEach(section => {
+          section.criteria.forEach(criterion => {
+            initialGroupSelections[`${section.name}_${criterion.name}`] = {
+              sectionName: section.name,
+              criterionName: criterion.name,
+              applicableRoles: criterion.applicableRoles,
+              selectedPercentage: null,
+              selectedDescription: ''
+            };
+          });
+        });
+        setGroupSelections(initialGroupSelections);
+      }
 
       setLoading(false);
     } catch (err) {
@@ -137,25 +165,38 @@ const IndividualEvaluationPage = () => {
     }));
   };
 
+  const handleGroupSelection = (sectionName, criterionName, percentage, description) => {
+    const key = `${sectionName}_${criterionName}`;
+    setGroupSelections(prev => ({
+      ...prev,
+      [key]: {
+        ...prev[key],
+        selectedPercentage: percentage,
+        selectedDescription: description
+      }
+    }));
+  };
+
   const isCriterionRequired = (criterion) => {
+    if (isAllRolesMode) return true;
     if (!studentRole) return false;
     return criterion.applicableRoles.includes('all') || 
            criterion.applicableRoles.includes(studentRole);
   };
 
-  const calculatePreviewScore = () => {
-    if (!observationCard || !studentRole) return 0;
+  const calculateCardScore = (card, cardSelections) => {
+    if (!card) return 0;
 
     let totalScore = 0;
-    observationCard.sections.forEach(section => {
+    card.sections.forEach(section => {
       let sumPercentages = 0;
       let requiredCount = 0;
-      
+
       section.criteria.forEach(criterion => {
         const key = `${section.name}_${criterion.name}`;
-        const selection = selections[key];
+        const selection = cardSelections[key];
         const isRequired = isCriterionRequired(criterion);
-        
+
         if (isRequired) {
           requiredCount++;
           if (selection && selection.selectedPercentage !== null) {
@@ -171,32 +212,49 @@ const IndividualEvaluationPage = () => {
       }
     });
 
-    return totalScore.toFixed(2);
+    return totalScore;
+  };
+
+  const calculatePreviewScore = () => {
+    if (!observationCard || !canStartEvaluation) return 0;
+
+    const individualScore = calculateCardScore(observationCard, selections);
+    if (isAllRolesMode && groupObservationCard) {
+      const groupScore = calculateCardScore(groupObservationCard, groupSelections);
+      return ((groupScore + individualScore) / 2).toFixed(2);
+    }
+
+    return individualScore.toFixed(2);
   };
 
   const handleSubmit = async () => {
     setError('');
 
-    if (!studentRole) {
+    if (!canStartEvaluation) {
       setError(t('studentRoleRequired'));
       return;
     }
 
-    // Validate all REQUIRED criteria selected
-    const allRequiredSelected = Object.entries(selections).every(([key, sel]) => {
-      const [sectionName, criterionName] = key.split('_');
-      const section = observationCard.sections.find(s => s.name === sectionName);
-      const criterion = section?.criteria.find(c => c.name === criterionName);
-      
-      if (!criterion) return true;
-      
-      const isRequired = isCriterionRequired(criterion);
-      if (!isRequired) return true; // Not required = OK
-      
-      return sel.selectedPercentage !== null; // Required = must have selection
-    });
+    const allRequiredSelectedForCard = (card, cardSelections) => {
+      if (!card) return true;
+      return Object.entries(cardSelections).every(([key, sel]) => {
+        const [sectionName, criterionName] = key.split('_');
+        const section = card.sections.find(s => s.name === sectionName);
+        const criterion = section?.criteria.find(c => c.name === criterionName);
 
-    if (!allRequiredSelected) {
+        if (!criterion) return true;
+
+        const required = isCriterionRequired(criterion);
+        if (!required) return true;
+
+        return sel.selectedPercentage !== null;
+      });
+    };
+
+    const individualCardValid = allRequiredSelectedForCard(observationCard, selections);
+    const groupCardValid = !isAllRolesMode || allRequiredSelectedForCard(groupObservationCard, groupSelections);
+
+    if (!individualCardValid || !groupCardValid) {
       setError(t('requiredCriteriaScoreMissing'));
       return;
     }
@@ -204,26 +262,41 @@ const IndividualEvaluationPage = () => {
     try {
       setSubmitting(true);
 
-      // Group selections by section
-      const sectionEvaluations = [];
-      observationCard.sections.forEach(section => {
-        const criterionSelections = section.criteria.map(criterion => {
-          const key = `${section.name}_${criterion.name}`;
-          return selections[key];
+      const buildSectionEvaluations = (card, cardSelections) => {
+        const sectionEvaluations = [];
+        card.sections.forEach(section => {
+          const criterionSelections = section.criteria.map(criterion => {
+            const key = `${section.name}_${criterion.name}`;
+            return cardSelections[key];
+          });
+
+          sectionEvaluations.push({
+            sectionName: section.name,
+            criterionSelections
+          });
         });
-        
-        sectionEvaluations.push({
-          sectionName: section.name,
-          criterionSelections
+        return sectionEvaluations;
+      };
+
+      // In individual projects, evaluate with both observation cards
+      if (isAllRolesMode && groupObservationCard) {
+        await axios.post('/api/assessment/evaluate-group', {
+          projectId,
+          studentId,
+          submissionId,
+          sectionEvaluations: buildSectionEvaluations(groupObservationCard, groupSelections),
+          feedbackSummary
+        }, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
-      });
+      }
 
       await axios.post('/api/assessment/evaluate-individual', {
         projectId,
         studentId,
-        studentRole,
+        studentRole: studentRole || 'programmer',
         submissionId,
-        sectionEvaluations,
+        sectionEvaluations: buildSectionEvaluations(observationCard, selections),
         feedbackSummary
       }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -316,34 +389,39 @@ const IndividualEvaluationPage = () => {
           {t('individualEvaluationInfoAlert')}
         </Alert>
 
-        {/* Role Selector */}
-        <FormControl fullWidth sx={{ mt: 2 }}>
-          <InputLabel id="student-role-label">{t('studentRole')}</InputLabel>
-          <Select
-            id="student-role"
-            labelId="student-role-label"
-            value={studentRole}
-            onChange={(e) => setStudentRole(e.target.value)}
-            label={t('studentRole')}
-          >
-            <MenuItem value="">{t('selectRolePlaceholder')}</MenuItem>
-            {Object.entries(roleLabels).map(([value, label]) => (
-              <MenuItem key={value} value={value}>{label}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        {isAllRolesMode ? (
+          <Alert severity="info" sx={{ mt: 2 }}>
+            سيتم تقييم الطالب في المشروع الفردي كأنه يغطي كل الأدوار، وباستخدام بطاقتي الملاحظة.
+          </Alert>
+        ) : (
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel id="student-role-label">{t('studentRole')}</InputLabel>
+            <Select
+              id="student-role"
+              labelId="student-role-label"
+              value={studentRole}
+              onChange={(e) => setStudentRole(e.target.value)}
+              label={t('studentRole')}
+            >
+              <MenuItem value="">{t('selectRolePlaceholder')}</MenuItem>
+              {Object.entries(roleLabels).map(([value, label]) => (
+                <MenuItem key={value} value={value}>{label}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
       </Paper>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      {!studentRole && (
+      {!canStartEvaluation && (
         <Alert severity="warning" sx={{ mb: 3 }}>
           {t('selectStudentRoleToStartEvaluation')}
         </Alert>
       )}
 
       {/* Preview Score */}
-      {studentRole && (
+      {canStartEvaluation && (
         <Paper sx={{ p: 2, mb: 3, bgcolor: 'secondary.light', color: 'secondary.contrastText' }}>
           <Typography variant="h6">
             {t('calculatedScoreOutOf100', { score: calculatePreviewScore() })}
@@ -352,7 +430,99 @@ const IndividualEvaluationPage = () => {
       )}
 
       {/* Evaluation Sections */}
-      {studentRole && observationCard.sections.map((section, sectionIndex) => (
+      {isAllRolesMode && canStartEvaluation && groupObservationCard && (
+        <>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            بطاقة الملاحظة الأولى (الجماعية)
+          </Typography>
+          {groupObservationCard.sections.map((section, sectionIndex) => (
+            <Paper key={`group-${sectionIndex}`} sx={{ p: 3, mb: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h5" fontWeight={600}>
+                  {section.name}
+                </Typography>
+                <Chip label={`${section.weight}%`} color="primary" />
+              </Box>
+
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell width="25%"><strong>{t('criterion')}</strong></TableCell>
+                      <TableCell width="10%" align="center"><strong>{t('required')}</strong></TableCell>
+                      <TableCell width="55%"><strong>{t('options')}</strong></TableCell>
+                      <TableCell width="10%" align="center"><strong>{t('scoreLabel')}</strong></TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {section.criteria.map((criterion, criterionIndex) => {
+                      const key = `${section.name}_${criterion.name}`;
+                      const selected = groupSelections[key];
+
+                      return (
+                        <TableRow key={criterionIndex}>
+                          <TableCell>
+                            <Typography fontWeight={600}>{criterion.name}</Typography>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Chip label={t('yes')} color="success" size="small" />
+                          </TableCell>
+                          <TableCell>
+                            <RadioGroup
+                              value={selected?.selectedPercentage?.toString() || ''}
+                              onChange={(e) => {
+                                const percentage = parseInt(e.target.value, 10);
+                                const option = criterion.options.find(o => o.percentage === percentage);
+                                handleGroupSelection(
+                                  section.name,
+                                  criterion.name,
+                                  percentage,
+                                  option?.description || ''
+                                );
+                              }}
+                            >
+                              {criterion.options.map(option => (
+                                <FormControlLabel
+                                  key={option.percentage}
+                                  value={option.percentage.toString()}
+                                  control={<Radio />}
+                                  label={
+                                    <Box>
+                                      <Typography variant="body2" fontWeight={600}>
+                                        {option.percentage}%
+                                      </Typography>
+                                      {option.description && (
+                                        <Typography variant="caption" color="text.secondary">
+                                          {option.description}
+                                        </Typography>
+                                      )}
+                                    </Box>
+                                  }
+                                />
+                              ))}
+                            </RadioGroup>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Chip
+                              label={selected?.selectedPercentage !== null ? `${selected?.selectedPercentage}%` : '-'}
+                              color={selected?.selectedPercentage !== null ? 'success' : 'default'}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          ))}
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            بطاقة الملاحظة الثانية (الفردية والشفوية)
+          </Typography>
+        </>
+      )}
+
+      {canStartEvaluation && observationCard.sections.map((section, sectionIndex) => (
         <Paper key={sectionIndex} sx={{ p: 3, mb: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h5" fontWeight={600}>
@@ -455,7 +625,7 @@ const IndividualEvaluationPage = () => {
       ))}
 
       {/* Feedback */}
-      {studentRole && (
+      {canStartEvaluation && (
         <Paper sx={{ p: 3, mb: 3 }}>
           <Typography variant="h6" gutterBottom fontWeight={600}>
             {t('generalNotesOptional')}
@@ -472,7 +642,7 @@ const IndividualEvaluationPage = () => {
       )}
 
       {/* Submit Button */}
-      {studentRole && (
+      {canStartEvaluation && (
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
           <Button
             variant="outlined"

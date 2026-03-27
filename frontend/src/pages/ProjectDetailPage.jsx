@@ -88,7 +88,7 @@ const ProjectDetailPage = () => {
   const [selectedTeams, setSelectedTeams] = useState([]);
   const [selectAllTeams, setSelectAllTeams] = useState(false);
   const [teamRegisterDialogOpen, setTeamRegisterDialogOpen] = useState(false);
-  const [countdownTimer, setCountdownTimer] = useState('');
+  const [countdown, setCountdown] = useState('');
   const [studentProjectSubmission, setStudentProjectSubmission] = useState(null);
   const [studentEvaluationScore, setStudentEvaluationScore] = useState(null);
   const [projectSubmissionsForReview, setProjectSubmissionsForReview] = useState([]);

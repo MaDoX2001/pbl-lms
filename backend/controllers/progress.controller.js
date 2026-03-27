@@ -260,15 +260,29 @@ exports.addReviewerFeedback = async (req, res) => {
       });
     }
 
-    // Get the latest individual evaluation to retrieve the actual score from observation card
-    const latestEvaluation = await EvaluationAttempt.findOne({
+    // Get the latest individual evaluation
+    const latestIndividualEvaluation = await EvaluationAttempt.findOne({
       project: progress.project._id,
       student: progress.student._id,
       phase: 'individual_oral',
       isLatestAttempt: true
     });
 
-    const scoreFromEvaluation = latestEvaluation?.calculatedScore || null;
+    let scoreFromEvaluation = latestIndividualEvaluation?.calculatedScore ?? null;
+
+    // For individual projects, the score is the average of both observation cards
+    if (!progress.project?.isTeamProject) {
+      const latestGroupEvaluation = await EvaluationAttempt.findOne({
+        project: progress.project._id,
+        student: progress.student._id,
+        phase: 'group',
+        isLatestAttempt: true
+      });
+
+      if (latestIndividualEvaluation && latestGroupEvaluation) {
+        scoreFromEvaluation = Number((((latestIndividualEvaluation.calculatedScore + latestGroupEvaluation.calculatedScore) / 2)).toFixed(2));
+      }
+    }
 
     const reviewedAt = new Date();
     progress.feedback = {
