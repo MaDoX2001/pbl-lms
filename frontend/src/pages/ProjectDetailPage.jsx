@@ -626,20 +626,22 @@ const ProjectDetailPage = () => {
         <Grid item xs={12} md={4} sx={{ order: { xs: 1, md: direction === 'rtl' ? 1 : 2 } }}>
           {/* Enrollment Card */}
           <Paper sx={{ p: 3, mb: 3, position: 'sticky', top: 20 }}>
-            {isAuthenticated ? (
-              user?.role === 'student' && !isEnrolled ? (
-                <Button variant="contained" fullWidth size="large" onClick={handleEnroll}>
-                  {t('enrollInProject')}
+            {!isTeamProject && (
+              isAuthenticated ? (
+                user?.role === 'student' && !isEnrolled ? (
+                  <Button variant="contained" fullWidth size="large" onClick={handleEnroll}>
+                    {t('enrollInProject')}
+                  </Button>
+                ) : user?.role === 'student' ? (
+                  <Typography variant="body2" color="success.main" sx={{ textAlign: 'center', fontWeight: 600 }}>
+                    {t('alreadyEnrolled')}
+                  </Typography>
+                ) : null
+              ) : (
+                <Button variant="contained" fullWidth size="large" href="/login">
+                  {t('loginToEnroll')}
                 </Button>
-              ) : user?.role === 'student' ? (
-                <Typography variant="body2" color="success.main" sx={{ textAlign: 'center', fontWeight: 600 }}>
-                  {t('alreadyEnrolled')}
-                </Typography>
-              ) : null
-            ) : (
-              <Button variant="contained" fullWidth size="large" href="/login">
-                {t('loginToEnroll')}
-              </Button>
+              )
             )}
 
             {/* Teams Meeting Link */}
