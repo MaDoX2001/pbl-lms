@@ -165,8 +165,8 @@ const MessageContent = ({ content, streaming = false, isRTL = false }) => {
           <Typography
             key={i}
             variant="body2"
-            dir={isRTL ? 'rtl' : 'ltr'}
-            sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.8, textAlign: 'inherit' }}
+            dir="auto"
+            sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.8, textAlign: 'start', unicodeBidi: 'plaintext' }}
           >
             {part}
           </Typography>
@@ -242,8 +242,6 @@ const AIChatPage = () => {
     ? (language === 'ar' ? SUGGESTIONS_AR_TEACHER : SUGGESTIONS_EN_TEACHER)
     : (language === 'ar' ? SUGGESTIONS_AR_STUDENT : SUGGESTIONS_EN_STUDENT);
   const inputIsRTL = input.trim() ? detectTextRTL(input) : isRTL;
-  const inputDirection = inputIsRTL ? 'rtl' : 'ltr';
-  const inputTextAlign = inputIsRTL ? 'right' : 'left';
 
   // All roles: load messages + summary from DB on mount.
   // DB is the source of truth — wins over localStorage for summary.
@@ -542,9 +540,6 @@ ${userText}`
           messages.map((msg, i) => (
             (() => {
               const messageIsRTL = detectTextRTL(msg.content || '');
-              const messageDirection = messageIsRTL ? 'rtl' : 'ltr';
-              const messageTextAlign = messageIsRTL ? 'right' : 'left';
-
               return (
             <Box
               key={msg._key || i}
@@ -567,6 +562,7 @@ ${userText}`
               </Avatar>
               <Box sx={{ maxWidth: '75%', position: 'relative' }}>
                 <Paper
+                  dir="auto"
                   elevation={0}
                   sx={{
                     px: 2, py: 1.5,
@@ -575,8 +571,8 @@ ${userText}`
                     borderRadius: msg.role === 'user'
                       ? (isRTL ? '16px 4px 16px 16px' : '4px 16px 16px 16px')
                       : (isRTL ? '4px 16px 16px 16px' : '16px 4px 16px 16px'),
-                    direction: messageDirection,
-                    textAlign: messageTextAlign,
+                    textAlign: 'start',
+                    unicodeBidi: 'plaintext',
                   }}
                 >
                   {/* Quoted reply preview inside bubble */}
@@ -606,7 +602,7 @@ ${userText}`
                     </Box>
                   )}
                   {msg.role === 'user' ? (
-                    <Typography variant="body2" dir={messageDirection} sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, textAlign: messageTextAlign }}>
+                    <Typography variant="body2" dir="auto" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7, textAlign: 'start', unicodeBidi: 'plaintext' }}>
                       {msg.content}
                     </Typography>
                   ) : (
@@ -772,7 +768,7 @@ ${userText}`
           inputRef={inputRef}
           id="ai-chat-input"
           name="ai-chat-input"
-          dir={inputDirection}
+          dir="auto"
           fullWidth
           multiline
           maxRows={4}
@@ -784,13 +780,13 @@ ${userText}`
           size="small"
           autoComplete="off"
           inputProps={{
-            dir: inputDirection,
-            style: { textAlign: inputTextAlign, direction: inputDirection },
+            dir: 'auto',
+            style: { textAlign: 'start', direction: 'auto', unicodeBidi: 'plaintext' },
           }}
           sx={{
-            '& .MuiInputBase-root': { borderRadius: 3, direction: inputDirection },
-            '& .MuiInputBase-input': { textAlign: inputTextAlign },
-            '& textarea': { textAlign: inputTextAlign, direction: inputDirection },
+            '& .MuiInputBase-root': { borderRadius: 3 },
+            '& .MuiInputBase-input': { textAlign: 'start' },
+            '& textarea': { textAlign: 'start', direction: 'auto', unicodeBidi: 'plaintext' },
           }}
         />
         <IconButton
