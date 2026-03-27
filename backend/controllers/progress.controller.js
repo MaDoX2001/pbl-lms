@@ -135,7 +135,25 @@ exports.updateMilestone = async (req, res) => {
 exports.submitProject = async (req, res) => {
   try {
     const { projectId } = req.params;
-    const { submissionUrl, codeSubmission, wiringImageUrl, demoUrl, notes } = req.body;
+    const { submissionUrl, codeSubmission, demoUrl, notes } = req.body;
+    const wiringImageFile = req.files?.wiringImage?.[0];
+    const extraSubmissionFile = req.files?.submissionFile?.[0];
+
+    if (!submissionUrl?.trim()) {
+      return res.status(400).json({ success: false, message: 'رابط التسليم إجباري' });
+    }
+
+    if (!codeSubmission?.trim()) {
+      return res.status(400).json({ success: false, message: 'الكود إجباري' });
+    }
+
+    if (!wiringImageFile) {
+      return res.status(400).json({ success: false, message: 'صورة التوصيل إجبارية' });
+    }
+
+    if (!String(wiringImageFile.mimetype || '').startsWith('image/')) {
+      return res.status(400).json({ success: false, message: 'صورة التوصيل يجب أن تكون صورة' });
+    }
     
     const progress = await Progress.findOne({
       student: req.user.id,
@@ -154,22 +172,29 @@ exports.submitProject = async (req, res) => {
     progress.submittedAt = new Date();
     progress.submissionUrl = submissionUrl;
     progress.codeSubmission = codeSubmission;
-    progress.wiringImageUrl = wiringImageUrl;
     progress.demoUrl = demoUrl;
     progress.notes = notes;
     progress.attempts += 1;
 
-    if (req.file) {
+    const wiringFolder = `pbl-lms/wiring-images/project-${projectId}/student-${req.user.id}`;
+    const wiringUploadResult = await cloudinaryService.uploadFile(
+      wiringImageFile.buffer,
+      wiringImageFile.originalname,
+      wiringFolder
+    );
+    progress.wiringImageUrl = wiringUploadResult.url;
+
+    if (extraSubmissionFile) {
       const folder = `pbl-lms/progress-submissions/project-${projectId}/student-${req.user.id}`;
       const uploadResult = await cloudinaryService.uploadFile(
-        req.file.buffer,
-        req.file.originalname,
+        extraSubmissionFile.buffer,
+        extraSubmissionFile.originalname,
         folder
       );
 
       progress.submissionFiles = progress.submissionFiles || [];
       progress.submissionFiles.push({
-        filename: req.file.originalname,
+        filename: extraSubmissionFile.originalname,
         url: uploadResult.url,
         uploadedAt: new Date()
       });

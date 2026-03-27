@@ -22,7 +22,16 @@ const upload = multer({
 router.get('/:projectId', protect, getProgress);
 router.get('/student/:studentId', protect, getStudentProgress);
 router.put('/:projectId/milestone/:milestoneId', protect, authorize('student'), updateMilestone);
-router.post('/:projectId/submit', protect, authorize('student'), upload.single('submissionFile'), submitProject);
+router.post(
+  '/:projectId/submit',
+  protect,
+  authorize('student'),
+  upload.fields([
+    { name: 'wiringImage', maxCount: 1 },
+    { name: 'submissionFile', maxCount: 1 }
+  ]),
+  submitProject
+);
 
 // Teacher/Admin routes
 router.put('/:progressId/review', protect, authorize('teacher', 'admin'), reviewSubmission);

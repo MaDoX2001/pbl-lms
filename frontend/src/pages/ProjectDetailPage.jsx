@@ -73,9 +73,9 @@ const ProjectDetailPage = () => {
   const [projectSubmissionData, setProjectSubmissionData] = useState({
     submissionUrl: '',
     codeSubmission: '',
-    wiringImageUrl: '',
     notes: '',
   });
+  const [wiringImageFile, setWiringImageFile] = useState(null);
   const [projectSubmissionFile, setProjectSubmissionFile] = useState(null);
   const [loadingMaterials, setLoadingMaterials] = useState(false);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
@@ -328,8 +328,11 @@ const ProjectDetailPage = () => {
       const formData = new FormData();
       formData.append('submissionUrl', projectSubmissionData.submissionUrl || '');
       formData.append('codeSubmission', projectSubmissionData.codeSubmission || '');
-      formData.append('wiringImageUrl', projectSubmissionData.wiringImageUrl || '');
       formData.append('notes', projectSubmissionData.notes || '');
+
+      if (wiringImageFile) {
+        formData.append('wiringImage', wiringImageFile);
+      }
 
       if (projectSubmissionFile) {
         formData.append('submissionFile', projectSubmissionFile);
@@ -343,9 +346,9 @@ const ProjectDetailPage = () => {
       setProjectSubmissionData({
         submissionUrl: '',
         codeSubmission: '',
-        wiringImageUrl: '',
         notes: '',
       });
+      setWiringImageFile(null);
       setProjectSubmissionFile(null);
     } catch (error) {
       toast.error(error.response?.data?.message || t('projectSubmitFailed'));
@@ -374,6 +377,18 @@ const ProjectDetailPage = () => {
     }
 
     setProjectSubmissionFile(file);
+  };
+
+  const handleWiringImageChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('صورة التوصيل يجب أن تكون صورة فقط');
+      return;
+    }
+
+    setWiringImageFile(file);
   };
 
   if (loading || !project) {
@@ -1016,17 +1031,34 @@ const ProjectDetailPage = () => {
           <TextField
             margin="normal"
             fullWidth
-            label="رابط الكود (اختياري)"
+            label="الكود"
             value={projectSubmissionData.codeSubmission}
+            multiline
+            minRows={4}
             onChange={(e) => setProjectSubmissionData((prev) => ({ ...prev, codeSubmission: e.target.value }))}
           />
-          <TextField
-            margin="normal"
-            fullWidth
-            label="صورة التوصيل (رابط صورة)"
-            value={projectSubmissionData.wiringImageUrl}
-            onChange={(e) => setProjectSubmissionData((prev) => ({ ...prev, wiringImageUrl: e.target.value }))}
-          />
+
+          <Box sx={{ mt: 2 }}>
+            <input
+              id="wiring-image-file"
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handleWiringImageChange}
+              disabled={projectSubmitting}
+            />
+            <label htmlFor="wiring-image-file">
+              <Button variant="outlined" component="span" startIcon={<CloudUploadIcon />}>
+                رفع صورة التوصيل (إجباري)
+              </Button>
+            </label>
+            {wiringImageFile && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                صورة التوصيل: {wiringImageFile.name}
+              </Typography>
+            )}
+          </Box>
+
           <TextField
             margin="normal"
             fullWidth
@@ -1048,7 +1080,7 @@ const ProjectDetailPage = () => {
             />
             <label htmlFor="project-submit-file">
               <Button variant="outlined" component="span" startIcon={<CloudUploadIcon />}>
-                رفع ملف (Word / PDF / Video)
+                رفع ملف إضافي (Word / PDF / Video)
               </Button>
             </label>
             {projectSubmissionFile && (
@@ -1063,7 +1095,12 @@ const ProjectDetailPage = () => {
           <Button
             variant="contained"
             onClick={handleSubmitIndividualProject}
-            disabled={projectSubmitting || !projectSubmissionData.submissionUrl.trim()}
+            disabled={
+              projectSubmitting
+              || !projectSubmissionData.submissionUrl.trim()
+              || !projectSubmissionData.codeSubmission.trim()
+              || !wiringImageFile
+            }
           >
             {projectSubmitting ? t('submitting') : t('submit')}
           </Button>
