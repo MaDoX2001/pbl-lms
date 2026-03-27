@@ -93,6 +93,7 @@ const ProjectDetailPage = () => {
   const [loadingProjectSubmissions, setLoadingProjectSubmissions] = useState(false);
   const [showIndividualSubmissions, setShowIndividualSubmissions] = useState(false);
   const [feedbackBySubmission, setFeedbackBySubmission] = useState({});
+  const [scoreBySubmission, setScoreBySubmission] = useState({});
   const [allowResubmitBySubmission, setAllowResubmitBySubmission] = useState({});
   const [savingFeedbackBySubmission, setSavingFeedbackBySubmission] = useState({});
   const [showOtherSubmissionsByStudent, setShowOtherSubmissionsByStudent] = useState({});
@@ -185,12 +186,15 @@ const ProjectDetailPage = () => {
       setProjectSubmissionsForReview(submissions);
 
       const feedbackDrafts = {};
+      const scoreDrafts = {};
       const allowResubmitDrafts = {};
       submissions.forEach((submission) => {
         feedbackDrafts[submission._id] = submission.feedback?.comments || '';
+        scoreDrafts[submission._id] = submission.feedback?.score || '';
         allowResubmitDrafts[submission._id] = Boolean(submission.resubmissionAllowed);
       });
       setFeedbackBySubmission(feedbackDrafts);
+      setScoreBySubmission(scoreDrafts);
       setAllowResubmitBySubmission(allowResubmitDrafts);
     } catch (error) {
       setProjectSubmissionsForReview([]);
@@ -444,8 +448,16 @@ const ProjectDetailPage = () => {
   const handleSaveReviewerFeedback = async (submissionId) => {
     try {
       setSavingFeedbackBySubmission((prev) => ({ ...prev, [submissionId]: true }));
+      const scoreValue = scoreBySubmission[submissionId];
+      const scoreNum = scoreValue ? parseInt(scoreValue) : undefined;
+      if (scoreNum !== undefined && (scoreNum < 0 || scoreNum > 100)) {
+        toast.error('الدرجة يجب أن تكون بين 0 و 100');
+        setSavingFeedbackBySubmission((prev) => ({ ...prev, [submissionId]: false }));
+        return;
+      }
       await api.put(`/progress/${submissionId}/feedback`, {
         comments: feedbackBySubmission[submissionId] || '',
+        score: scoreNum,
         allowResubmission: Boolean(allowResubmitBySubmission[submissionId])
       });
       toast.success('تم حفظ تعليق المراجع بنجاح');
@@ -1053,10 +1065,22 @@ const ProjectDetailPage = () => {
                       الملاحظات:\n{studentProjectSubmission.notes}
                     </Typography>
                   )}
-                  {studentProjectSubmission.feedback?.comments && (
-                    <Alert severity="info" sx={{ mt: 2, whiteSpace: 'pre-wrap' }}>
-                      <strong>تعليق المراجع:</strong>{'\n'}{studentProjectSubmission.feedback.comments}
-                    </Alert>
+                  {studentEvaluationDone && (
+                    <Paper sx={{ p: 2, mt: 2, backgroundColor: studentProjectSubmission.feedback?.score >= 60 ? 'success.light' : 'error.light' }}>
+                      <Typography variant="h6" sx={{ mb: 1 }}>
+                        <strong>الدرجة: {studentProjectSubmission.feedback?.score || '—'} / 100</strong>
+                      </Typography>
+                      {studentProjectSubmission.feedback?.score >= 60 ? (
+                        <Chip label="نجح" size="small" color="success" sx={{ mb: 1 }} />
+                      ) : (
+                        <Chip label="رسب" size="small" color="error" sx={{ mb: 1 }} />
+                      )}
+                      {studentProjectSubmission.feedback?.comments && (
+                        <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
+                          <strong>ملاحظات المراجع:</strong>{'\n'}{studentProjectSubmission.feedback.comments}
+                        </Typography>
+                      )}
+                    </Paper>
                   )}
                   {studentProjectSubmission.resubmissionAllowed && (
                     <Alert severity="warning" sx={{ mt: 1 }}>
@@ -1142,6 +1166,18 @@ const ProjectDetailPage = () => {
                               <strong>الملاحظات:</strong>{'\n'}{submission.notes || '—'}
                             </Typography>
 
+                            <TextField
+                              fullWidth
+                              type="number"
+                              label="الدرجة (0-100)"
+                              value={scoreBySubmission[submission._id] || ''}
+                              onChange={(e) => setScoreBySubmission((prev) => ({
+                                ...prev,
+                                [submission._id]: e.target.value
+                              }))}
+                              inputProps={{ min: 0, max: 100 }}
+                              sx={{ mb: 1 }}
+                            />
                             <TextField
                               fullWidth
                               multiline
