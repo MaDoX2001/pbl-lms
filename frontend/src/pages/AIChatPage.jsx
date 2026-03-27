@@ -56,7 +56,25 @@ let _keySeq = 0;
 const makeKey = () => `${Date.now()}-${++_keySeq}`;
 
 const ARABIC_CHAR_REGEX = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/;
-const detectTextRTL = (text = '') => ARABIC_CHAR_REGEX.test(text);
+const LATIN_CHAR_REGEX = /[A-Za-z]/;
+
+const detectDirectionFromFirstLine = (text = '', fallbackDirection = 'rtl') => {
+  const firstLine = String(text)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean);
+
+  if (!firstLine) return fallbackDirection;
+
+  const arabicIdx = firstLine.search(ARABIC_CHAR_REGEX);
+  const latinIdx = firstLine.search(LATIN_CHAR_REGEX);
+
+  if (arabicIdx === -1 && latinIdx === -1) return fallbackDirection;
+  if (arabicIdx === -1) return 'ltr';
+  if (latinIdx === -1) return 'rtl';
+
+  return arabicIdx < latinIdx ? 'rtl' : 'ltr';
+};
 
 // Map function names to Arabic labels
 const ACTION_LABELS = {
@@ -241,7 +259,9 @@ const AIChatPage = () => {
   const suggestions = isTeacher
     ? (language === 'ar' ? SUGGESTIONS_AR_TEACHER : SUGGESTIONS_EN_TEACHER)
     : (language === 'ar' ? SUGGESTIONS_AR_STUDENT : SUGGESTIONS_EN_STUDENT);
-  const inputIsRTL = input.trim() ? detectTextRTL(input) : isRTL;
+  const defaultDirection = isRTL ? 'rtl' : 'ltr';
+  const inputDirection = detectDirectionFromFirstLine(input, defaultDirection);
+  const inputTextAlign = inputDirection === 'rtl' ? 'right' : 'left';
 
   // All roles: load messages + summary from DB on mount.
   // DB is the source of truth — wins over localStorage for summary.
@@ -539,7 +559,8 @@ ${userText}`
         ) : (
           messages.map((msg, i) => (
             (() => {
-              const messageIsRTL = detectTextRTL(msg.content || '');
+              const messageDirection = detectDirectionFromFirstLine(msg.content || '', defaultDirection);
+              const messageIsRTL = messageDirection === 'rtl';
               return (
             <Box
               key={msg._key || i}
@@ -562,7 +583,7 @@ ${userText}`
               </Avatar>
               <Box sx={{ maxWidth: '75%', position: 'relative' }}>
                 <Paper
-                  dir="auto"
+                  dir={msg.role === 'assistant' ? messageDirection : 'auto'}
                   elevation={0}
                   sx={{
                     px: 2, py: 1.5,
@@ -571,7 +592,7 @@ ${userText}`
                     borderRadius: msg.role === 'user'
                       ? (isRTL ? '16px 4px 16px 16px' : '4px 16px 16px 16px')
                       : (isRTL ? '4px 16px 16px 16px' : '16px 4px 16px 16px'),
-                    direction: msg.role === 'assistant' ? (messageIsRTL ? 'rtl' : 'ltr') : 'inherit',
+                    direction: msg.role === 'assistant' ? messageDirection : 'inherit',
                     textAlign: msg.role === 'assistant' ? (messageIsRTL ? 'right' : 'left') : 'start',
                     unicodeBidi: 'plaintext',
                   }}
@@ -769,7 +790,7 @@ ${userText}`
           inputRef={inputRef}
           id="ai-chat-input"
           name="ai-chat-input"
-          dir="auto"
+          dir={inputDirection}
           fullWidth
           multiline
           maxRows={4}
@@ -781,13 +802,13 @@ ${userText}`
           size="small"
           autoComplete="off"
           inputProps={{
-            dir: 'auto',
-            style: { textAlign: 'start', direction: 'auto', unicodeBidi: 'plaintext' },
+            dir: inputDirection,
+            style: { textAlign: inputTextAlign, direction: inputDirection, unicodeBidi: 'plaintext' },
           }}
           sx={{
-            '& .MuiInputBase-root': { borderRadius: 3 },
-            '& .MuiInputBase-input': { textAlign: 'start' },
-            '& textarea': { textAlign: 'start', direction: 'auto', unicodeBidi: 'plaintext' },
+            '& .MuiInputBase-root': { borderRadius: 3, direction: inputDirection },
+            '& .MuiInputBase-input': { textAlign: inputTextAlign },
+            '& textarea': { textAlign: inputTextAlign, direction: inputDirection, unicodeBidi: 'plaintext' },
           }}
         />
         <IconButton
