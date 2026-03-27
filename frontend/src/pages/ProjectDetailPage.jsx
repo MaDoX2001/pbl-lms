@@ -346,7 +346,11 @@ const ProjectDetailPage = () => {
     );
   }
 
-  const isEnrolled = user?.enrolledProjects?.includes(project._id);
+  const enrolledProjectIds = (user?.enrolledProjects || []).map((p) =>
+    typeof p === 'string' ? p : (p?._id || p?.id)
+  );
+  const isEnrolled = enrolledProjectIds.includes(project._id);
+  const isTeamProject = project?.isTeamProject === true;
   // Admin can manage any project, Teacher can only manage their own projects
   const canManageProject = user && (
     user.role === 'admin' || 
@@ -667,7 +671,7 @@ const ProjectDetailPage = () => {
             )}
 
             {/* Register Team Button for Admin/Teacher */}
-            {canManageProject && (
+            {canManageProject && isTeamProject && (
               <>
                 <Divider sx={{ my: 2 }} />
                 <Button
@@ -825,7 +829,7 @@ const ProjectDetailPage = () => {
             </Button>
           )}
         </Box>
-        {user?.role === 'student' && isEnrolled && !project.isTeamProject && (
+        {user?.role === 'student' && isEnrolled && !isTeamProject && (
           <Box sx={{ mb: 2 }}>
             <Button
               variant="contained"
