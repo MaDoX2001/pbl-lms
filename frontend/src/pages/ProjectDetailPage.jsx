@@ -1018,11 +1018,25 @@ const ProjectDetailPage = () => {
                 {projectSubmissionsForReview.map((submission) => (
                   <Card key={submission._id} variant="outlined">
                     <CardContent>
-                      <Typography variant="subtitle2" fontWeight={700}>
-                        {submission.student?.name || 'طالب'}
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                        <Typography variant="subtitle2" fontWeight={700}>
+                          {submission.student?.name || 'طالب'}
+                        </Typography>
+                        <Chip
+                          size="small"
+                          color={submission.status === 'completed' ? 'success' : submission.status === 'reviewed' ? 'info' : 'warning'}
+                          label={
+                            submission.status === 'completed' ? 'مكتمل'
+                              : submission.status === 'reviewed' ? 'تمت المراجعة'
+                              : 'تم التسليم'
+                          }
+                        />
+                      </Box>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        البريد: {submission.student?.email || '—'}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        {submission.submittedAt ? new Date(submission.submittedAt).toLocaleString('ar-EG') : '—'}
+                        تاريخ التسليم: {submission.submittedAt ? new Date(submission.submittedAt).toLocaleString('ar-EG') : '—'}
                       </Typography>
                       {submission.submissionUrl && (
                         <Typography variant="body2" sx={{ mb: 1 }}>
@@ -1034,6 +1048,17 @@ const ProjectDetailPage = () => {
                           صورة التوصيل: <a href={submission.wiringImageUrl} target="_blank" rel="noopener noreferrer">عرض الصورة</a>
                         </Typography>
                       )}
+                      {submission.submissionFiles?.length > 0 && (
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                          الملف المرفوع: <a href={submission.submissionFiles[submission.submissionFiles.length - 1].url} target="_blank" rel="noopener noreferrer">تحميل الملف</a>
+                        </Typography>
+                      )}
+                      <Typography variant="body2" sx={{ mt: 1, mb: 1, whiteSpace: 'pre-wrap' }}>
+                        <strong>الكود:</strong>{'\n'}{submission.codeSubmission || '—'}
+                      </Typography>
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                        <strong>الملاحظات:</strong>{'\n'}{submission.notes || '—'}
+                      </Typography>
                     </CardContent>
                   </Card>
                 ))}
