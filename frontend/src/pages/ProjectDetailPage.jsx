@@ -920,11 +920,11 @@ const ProjectDetailPage = () => {
         )}
       </Paper>
 
-      {/* Assignments Section */}
+      {/* Project Submission Section */}
       <Paper sx={{ p: 3, mt: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">{t('assignmentsTasks')}</Typography>
-          {(user?.role === 'teacher' || user?.role === 'admin') && (
+          <Typography variant="h6">{!isTeamProject ? 'تسليم المشروع' : t('assignmentsTasks')}</Typography>
+          {isTeamProject && (user?.role === 'teacher' || user?.role === 'admin') && (
             <Button
               variant="contained"
               startIcon={<AssignmentIcon />}
@@ -1031,7 +1031,8 @@ const ProjectDetailPage = () => {
           </Box>
         )}
         
-        {loadingAssignments ? (
+        {isTeamProject ? (
+          loadingAssignments ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
@@ -1120,6 +1121,9 @@ const ProjectDetailPage = () => {
               );
             })}
           </Grid>
+          )
+        ) : (
+          <Alert severity="info">هذا المشروع يعتمد على تسليم المشروع فقط ولا يستخدم تسليمات الواجبات.</Alert>
         )}
       </Paper>
 
