@@ -216,7 +216,9 @@ const ProjectDetailPage = () => {
   };
 
   const handleEnroll = () => {
-    dispatch(enrollInProject(id));
+    dispatch(enrollInProject(id)).then(() => {
+      dispatch(fetchProjectById(id));
+    });
   };
 
   const handleDeleteProject = async () => {
@@ -349,7 +351,12 @@ const ProjectDetailPage = () => {
   const enrolledProjectIds = (user?.enrolledProjects || []).map((p) =>
     typeof p === 'string' ? p : (p?._id || p?.id)
   );
-  const isEnrolled = enrolledProjectIds.includes(project._id);
+  const enrolledStudentIds = (project?.enrolledStudents || []).map((s) =>
+    typeof s === 'string' ? s : (s?._id || s?.id)
+  );
+  const isEnrolled = Boolean(project?.isEnrolled)
+    || enrolledProjectIds.includes(project._id)
+    || (user?._id ? enrolledStudentIds.includes(user._id) : false);
   const isTeamProject = project?.isTeamProject === true;
   // Admin can manage any project, Teacher can only manage their own projects
   const canManageProject = user && (
@@ -620,15 +627,15 @@ const ProjectDetailPage = () => {
           {/* Enrollment Card */}
           <Paper sx={{ p: 3, mb: 3, position: 'sticky', top: 20 }}>
             {isAuthenticated ? (
-              isEnrolled ? (
-                <Button variant="contained" fullWidth size="large" disabled>
-                  {t('alreadyEnrolled')}
-                </Button>
-              ) : (
+              user?.role === 'student' && !isEnrolled ? (
                 <Button variant="contained" fullWidth size="large" onClick={handleEnroll}>
                   {t('enrollInProject')}
                 </Button>
-              )
+              ) : user?.role === 'student' ? (
+                <Typography variant="body2" color="success.main" sx={{ textAlign: 'center', fontWeight: 600 }}>
+                  {t('alreadyEnrolled')}
+                </Typography>
+              ) : null
             ) : (
               <Button variant="contained" fullWidth size="large" href="/login">
                 {t('loginToEnroll')}
