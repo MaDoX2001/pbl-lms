@@ -176,11 +176,15 @@ const ProjectDetailPage = () => {
         // Also fetch the evaluation score from EvaluationAttempt
         try {
           const scoreResponse = await api.get(`/assessment/individual-status/${id}/${user._id}`);
-          if (scoreResponse.data?.data?.latestScore !== null && scoreResponse.data?.data?.latestScore !== undefined) {
-            setStudentEvaluationScore(scoreResponse.data.data.latestScore);
+          const latestScore = scoreResponse.data?.data?.latestScore;
+          if (latestScore !== null && latestScore !== undefined) {
+            setStudentEvaluationScore(latestScore);
+          } else {
+            setStudentEvaluationScore(null);
           }
         } catch (err) {
           // Silent fail if evaluation data not available yet
+          setStudentEvaluationScore(null);
         }
       } else {
         setStudentProjectSubmission(null);
@@ -199,30 +203,48 @@ const ProjectDetailPage = () => {
       const submissions = response.data?.data || [];
       setProjectSubmissionsForReview(submissions);
 
-      // Fetch evaluation scores for each student
-      const scoresData = {};
+      // Build reviewer drafts
       const feedbackDrafts = {};
       const allowResubmitDrafts = {};
-      
-      for (const submission of submissions) {
+      submissions.forEach((submission) => {
         feedbackDrafts[submission._id] = submission.feedback?.comments || '';
         allowResubmitDrafts[submission._id] = Boolean(submission.resubmissionAllowed);
-        
-        try {
-          const scoreResponse = await api.get(`/assessment/individual-status/${id}/${submission.student._id}`);
-          if (scoreResponse.data?.data?.latestScore !== null && scoreResponse.data?.data?.latestScore !== undefined) {
-            scoresData[submission._id] = scoreResponse.data.data.latestScore;
+      });
+
+      // Fetch evaluation scores in parallel to avoid N+1 sequential latency
+      const scoreResults = await Promise.all(
+        submissions.map(async (submission) => {
+          const studentId = submission.student?._id || submission.studentId || submission.student;
+          if (!studentId) {
+            return { progressId: submission._id, score: undefined };
           }
-        } catch (err) {
-          // Silent fail if evaluation not available
+
+          try {
+            const scoreResponse = await api.get(`/assessment/individual-status/${id}/${studentId}`);
+            const latestScore = scoreResponse.data?.data?.latestScore;
+            return {
+              progressId: submission._id,
+              score: latestScore !== null && latestScore !== undefined ? latestScore : undefined
+            };
+          } catch (err) {
+            return { progressId: submission._id, score: undefined };
+          }
+        })
+      );
+
+      const scoresData = {};
+      scoreResults.forEach(({ progressId, score }) => {
+        if (score !== undefined) {
+          scoresData[progressId] = score;
         }
-      }
-      
+      });
+
       setProjectSubmissionScoresForReview(scoresData);
       setFeedbackBySubmission(feedbackDrafts);
       setAllowResubmitBySubmission(allowResubmitDrafts);
     } catch (error) {
       setProjectSubmissionsForReview([]);
+      setProjectSubmissionScoresForReview({});
     } finally {
       setLoadingProjectSubmissions(false);
     }
@@ -526,11 +548,7 @@ const ProjectDetailPage = () => {
       .map((studentId) => String(studentId))
   );
   const submittedStudentsCount = submittedStudentIds.size;
-  const studentEvaluationDone = Boolean(
-    studentProjectSubmission?.feedback?.reviewedAt
-      || studentProjectSubmission?.feedback?.comments
-      || ['reviewed', 'completed'].includes(studentProjectSubmission?.status)
-  );
+  const studentEvaluationDone = studentEvaluationScore !== null;
   // Admin can manage any project, Teacher can only manage their own projects
   const canManageProject = user && (
     user.role === 'admin' || 

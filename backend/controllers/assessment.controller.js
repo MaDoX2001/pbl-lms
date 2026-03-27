@@ -685,6 +685,23 @@ exports.finalizeEvaluation = async (req, res) => {
       }
 
       groupScore = groupEvaluation.calculatedScore;
+    } else {
+      // For individual projects, group-phase card is evaluated per student
+      groupEvaluation = await EvaluationAttempt.findOne({
+        project: projectId,
+        student: studentId,
+        phase: 'group',
+        isLatestAttempt: true
+      });
+
+      if (!groupEvaluation) {
+        return res.status(400).json({
+          success: false,
+          message: 'لا يوجد تقييم بطاقة الملاحظة الأولى (الجماعية) للطالب'
+        });
+      }
+
+      groupScore = groupEvaluation.calculatedScore;
     }
 
     const individualScore = individualEval.calculatedScore;
@@ -693,9 +710,11 @@ exports.finalizeEvaluation = async (req, res) => {
     // STEP 3: CALCULATE FINAL SCORES
     // ========================================================================
     // For team projects: finalScore = group + individual (0-200)
-    // For individual projects: finalScore = individual only (0-100)
+    // For individual projects: finalScore = average(group, individual) (0-100)
     const maxScore = project.isTeamProject ? 200 : 100;
-    const finalScore = groupScore + individualScore;
+    const finalScore = project.isTeamProject
+      ? (groupScore + individualScore)
+      : Number((((groupScore + individualScore) / 2)).toFixed(2));
     const finalPercentage = (finalScore / maxScore) * 100;
 
     // Determine verbal grade

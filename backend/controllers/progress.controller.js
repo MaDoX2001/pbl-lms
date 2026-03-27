@@ -268,6 +268,13 @@ exports.addReviewerFeedback = async (req, res) => {
       isLatestAttempt: true
     });
 
+    if (!latestIndividualEvaluation) {
+      return res.status(400).json({
+        success: false,
+        message: 'يجب إكمال التقييم الفردي قبل حفظ تعليق المراجع'
+      });
+    }
+
     let scoreFromEvaluation = latestIndividualEvaluation?.calculatedScore ?? null;
 
     // For individual projects, the score is the average of both observation cards
@@ -279,9 +286,14 @@ exports.addReviewerFeedback = async (req, res) => {
         isLatestAttempt: true
       });
 
-      if (latestIndividualEvaluation && latestGroupEvaluation) {
-        scoreFromEvaluation = Number((((latestIndividualEvaluation.calculatedScore + latestGroupEvaluation.calculatedScore) / 2)).toFixed(2));
+      if (!latestGroupEvaluation) {
+        return res.status(400).json({
+          success: false,
+          message: 'يجب إكمال بطاقتي الملاحظة قبل حفظ تعليق المراجع'
+        });
       }
+
+      scoreFromEvaluation = Number((((latestIndividualEvaluation.calculatedScore + latestGroupEvaluation.calculatedScore) / 2)).toFixed(2));
     }
 
     const reviewedAt = new Date();
