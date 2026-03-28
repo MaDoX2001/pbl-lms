@@ -448,14 +448,19 @@ const TeamProjectPage = () => {
               {t('projectDeadlinePassed')}
             </Alert>
           ) : (
-            <Button
-              variant="contained"
-              startIcon={<UploadIcon />}
-              onClick={() => setOpenUploadDialog(true)}
-              fullWidth
-            >
-              {t('uploadNewSubmission')}
-            </Button>
+            <>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                كل مراحل المشروع الجماعي يتم تسليمها عبر Wokwi (تصميم، توصيل، برمجة، اختبار، وتسليم نهائي).
+              </Alert>
+              <Button
+                variant="contained"
+                startIcon={<UploadIcon />}
+                onClick={() => navigate(`/team-project/${projectId}/wokwi`)}
+                fullWidth
+              >
+                فتح صفحة تسليم Wokwi
+              </Button>
+            </>
           )}
         </Box>
       )}
@@ -577,7 +582,7 @@ const TeamProjectPage = () => {
         )}
       </Paper>
 
-      {/* Upload Dialog */}
+      {/* Legacy file-upload dialog kept hidden to preserve compatibility; workflow is now Wokwi-only */}
       <Dialog open={openUploadDialog} onClose={() => setOpenUploadDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{t('uploadNewSubmission')}</DialogTitle>
         <DialogContent>

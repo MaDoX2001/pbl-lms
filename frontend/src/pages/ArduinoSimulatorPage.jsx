@@ -13,11 +13,20 @@ function ArduinoSimulatorPage() {
   const { t } = useAppSettings();
   const { user } = useSelector(state => state.auth);
 
+  const stageOptions = [
+    { value: 'design', label: 'تسليم التصميم' },
+    { value: 'wiring', label: 'تسليم التوصيل' },
+    { value: 'programming', label: 'تسليم البرمجة (لكل طالب)' },
+    { value: 'testing', label: 'تسليم الاختبار' },
+    { value: 'final_delivery', label: 'التسليم النهائي' },
+  ];
+
   // Dialog state
   const [open, setOpen] = useState(false);
   const [wokwiLink, setWokwiLink] = useState('');
   const [notes, setNotes] = useState('');
   const [selectedProject, setSelectedProject] = useState('');
+  const [selectedStage, setSelectedStage] = useState('design');
   const [projects, setProjects] = useState([]);   // team enrollments
   const [submitting, setSubmitting] = useState(false);
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
@@ -43,7 +52,7 @@ function ArduinoSimulatorPage() {
       setSnack({ open: true, msg: t('wokwiLinkRequired'), severity: 'warning' });
       return;
     }
-    if (!/^https:\/\/wokwi\.com\/projects\/\d+/.test(wokwiLink.trim())) {
+    if (!/^https:\/\/wokwi\.com\/projects\/[a-zA-Z0-9_-]+/.test(wokwiLink.trim())) {
       setSnack({ open: true, msg: t('wokwiLinkInvalid'), severity: 'error' });
       return;
     }
@@ -54,7 +63,7 @@ function ArduinoSimulatorPage() {
       await api.post('/team-submissions/wokwi', {
         teamId: myTeam.data.data._id,
         projectId: selectedProject,
-        stageKey: 'wiring',
+        stageKey: selectedStage,
         wokwiLink: wokwiLink.trim(),
         notes: notes.trim()
       });
@@ -63,6 +72,7 @@ function ArduinoSimulatorPage() {
       setWokwiLink('');
       setNotes('');
       setSelectedProject('');
+      setSelectedStage('design');
     } catch (err) {
       const msg = err.response?.data?.message || t('wokwiSubmitError');
       setSnack({ open: true, msg, severity: 'error' });
@@ -140,6 +150,23 @@ function ArduinoSimulatorPage() {
               )) : (
                 <MenuItem disabled value="">{t('wokwiNoProjects')}</MenuItem>
               )}
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth required>
+            <InputLabel id="wokwi-stage-label">مرحلة التسليم</InputLabel>
+            <Select
+              labelId="wokwi-stage-label"
+              value={selectedStage}
+              label="مرحلة التسليم"
+              onChange={e => setSelectedStage(e.target.value)}
+              disabled={submitting}
+            >
+              {stageOptions.map(stage => (
+                <MenuItem key={stage.value} value={stage.value}>
+                  {stage.label}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
 

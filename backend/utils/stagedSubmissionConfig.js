@@ -39,8 +39,10 @@ const STAGE_TO_REQUIRED_ROLE = {
   final_delivery: 'tester'
 };
 
-const FILE_ALLOWED_STAGES = new Set(['design', 'programming', 'testing', 'final_delivery']);
-const WOKWI_ALLOWED_STAGES = new Set(['wiring']);
+// Team project workflow is now unified on Wokwi for all stages.
+// Keep FILE_ALLOWED_STAGES empty to prevent new file submissions while preserving legacy records.
+const FILE_ALLOWED_STAGES = new Set([]);
+const WOKWI_ALLOWED_STAGES = new Set(['design', 'wiring', 'programming', 'testing', 'final_delivery']);
 
 const STAGE_ORDER = FIXED_STAGE_TEMPLATE.map((s) => s.stageKey);
 

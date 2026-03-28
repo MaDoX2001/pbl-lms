@@ -2,6 +2,7 @@ const TeamSubmission = require('../models/TeamSubmission.model');
 const Team = require('../models/Team.model');
 const Project = require('../models/Project.model');
 const TeamProject = require('../models/TeamProject.model');
+const EvaluationAttempt = require('../models/EvaluationAttempt.model');
 const cloudinary = require('../services/cloudinary.service');
 const multer = require('multer');
 const {
@@ -110,6 +111,17 @@ const enforceStagePermissions = ({ stageKey, enrollment, userId, completed }) =>
   return { allowed: true };
 };
 
+const canSubmitAfterFinalDelivery = async (projectId, studentId) => {
+  const retryAttempt = await EvaluationAttempt.findOne({
+    project: projectId,
+    student: studentId,
+    isLatestAttempt: true,
+    retryAllowed: true
+  }).select('_id');
+
+  return Boolean(retryAttempt);
+};
+
 // @desc    Submit a file for a project
 // @route   POST /api/team-submissions
 // @access  Private (team members only)
@@ -128,7 +140,7 @@ exports.createSubmission = async (req, res) => {
     if (!FILE_ALLOWED_STAGES.has(stageKey)) {
       return res.status(400).json({
         success: false,
-        message: 'هذه المرحلة لا تدعم رفع ملف. استخدم نوع التسليم المناسب.'
+        message: 'تم توحيد تسليم المشروع الجماعي عبر Wokwi لكل المراحل. استخدم صفحة Wokwi للتسليم.'
       });
     }
 
@@ -208,6 +220,17 @@ exports.createSubmission = async (req, res) => {
     });
     if (!permission.allowed) {
       return res.status(permission.status || 403).json({ success: false, message: permission.message });
+    }
+
+    // Once final delivery exists, students can only submit again when teacher/admin explicitly allows retry.
+    if (stageProgress.completed.final_delivery) {
+      const retryAllowed = await canSubmitAfterFinalDelivery(projectId, req.user._id);
+      if (!retryAllowed) {
+        return res.status(403).json({
+          success: false,
+          message: 'بعد التسليم النهائي لا يمكن إعادة التسليم إلا بعد سماح المعلم بإعادة المحاولة أثناء التقييم.'
+        });
+      }
     }
 
     // Upload to Cloudinary
@@ -685,6 +708,17 @@ exports.deleteSubmission = async (req, res) => {
       });
       if (!permission.allowed) {
         return res.status(permission.status || 403).json({ success: false, message: permission.message });
+      }
+
+      // Once final delivery exists, students can only submit again when teacher/admin explicitly allows retry.
+      if (stageProgress.completed.final_delivery) {
+        const retryAllowed = await canSubmitAfterFinalDelivery(projectId, req.user._id);
+        if (!retryAllowed) {
+          return res.status(403).json({
+            success: false,
+            message: 'بعد التسليم النهائي لا يمكن إعادة التسليم إلا بعد سماح المعلم بإعادة المحاولة أثناء التقييم.'
+          });
+        }
       }
 
       const submission = await TeamSubmission.create({
