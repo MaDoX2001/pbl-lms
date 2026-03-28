@@ -185,17 +185,25 @@ const ChatPage = () => {
       // Reset search
       setInChatSearch('');
       setShowSearch(false);
-      // Set last read message for "new messages" divider
-      if (selectedConversation.unreadCount > 0 && messages.length > 0) {
-        const unreadIndex = messages.length - selectedConversation.unreadCount;
-        if (unreadIndex > 0) {
-          setLastReadMessageId(messages[unreadIndex - 1]._id);
-        }
-      } else {
-        setLastReadMessageId(null);
-      }
+      // Reset divider state until messages are loaded
+      setLastReadMessageId(null);
     }
   }, [selectedConversation]);
+
+  useEffect(() => {
+    if (!selectedConversation || messages.length === 0) {
+      setLastReadMessageId(null);
+      return;
+    }
+
+    const unreadCount = getUnreadCount(selectedConversation);
+    if (unreadCount > 0 && messages.length > unreadCount) {
+      const unreadStartIndex = messages.length - unreadCount;
+      setLastReadMessageId(messages[unreadStartIndex - 1]?._id || null);
+    } else {
+      setLastReadMessageId(null);
+    }
+  }, [selectedConversation, messages]);
 
   useEffect(() => {
     if (userIsNearBottom) {
@@ -242,6 +250,10 @@ const ChatPage = () => {
       setCurrentSearchIndex(0);
     }
   }, [inChatSearch, messages]);
+
+  const searchResultIdSet = useMemo(() => {
+    return new Set(searchResults.map((msg) => msg._id));
+  }, [searchResults]);
 
   const handleSearchNavigation = (direction) => {
     if (searchResults.length === 0) return;
@@ -565,7 +577,7 @@ const ChatPage = () => {
       getConversationName(conv).toLowerCase().includes(debouncedSearchQuery.toLowerCase())
     );
     return filtered;
-  }, [conversations, debouncedSearchQuery, user.id]);
+  }, [conversations, debouncedSearchQuery, user.id, language]);
 
   const handleTabChange = async (event, newValue) => {
     setChatType(newValue);
@@ -857,7 +869,7 @@ const ChatPage = () => {
                   const showDateSeparator = shouldShowDateSeparator(message, messages[index - 1]);
                   const showNewMessagesDivider = lastReadMessageId && message._id === lastReadMessageId;
                   
-                  const isSearchResult = searchResults.some(r => r._id === message._id);
+                  const isSearchResult = searchResultIdSet.has(message._id);
                   const isCurrentSearchResult = searchResults[currentSearchIndex]?._id === message._id;
                   
                   return (
