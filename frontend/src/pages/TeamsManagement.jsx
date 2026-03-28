@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Container,
   Paper,
@@ -54,6 +54,26 @@ const TeamsManagement = () => {
     description: '',
     members: []
   });
+
+  const availableStudents = useMemo(() => {
+    const assignedStudentIds = new Set();
+
+    teams.forEach((team) => {
+      // In edit mode, keep current team members selectable
+      if (editMode && currentTeam && String(team._id) === String(currentTeam._id)) {
+        return;
+      }
+
+      (team.members || []).forEach((member) => {
+        const memberId = member?.user?._id || member?._id || member;
+        if (memberId) {
+          assignedStudentIds.add(String(memberId));
+        }
+      });
+    });
+
+    return (students || []).filter((student) => !assignedStudentIds.has(String(student._id)));
+  }, [students, teams, editMode, currentTeam]);
 
   useEffect(() => {
     fetchTeams();
@@ -295,7 +315,7 @@ const TeamsManagement = () => {
 
             <Autocomplete
               multiple
-              options={students}
+              options={availableStudents}
               getOptionLabel={(option) => `${option.name} (${option.email})`}
               value={formData.members}
               onChange={(e, newValue) => {
