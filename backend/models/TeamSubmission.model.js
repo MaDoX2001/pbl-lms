@@ -65,6 +65,17 @@ const teamSubmissionSchema = new mongoose.Schema({
     maxlength: [500, 'الملاحظات يجب ألا تتجاوز 500 حرف']
   },
 
+  // Teammate acknowledgement for the latest handed-off Wokwi version
+  handoffAcceptedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  handoffAcceptedAt: {
+    type: Date,
+    default: null
+  },
+
   // ---- Common fields ----
   submittedBy: {
     type: mongoose.Schema.Types.ObjectId,

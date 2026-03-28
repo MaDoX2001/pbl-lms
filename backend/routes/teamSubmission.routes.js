@@ -9,7 +9,8 @@ const {
   addGrade,
   deleteSubmission,
   uploadMiddleware,
-  getStageProgress
+  getStageProgress,
+  acknowledgeWokwiHandoff
 } = require('../controllers/teamSubmission.controller');
 const {
   submitWokwiLink,
@@ -34,6 +35,9 @@ router.get('/wokwi/:teamId/:projectId/latest', protect, getLatestWokwiSubmission
 
 // Get Wokwi submission history for a team's project
 router.get('/wokwi/:teamId/:projectId', protect, getWokwiHistory);
+
+// Team member acknowledges receiving a teammate Wokwi version
+router.put('/:id/handoff-ack', protect, acknowledgeWokwiHandoff);
 
 // Get all submissions for a specific team's project
 router.get('/team/:teamId/project/:projectId', protect, getTeamProjectSubmissions);

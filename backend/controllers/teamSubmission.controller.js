@@ -353,6 +353,7 @@ exports.getTeamProjectSubmissions = async (req, res) => {
       project: projectId
     })
       .populate('submittedBy', 'name email')
+      .populate('handoffAcceptedBy', 'name email')
       .populate('feedbackBy', 'name')
       .populate('gradedBy', 'name')
       .sort({ submittedAt: -1 });
@@ -400,6 +401,7 @@ exports.getProjectSubmissions = async (req, res) => {
         populate: { path: 'members.user', select: 'name email' }
       })
       .populate('submittedBy', 'name email')
+      .populate('handoffAcceptedBy', 'name email')
       .populate('feedbackBy', 'name')
       .populate('gradedBy', 'name')
       .sort({ submittedAt: -1 });
@@ -728,11 +730,14 @@ exports.deleteSubmission = async (req, res) => {
         submissionType: 'wokwi',
         wokwiLink,
         notes: notes || '',
+        handoffAcceptedBy: null,
+        handoffAcceptedAt: null,
         submittedBy: req.user._id
       });
 
       await submission.populate([
         { path: 'submittedBy', select: 'name email' },
+        { path: 'handoffAcceptedBy', select: 'name email' },
         { path: 'project', select: 'title' }
       ]);
 
@@ -773,6 +778,7 @@ exports.deleteSubmission = async (req, res) => {
         submissionType: 'wokwi'
       })
         .populate('submittedBy', 'name email')
+        .populate('handoffAcceptedBy', 'name email')
         .sort({ submittedAt: -1 })
         .limit(20);
 
@@ -809,6 +815,7 @@ exports.deleteSubmission = async (req, res) => {
         submissionType: 'wokwi'
       })
         .populate('submittedBy', 'name email')
+        .populate('handoffAcceptedBy', 'name email')
         .sort({ submittedAt: -1 });
 
       res.json({ success: true, data: submission || null });
@@ -816,3 +823,47 @@ exports.deleteSubmission = async (req, res) => {
       res.status(500).json({ success: false, message: 'خطأ في جلب آخر نسخة', error: error.message });
     }
   };
+
+// @desc    Acknowledge receiving a Wokwi handoff submission
+// @route   PUT /api/team-submissions/:id/handoff-ack
+// @access  Private (team members only)
+exports.acknowledgeWokwiHandoff = async (req, res) => {
+  try {
+    const submission = await TeamSubmission.findById(req.params.id)
+      .populate({ path: 'team', select: 'members' })
+      .populate('handoffAcceptedBy', 'name email')
+      .populate('submittedBy', 'name email');
+
+    if (!submission) {
+      return res.status(404).json({ success: false, message: 'التسليم غير موجود' });
+    }
+
+    if (submission.submissionType !== 'wokwi') {
+      return res.status(400).json({ success: false, message: 'تأكيد الاستلام متاح فقط لتسليمات Wokwi' });
+    }
+
+    if (req.user.role !== 'student') {
+      return res.status(403).json({ success: false, message: 'هذه العملية مخصصة لأعضاء الفريق فقط' });
+    }
+
+    const isMember = (submission.team?.members || []).some(
+      (m) => (m.user?._id || m.user || m).toString() === req.user._id.toString()
+    );
+    if (!isMember) {
+      return res.status(403).json({ success: false, message: 'غير مصرح لك' });
+    }
+
+    if (submission.submittedBy && submission.submittedBy._id.toString() === req.user._id.toString()) {
+      return res.status(400).json({ success: false, message: 'لا يمكنك تأكيد استلام نسخة قمتَ أنت بتسليمها' });
+    }
+
+    submission.handoffAcceptedBy = req.user._id;
+    submission.handoffAcceptedAt = new Date();
+    await submission.save();
+    await submission.populate('handoffAcceptedBy', 'name email');
+
+    res.json({ success: true, data: submission, message: 'تم تأكيد استلام النسخة بنجاح' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'خطأ في تأكيد استلام النسخة', error: error.message });
+  }
+};

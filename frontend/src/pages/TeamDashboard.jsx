@@ -21,6 +21,8 @@ import {
   Engineering as EngineeringIcon,
   BugReport as BugReportIcon,
   DesignServices as DesignServicesIcon,
+  ContentCopy as ContentCopyIcon,
+  TaskAlt as TaskAltIcon,
 } from '@mui/icons-material';
   import OpenInNewIcon from '@mui/icons-material/OpenInNew';
   import HistoryIcon from '@mui/icons-material/History';
@@ -48,6 +50,7 @@ const TeamDashboard = () => {
   const [filesLoading, setFilesLoading] = useState(false);
   const [error, setError] = useState('');
   const [roleLoading, setRoleLoading] = useState({}); // { [projectId]: bool }
+  const [handoffLoading, setHandoffLoading] = useState({}); // { [submissionId]: bool }
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
   const [activeTab, setActiveTab] = useState(0);
   const [projectFilter, setProjectFilter] = useState('all');
@@ -171,6 +174,35 @@ const TeamDashboard = () => {
       setSnack({ open: true, msg, severity: 'error' });
     } finally {
       setRoleLoading(prev => ({ ...prev, [projectId]: false }));
+    }
+  };
+
+  const handleCopyWokwiLink = async (link) => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setSnack({ open: true, msg: 'تم نسخ رابط Wokwi', severity: 'success' });
+    } catch {
+      setSnack({ open: true, msg: 'تعذر نسخ الرابط تلقائياً', severity: 'error' });
+    }
+  };
+
+  const handleAcknowledgeHandoff = async (submissionId, projectId) => {
+    setHandoffLoading(prev => ({ ...prev, [submissionId]: true }));
+    try {
+      const res = await api.put(`/team-submissions/${submissionId}/handoff-ack`);
+      const updated = res.data?.data;
+      setWokwiData(prev => ({
+        ...prev,
+        [projectId]: {
+          ...(prev[projectId] || {}),
+          latest: updated || prev[projectId]?.latest || null,
+        }
+      }));
+      setSnack({ open: true, msg: res.data?.message || 'تم تأكيد استلام النسخة', severity: 'success' });
+    } catch (err) {
+      setSnack({ open: true, msg: err.response?.data?.message || 'تعذر تأكيد استلام النسخة', severity: 'error' });
+    } finally {
+      setHandoffLoading(prev => ({ ...prev, [submissionId]: false }));
     }
   };
 
@@ -329,38 +361,52 @@ const TeamDashboard = () => {
                     {(() => {
                       const pid = enrollment.project?._id;
                       const myRole = getMyProjectRole(enrollment);
+                      const rotationOrder = ['system_designer', 'hardware_engineer', 'tester'];
                       const takenRoles = (enrollment.memberRoles || [])
                         .filter(mr => String(mr.user?._id || mr.user) !== String(user?._id))
                         .map(mr => mr.role);
                       const usedInPrevious = getMyUsedRoles(enrollment);
+                      const suggestedRole = rotationOrder.find(r => !takenRoles.includes(r) && !usedInPrevious.includes(r))
+                        || rotationOrder.find(r => !takenRoles.includes(r))
+                        || null;
                       return (
-                        <FormControl size="small" sx={{ minWidth: 240 }} disabled={!!roleLoading[pid]}>
-                          <InputLabel id={`role-label-${pid}`}>{t('teamRoleSelectPrompt')}</InputLabel>
-                          <Select
-                            labelId={`role-label-${pid}`}
-                            value={myRole || ''}
-                            label={t('teamRoleSelectPrompt')}
-                            onChange={e => handleSetProjectRole(pid, e.target.value)}
-                          >
-                            {['system_designer', 'hardware_engineer', 'tester'].map(r => {
-                              const meta = ROLE_META[r];
-                              const taken = takenRoles.includes(r);
-                              const usedPrev = usedInPrevious.includes(r);
-                              return (
-                                <MenuItem key={r} value={r} disabled={taken || usedPrev}>
-                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    {meta?.icon}
-                                    <span>
-                                      {t(meta?.labelKey)}
-                                      {taken && ` — ${t('teamRoleAlreadyTaken')}`}
-                                      {!taken && usedPrev && ` — ${t('teamRoleAlreadyUsed')}`}
-                                    </span>
-                                  </Box>
-                                </MenuItem>
-                              );
-                            })}
-                          </Select>
-                        </FormControl>
+                        <Box>
+                          {suggestedRole && !myRole && (
+                            <Chip
+                              size="small"
+                              color="info"
+                              sx={{ mb: 1 }}
+                              label={`الدور المقترح لك الآن: ${t(ROLE_META[suggestedRole]?.labelKey)}`}
+                            />
+                          )}
+                          <FormControl size="small" sx={{ minWidth: 240 }} disabled={!!roleLoading[pid]}>
+                            <InputLabel id={`role-label-${pid}`}>{t('teamRoleSelectPrompt')}</InputLabel>
+                            <Select
+                              labelId={`role-label-${pid}`}
+                              value={myRole || ''}
+                              label={t('teamRoleSelectPrompt')}
+                              onChange={e => handleSetProjectRole(pid, e.target.value)}
+                            >
+                              {['system_designer', 'hardware_engineer', 'tester'].map(r => {
+                                const meta = ROLE_META[r];
+                                const taken = takenRoles.includes(r);
+                                const usedPrev = usedInPrevious.includes(r);
+                                return (
+                                  <MenuItem key={r} value={r} disabled={taken || usedPrev}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      {meta?.icon}
+                                      <span>
+                                        {t(meta?.labelKey)}
+                                        {taken && ` — ${t('teamRoleAlreadyTaken')}`}
+                                        {!taken && usedPrev && ` — ${t('teamRoleAlreadyUsed')}`}
+                                      </span>
+                                    </Box>
+                                  </MenuItem>
+                                );
+                              })}
+                            </Select>
+                          </FormControl>
+                        </Box>
                       );
                     })()}
                   </Box>
@@ -375,23 +421,54 @@ const TeamDashboard = () => {
                       <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
                         {t('wokwiLatestVersion')}
                       </Typography>
-                      {wokwiData[enrollment.project?._id]?.latest ? (
+                      {(() => {
+                        const latest = wokwiData[enrollment.project?._id]?.latest;
+                        const isMySubmission = String(latest?.submittedBy?._id || latest?.submittedBy) === String(user?._id);
+                        const hasAck = !!latest?.handoffAcceptedBy;
+                        return latest ? (
                         <Box>
                           <Typography variant="body2" color="text.secondary">
-                            {t('wokwiLastUpdatedBy')}: <strong>{wokwiData[enrollment.project?._id].latest.submittedBy?.name}</strong>
-                            {' — '}{new Date(wokwiData[enrollment.project?._id].latest.submittedAt).toLocaleString('ar-EG')}
+                            {t('wokwiLastUpdatedBy')}: <strong>{latest.submittedBy?.name}</strong>
+                            {' — '}{new Date(latest.submittedAt).toLocaleString('ar-EG')}
                           </Typography>
-                          {wokwiData[enrollment.project?._id].latest.notes && (
+                          {latest.notes && (
                             <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, fontStyle: 'italic' }}>
-                              {wokwiData[enrollment.project?._id].latest.notes}
+                              {latest.notes}
                             </Typography>
                           )}
+                          <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                            {!hasAck && !isMySubmission && (
+                              <Button
+                                size="small"
+                                variant="contained"
+                                startIcon={<TaskAltIcon />}
+                                disabled={!!handoffLoading[latest._id]}
+                                onClick={() => handleAcknowledgeHandoff(latest._id, enrollment.project?._id)}
+                              >
+                                استلمت النسخة
+                              </Button>
+                            )}
+                            {hasAck && (
+                              <Chip
+                                size="small"
+                                color="success"
+                                icon={<TaskAltIcon />}
+                                label={`تم الاستلام بواسطة ${latest.handoffAcceptedBy?.name || 'عضو بالفريق'}`}
+                              />
+                            )}
+                          </Box>
                           <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
                             <Button
                               size="small" variant="outlined" startIcon={<OpenInNewIcon />}
                               onClick={() => navigate(`/team-project/${enrollment.project?._id}/wokwi`)}
                             >
                               {t('wokwiOpenProject')}
+                            </Button>
+                            <Button
+                              size="small" variant="outlined" startIcon={<ContentCopyIcon />}
+                              onClick={() => handleCopyWokwiLink(latest.wokwiLink)}
+                            >
+                              نسخ الرابط
                             </Button>
                             <Button
                               size="small" variant="outlined" startIcon={<HistoryIcon />}
@@ -405,7 +482,8 @@ const TeamDashboard = () => {
                         <Typography variant="caption" color="text.secondary">
                           {t('wokwiNoSubmissions')}
                         </Typography>
-                      )}
+                      );
+                      })()}
                       {/* Active editor warning */}
                       {activeEditors[enrollment.project?._id] &&
                        String(activeEditors[enrollment.project?._id]?.user?._id) !== String(user?._id) && (
