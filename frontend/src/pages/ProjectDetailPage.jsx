@@ -99,6 +99,10 @@ const ProjectDetailPage = () => {
   const [allowResubmitBySubmission, setAllowResubmitBySubmission] = useState({});
   const [savingFeedbackBySubmission, setSavingFeedbackBySubmission] = useState({});
   const [showOtherSubmissionsByStudent, setShowOtherSubmissionsByStudent] = useState({});
+  const [myTeam, setMyTeam] = useState(null);
+  const [teamEnrollmentLoading, setTeamEnrollmentLoading] = useState(false);
+  const [teamAlreadyEnrolled, setTeamAlreadyEnrolled] = useState(false);
+  const [enrollingTeam, setEnrollingTeam] = useState(false);
 
   useEffect(() => {
     if (!project?.deadline) { setCountdown(''); return; }
@@ -122,6 +126,42 @@ const ProjectDetailPage = () => {
   useEffect(() => {
     dispatch(fetchProjectById(id));
   }, [dispatch, id]);
+
+  useEffect(() => {
+    const fetchTeamEnrollmentState = async () => {
+      if (!id || !project?.isTeamProject || user?.role !== 'student') {
+        setMyTeam(null);
+        setTeamAlreadyEnrolled(false);
+        return;
+      }
+
+      try {
+        setTeamEnrollmentLoading(true);
+        const teamResponse = await api.get('/teams/my-team');
+        const teamData = teamResponse.data?.data || null;
+        setMyTeam(teamData);
+
+        if (!teamData?._id) {
+          setTeamAlreadyEnrolled(false);
+          return;
+        }
+
+        const enrollmentsResponse = await api.get(`/team-projects/team/${teamData._id}`);
+        const enrollments = enrollmentsResponse.data?.data || [];
+        const enrolled = enrollments.some(
+          (enrollment) => String(enrollment.project?._id || enrollment.project) === String(id)
+        );
+        setTeamAlreadyEnrolled(enrolled);
+      } catch (error) {
+        setMyTeam(null);
+        setTeamAlreadyEnrolled(false);
+      } finally {
+        setTeamEnrollmentLoading(false);
+      }
+    };
+
+    fetchTeamEnrollmentState();
+  }, [id, project?.isTeamProject, user?.role]);
 
   useEffect(() => {
     if (id) {
@@ -317,6 +357,41 @@ const ProjectDetailPage = () => {
     dispatch(enrollInProject(id)).then(() => {
       dispatch(fetchProjectById(id));
     });
+  };
+
+  const handleTeamEnroll = async () => {
+    try {
+      setEnrollingTeam(true);
+
+      let teamData = myTeam;
+      if (!teamData?._id) {
+        const teamResponse = await api.get('/teams/my-team');
+        teamData = teamResponse.data?.data || null;
+        setMyTeam(teamData);
+      }
+
+      if (!teamData?._id) {
+        toast.error('يجب الانضمام لفريق أولاً قبل تسجيل مشروع جماعي');
+        return;
+      }
+
+      await api.post('/team-projects/enroll', {
+        teamId: teamData._id,
+        projectId: id
+      });
+
+      setTeamAlreadyEnrolled(true);
+      toast.success('تم تسجيل الفريق بالكامل في المشروع بنجاح');
+      dispatch(fetchProjectById(id));
+    } catch (error) {
+      const message = error.response?.data?.message || 'تعذر تسجيل الفريق في المشروع';
+      if (message.includes('مسجل بالفعل')) {
+        setTeamAlreadyEnrolled(true);
+      }
+      toast.error(message);
+    } finally {
+      setEnrollingTeam(false);
+    }
   };
 
   const handleDeleteProject = async () => {
@@ -827,6 +902,62 @@ const ProjectDetailPage = () => {
                   <Typography variant="body2" color="success.main" sx={{ textAlign: 'center', fontWeight: 600 }}>
                     {t('alreadyEnrolled')}
                   </Typography>
+                ) : null
+              ) : (
+                <Button variant="contained" fullWidth size="large" href="/login">
+                  {t('loginToEnroll')}
+                </Button>
+              )
+            )}
+
+            {isTeamProject && (
+              isAuthenticated ? (
+                user?.role === 'student' ? (
+                  <Box>
+                    {teamEnrollmentLoading ? (
+                      <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
+                        <CircularProgress size={24} />
+                      </Box>
+                    ) : !myTeam ? (
+                      <Alert severity="warning" sx={{ mb: 1 }}>
+                        لازم تكون عضو في فريق أولاً قبل التسجيل في مشروع جماعي.
+                      </Alert>
+                    ) : !teamAlreadyEnrolled ? (
+                      <Button
+                        variant="contained"
+                        color="secondary"
+                        fullWidth
+                        size="large"
+                        startIcon={<GroupsIcon />}
+                        onClick={handleTeamEnroll}
+                        disabled={enrollingTeam}
+                      >
+                        {enrollingTeam ? 'جارِ تسجيل الفريق...' : 'تسجيل الفريق في المشروع'}
+                      </Button>
+                    ) : (
+                      <Typography variant="body2" color="success.main" sx={{ textAlign: 'center', fontWeight: 700 }}>
+                        الفريق مسجل بالفعل في هذا المشروع
+                      </Typography>
+                    )}
+
+                    <Alert severity="info" sx={{ mt: 2 }}>
+                      اختيار الأدوار يتم من لوحة الفريق، والتسليمات والمراحل تظهر في صفحة المشروع الجماعي.
+                    </Alert>
+
+                    {teamAlreadyEnrolled && (
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
+                        <Button variant="outlined" onClick={() => navigate('/team/dashboard')}>
+                          واجهة اختيار الأدوار (لوحة الفريق)
+                        </Button>
+                        <Button variant="outlined" onClick={() => navigate(`/team/project/${id}`)}>
+                          مكان التسليم + عرض المراحل والتسليمات
+                        </Button>
+                        <Button variant="outlined" onClick={() => navigate('/arduino-simulator')}>
+                          صفحة المحاكي وتسليم Wokwi
+                        </Button>
+                      </Box>
+                    )}
+                  </Box>
                 ) : null
               ) : (
                 <Button variant="contained" fullWidth size="large" href="/login">

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Container, Typography, Paper, Button, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, MenuItem, Select, FormControl,
-  InputLabel, Snackbar, Alert, CircularProgress, Tooltip
+  InputLabel, Snackbar, Alert, CircularProgress, Tooltip, Chip
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import { useSelector } from 'react-redux';
@@ -28,20 +28,78 @@ function ArduinoSimulatorPage() {
   const [selectedProject, setSelectedProject] = useState('');
   const [selectedStage, setSelectedStage] = useState('design');
   const [projects, setProjects] = useState([]);   // team enrollments
+  const [teamId, setTeamId] = useState('');
+  const [progressByProject, setProgressByProject] = useState({});
+  const [loadingProgress, setLoadingProgress] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
+
+  const roleLabelMap = {
+    system_designer: 'مصمم النظام',
+    hardware_engineer: 'مهندس التوصيل',
+    tester: 'مختبر',
+  };
+
+  const stageLabelMap = {
+    design: 'مرحلة التصميم',
+    wiring: 'مرحلة التوصيل',
+    programming: 'مرحلة البرمجة',
+    testing: 'مرحلة الاختبار',
+    final_delivery: 'مرحلة التسليم النهائي',
+    completed: 'تم إنهاء كل مراحل التسليم',
+  };
+
+  const getCurrentStage = (progress) => {
+    const completed = progress?.completed || {};
+    if (!completed.design) return 'design';
+    if (!completed.wiring) return 'wiring';
+    if (!completed.programming) return 'programming';
+    if (!completed.testing) return 'testing';
+    if (!completed.final_delivery) return 'final_delivery';
+    return 'completed';
+  };
+
+  const selectedEnrollment = projects.find((e) => String(e.project?._id || e._id) === String(selectedProject));
+  const myProjectRole = (() => {
+    const memberRoles = selectedEnrollment?.memberRoles || [];
+    const mine = memberRoles.find((mr) => String(mr.user?._id || mr.user) === String(user?._id));
+    return mine?.role || null;
+  })();
+  const currentStageKey = selectedProject ? getCurrentStage(progressByProject[selectedProject]) : null;
 
   // Fetch team's enrolled projects for the dropdown
   useEffect(() => {
     if (user?.role === 'student') {
       api.get('/teams/my-team').then(res => {
         const teamId = res.data.data._id;
+        setTeamId(teamId);
           api.get(`/team-projects/team/${teamId}`).then(r => {
-            setProjects(r.data.data || []);
+            const enrollments = r.data.data || [];
+            setProjects(enrollments);
+            if (enrollments.length > 0) {
+              setSelectedProject(enrollments[0].project?._id || enrollments[0]._id);
+            }
           }).catch(() => {});
       }).catch(() => {});
     }
   }, [user]);
+
+  useEffect(() => {
+    const fetchStageProgress = async () => {
+      if (!teamId || !selectedProject) return;
+      try {
+        setLoadingProgress(true);
+        const res = await api.get(`/team-submissions/progress/${teamId}/${selectedProject}`);
+        setProgressByProject(prev => ({ ...prev, [selectedProject]: res.data?.data || {} }));
+      } catch {
+        setProgressByProject(prev => ({ ...prev, [selectedProject]: {} }));
+      } finally {
+        setLoadingProgress(false);
+      }
+    };
+
+    fetchStageProgress();
+  }, [teamId, selectedProject]);
 
   const handleSubmit = async () => {
     if (!selectedProject) {
@@ -106,6 +164,44 @@ function ArduinoSimulatorPage() {
             </Tooltip>
           )}
         </Box>
+
+        {user?.role === 'student' && (
+          <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider', bgcolor: 'grey.50' }}>
+            {projects.length === 0 ? (
+              <Alert severity="warning" sx={{ py: 0.5 }}>
+                لا يوجد مشروع جماعي مسجل لفريقك حالياً.
+              </Alert>
+            ) : (
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                <FormControl size="small" sx={{ minWidth: 240 }}>
+                  <InputLabel id="sim-project-select-label">المشروع الحالي</InputLabel>
+                  <Select
+                    labelId="sim-project-select-label"
+                    value={selectedProject}
+                    label="المشروع الحالي"
+                    onChange={(e) => setSelectedProject(e.target.value)}
+                  >
+                    {projects.map(e => (
+                      <MenuItem key={e.project?._id || e._id} value={e.project?._id || e._id}>
+                        {e.project?.title || e.title || e._id}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <Chip
+                  color={myProjectRole ? 'primary' : 'default'}
+                  label={`دوري: ${myProjectRole ? (roleLabelMap[myProjectRole] || myProjectRole) : 'غير محدد بعد'}`}
+                />
+                <Chip
+                  color="secondary"
+                  label={`مرحلة الفريق الحالية: ${currentStageKey ? (stageLabelMap[currentStageKey] || currentStageKey) : 'غير متاحة'}`}
+                />
+                {loadingProgress && <CircularProgress size={18} />}
+              </Box>
+            )}
+          </Box>
+        )}
         
         <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
           <iframe
