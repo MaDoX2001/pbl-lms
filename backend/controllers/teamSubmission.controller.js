@@ -77,6 +77,13 @@ const isStageUnlocked = (stageKey, completed) => {
   return false;
 };
 
+const canTeacherAccessProject = async (projectId, user) => {
+  if (user.role === 'admin') return true;
+  const project = await Project.findById(projectId).select('instructor');
+  if (!project) return false;
+  return project.instructor?.toString() === user._id.toString();
+};
+
 const enforceStagePermissions = ({ stageKey, enrollment, userId, completed }) => {
   if (!isStageUnlocked(stageKey, completed)) {
     return {
@@ -356,6 +363,14 @@ exports.getProjectSubmissions = async (req, res) => {
 
     const { projectId } = req.params;
 
+    const canAccess = await canTeacherAccessProject(projectId, req.user);
+    if (!canAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'غير مصرح لك بعرض تسليمات هذا المشروع'
+      });
+    }
+
     const submissions = await TeamSubmission.find({ project: projectId })
       .populate({
         path: 'team',
@@ -450,11 +465,20 @@ exports.addFeedback = async (req, res) => {
       });
     }
 
-    const submission = await TeamSubmission.findById(req.params.id);
+    const submission = await TeamSubmission.findById(req.params.id).populate('project', 'instructor');
     if (!submission) {
       return res.status(404).json({
         success: false,
         message: 'التسليم غير موجود'
+      });
+    }
+
+    const canAccess = req.user.role === 'admin'
+      || submission.project?.instructor?.toString() === req.user._id.toString();
+    if (!canAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'غير مصرح لك بإضافة ملاحظات على هذا التسليم'
       });
     }
 
@@ -511,11 +535,20 @@ exports.addGrade = async (req, res) => {
       });
     }
 
-    const submission = await TeamSubmission.findById(req.params.id);
+    const submission = await TeamSubmission.findById(req.params.id).populate('project', 'instructor');
     if (!submission) {
       return res.status(404).json({
         success: false,
         message: 'التسليم غير موجود'
+      });
+    }
+
+    const canAccess = req.user.role === 'admin'
+      || submission.project?.instructor?.toString() === req.user._id.toString();
+    if (!canAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'غير مصرح لك بإضافة درجة على هذا التسليم'
       });
     }
 

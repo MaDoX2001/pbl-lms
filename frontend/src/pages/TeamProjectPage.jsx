@@ -55,6 +55,8 @@ const STAGE_META = {
   final_delivery: { label: 'التسليم النهائي', requiredRole: 'tester' }
 };
 
+const FILE_UPLOAD_STAGES = ['design', 'programming', 'testing', 'final_delivery'];
+
 const ROLE_LABEL = {
   system_designer: 'Designer Lead',
   hardware_engineer: 'Builder Lead',
@@ -169,7 +171,7 @@ const TeamProjectPage = () => {
 
       // Fetch evaluation status for progress bar
       if (user.role === 'student') {
-        await fetchEvaluationStatus(projectData);
+        await fetchEvaluationStatus(projectData, teamData?._id || null);
       }
 
       setLoading(false);
@@ -179,16 +181,17 @@ const TeamProjectPage = () => {
     }
   };
 
-  const fetchEvaluationStatus = async (projectData) => {
+  const fetchEvaluationStatus = async (projectData, teamIdOverride = null) => {
     try {
       let phase1Complete = false;
       let phase2Complete = false;
       let finalEval = null;
 
       // Phase 1 status
-      if (projectData?.isTeamProject && team) {
+      const teamId = teamIdOverride || team?._id;
+      if (projectData?.isTeamProject && teamId) {
         try {
-          const phase1Res = await api.get(`/assessment/group-status/${projectId}/${team._id}`);
+          const phase1Res = await api.get(`/assessment/group-status/${projectId}/${teamId}`);
           phase1Complete = phase1Res.data.data?.phase1Complete || false;
         } catch (err) {
           phase1Complete = false;
@@ -485,6 +488,11 @@ const TeamProjectPage = () => {
                       <Typography variant="body2" color="text.secondary">
                         المرحلة: {STAGE_META[submission.stageKey]?.label || submission.stageKey || 'غير محدد'}
                       </Typography>
+                      {submission.submissionType === 'wokwi' && (
+                        <Typography variant="body2" color="text.secondary">
+                          نوع التسليم: رابط Wokwi
+                        </Typography>
+                      )}
                     </Box>
                     <Chip
                       label={getStatusLabel(submission.status)}
@@ -492,19 +500,38 @@ const TeamProjectPage = () => {
                     />
                   </Box>
 
-                  {/* File Info */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                    <DescriptionIcon color="action" />
-                    <Typography variant="body2">{submission.fileName}</Typography>
-                    <IconButton
-                      size="small"
-                      href={submission.fileUrl}
-                      target="_blank"
-                      download
-                    >
-                      <DownloadIcon />
-                    </IconButton>
-                  </Box>
+                  {/* Submission Info */}
+                  {submission.submissionType === 'wokwi' ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                      <DescriptionIcon color="action" />
+                      <Typography variant="body2">رابط محاكاة Wokwi</Typography>
+                      {submission.wokwiLink && (
+                        <IconButton
+                          size="small"
+                          href={submission.wokwiLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <DownloadIcon />
+                        </IconButton>
+                      )}
+                    </Box>
+                  ) : (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                      <DescriptionIcon color="action" />
+                      <Typography variant="body2">{submission.fileName || 'ملف مرفوع'}</Typography>
+                      {submission.fileUrl && (
+                        <IconButton
+                          size="small"
+                          href={submission.fileUrl}
+                          target="_blank"
+                          download
+                        >
+                          <DownloadIcon />
+                        </IconButton>
+                      )}
+                    </Box>
+                  )}
 
                   {/* Description */}
                   {submission.description && (
@@ -563,13 +590,30 @@ const TeamProjectPage = () => {
                 value={uploadForm.stageKey}
                 onChange={(e) => setUploadForm({ ...uploadForm, stageKey: e.target.value })}
               >
-                {Object.entries(STAGE_META).map(([key, meta]) => (
+                {Object.entries(STAGE_META)
+                  .filter(([key]) => FILE_UPLOAD_STAGES.includes(key))
+                  .map(([key, meta]) => (
                   <MenuItem key={key} value={key} disabled={!!getStageLockReason(key)}>
                     {meta.label}
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
+
+            <Alert severity="info">
+              تسليم مرحلة الموصل يتم من صفحة Wokwi المخصصة.
+            </Alert>
+
+            <Button
+              variant="outlined"
+              fullWidth
+              onClick={() => {
+                setOpenUploadDialog(false);
+                navigate(`/team-project/${projectId}/wokwi`);
+              }}
+            >
+              فتح صفحة تسليم Wokwi
+            </Button>
 
             {!!getStageLockReason(uploadForm.stageKey) && (
               <Alert severity="warning">{getStageLockReason(uploadForm.stageKey)}</Alert>
