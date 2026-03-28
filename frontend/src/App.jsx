@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { Box } from '@mui/material';
+import { Box, CircularProgress } from '@mui/material';
 
 // Import components
 import Navbar from './components/Navbar';
@@ -9,40 +9,40 @@ import Sidebar from './components/Sidebar';
 import Footer from './components/Footer';
 import PrivateRoute from './components/PrivateRoute';
 
-// Import pages
-import HomePage from './pages/HomePage';
-import LoginPage from './pages/LoginPage';
-import PublicRegisterPage from './pages/PublicRegisterPage';
-import ProjectsPage from './pages/ProjectsPage';
-import ProjectDetailPage from './pages/ProjectDetailPage';
-import DashboardPage from './pages/DashboardPage';
-import ProfilePage from './pages/ProfilePage';
-import UserProfilePage from './pages/UserProfilePage';
-import CreateProjectPage from './pages/CreateProjectPage';
-import EditProjectPage from './pages/EditProjectPage';
-import LeaderboardPage from './pages/LeaderboardPage';
-import ArduinoSimulatorPage from './pages/ArduinoSimulatorPage';
-import AdminDashboardPage from './pages/AdminDashboardPage';
-import TwoFactorSetupPage from './pages/TwoFactorSetupPage';
-import TwoFactorAuthPage from './pages/TwoFactorAuthPage';
-import EmailVerificationPage from './pages/EmailVerificationPage';
-import ForgotPasswordPage from './pages/ForgotPasswordPage';
-import ChatPage from './pages/ChatPage';
-import LiveLecturesPage from './pages/LiveLecturesPage';
-import TeamDashboard from './pages/TeamDashboard';
-import TeamsManagement from './pages/TeamsManagement';
-import TeamProjectPage from './pages/TeamProjectPage';
-import WokwiProjectPage from './pages/WokwiProjectPage';
-import ProjectSubmissionsManagement from './pages/ProjectSubmissionsManagement';
-import StudentProjectsManagement from './pages/StudentProjectsManagement';
-import TeachersListPage from './pages/TeachersListPage';
-import AllUsersPage from './pages/AllUsersPage';
-import EvaluationPage from './pages/EvaluationPage';
-import GroupEvaluationPage from './pages/GroupEvaluationPage';
-import IndividualEvaluationPage from './pages/IndividualEvaluationPage';
-import ResourcesPage from './pages/ResourcesPage';
-import AIChatPage from './pages/AIChatPage';
-import FAQPage from './pages/FAQPage';
+// Lazy-loaded pages (safe route-level code splitting)
+const HomePage = lazy(() => import('./pages/HomePage'));
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const PublicRegisterPage = lazy(() => import('./pages/PublicRegisterPage'));
+const ProjectsPage = lazy(() => import('./pages/ProjectsPage'));
+const ProjectDetailPage = lazy(() => import('./pages/ProjectDetailPage'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const UserProfilePage = lazy(() => import('./pages/UserProfilePage'));
+const CreateProjectPage = lazy(() => import('./pages/CreateProjectPage'));
+const EditProjectPage = lazy(() => import('./pages/EditProjectPage'));
+const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
+const ArduinoSimulatorPage = lazy(() => import('./pages/ArduinoSimulatorPage'));
+const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
+const TwoFactorSetupPage = lazy(() => import('./pages/TwoFactorSetupPage'));
+const TwoFactorAuthPage = lazy(() => import('./pages/TwoFactorAuthPage'));
+const EmailVerificationPage = lazy(() => import('./pages/EmailVerificationPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
+const ChatPage = lazy(() => import('./pages/ChatPage'));
+const LiveLecturesPage = lazy(() => import('./pages/LiveLecturesPage'));
+const TeamDashboard = lazy(() => import('./pages/TeamDashboard'));
+const TeamsManagement = lazy(() => import('./pages/TeamsManagement'));
+const TeamProjectPage = lazy(() => import('./pages/TeamProjectPage'));
+const WokwiProjectPage = lazy(() => import('./pages/WokwiProjectPage'));
+const ProjectSubmissionsManagement = lazy(() => import('./pages/ProjectSubmissionsManagement'));
+const StudentProjectsManagement = lazy(() => import('./pages/StudentProjectsManagement'));
+const TeachersListPage = lazy(() => import('./pages/TeachersListPage'));
+const AllUsersPage = lazy(() => import('./pages/AllUsersPage'));
+const EvaluationPage = lazy(() => import('./pages/EvaluationPage'));
+const GroupEvaluationPage = lazy(() => import('./pages/GroupEvaluationPage'));
+const IndividualEvaluationPage = lazy(() => import('./pages/IndividualEvaluationPage'));
+const ResourcesPage = lazy(() => import('./pages/ResourcesPage'));
+const AIChatPage = lazy(() => import('./pages/AIChatPage'));
+const FAQPage = lazy(() => import('./pages/FAQPage'));
 
 // Import actions
 import { loadUser } from './redux/slices/authSlice';
@@ -96,7 +96,14 @@ function App() {
             minHeight: 'calc(100vh - 56px)'
           }}
         >
-          <Routes>
+          <Suspense
+            fallback={(
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '40vh' }}>
+                <CircularProgress />
+              </Box>
+            )}
+          >
+            <Routes>
               {/* Public routes */}
               <Route path="/" element={<HomePage />} />
               <Route path="/login" element={!isAuthenticated ? <LoginPage /> : <Navigate to="/dashboard" />} />
@@ -252,7 +259,8 @@ function App() {
 
               {/* 404 */}
               <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
+            </Routes>
+          </Suspense>
         </Box>
       </Box>
       <Footer />
