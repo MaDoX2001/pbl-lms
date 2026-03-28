@@ -27,7 +27,8 @@ import {
   Card,
   CardContent,
   Tabs,
-  Tab
+  Tab,
+  Tooltip
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -40,8 +41,22 @@ function AdminDashboardPage() {
   const { t } = useAppSettings();
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
+  const [teams, setTeams] = useState([]);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+
+  const studentsInTeams = useMemo(() => {
+    const memberIds = new Set();
+    (teams || []).forEach((team) => {
+      (team.members || []).forEach((member) => {
+        const memberId = member?.user?._id || member?._id || member;
+        if (memberId) {
+          memberIds.add(String(memberId));
+        }
+      });
+    });
+    return memberIds;
+  }, [teams]);
 
   const sortedUsers = useMemo(() => {
     return [...users].sort((a, b) => {
@@ -56,6 +71,7 @@ function AdminDashboardPage() {
   useEffect(() => {
     fetchStats();
     fetchUsers();
+    fetchTeams();
   }, []);
 
   const fetchStats = async () => {
@@ -90,6 +106,16 @@ function AdminDashboardPage() {
     }
   };
 
+  const fetchTeams = async () => {
+    try {
+      const response = await api.get('/teams');
+      setTeams(response.data?.data || []);
+    } catch (error) {
+      console.error('Error fetching teams:', error);
+      setTeams([]);
+    }
+  };
+
   const handleDeleteUser = async (userId) => {
     if (!window.confirm(t('confirmDeleteUser'))) return;
     
@@ -97,6 +123,7 @@ function AdminDashboardPage() {
       await api.delete(`/admin/users/${userId}`);
       setSuccessMessage(t('userDeletedSuccess'));
       fetchUsers();
+      fetchTeams();
     } catch (error) {
       setErrorMessage(error.response?.data?.message || t('userDeleteFailed'));
     }
@@ -195,7 +222,30 @@ function AdminDashboardPage() {
             <TableBody>
               {sortedUsers.map((user) => (
                 <TableRow key={user._id}>
-                  <TableCell>{user.name}</TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {user.role === 'student' && (
+                        <Tooltip
+                          title={
+                            studentsInTeams.has(String(user._id))
+                              ? 'تم وضع الطالب في فريق'
+                              : 'الطالب غير موجود في فريق'
+                          }
+                        >
+                          <Box
+                            sx={{
+                              width: 10,
+                              height: 10,
+                              borderRadius: '50%',
+                              backgroundColor: studentsInTeams.has(String(user._id)) ? 'success.main' : 'warning.main',
+                              flexShrink: 0,
+                            }}
+                          />
+                        </Tooltip>
+                      )}
+                      <Typography variant="body2">{user.name}</Typography>
+                    </Box>
+                  </TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
                     <Chip
