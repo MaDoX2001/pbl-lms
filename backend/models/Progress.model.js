@@ -109,6 +109,34 @@ const progressSchema = new mongoose.Schema({
       type: Date,
       default: Date.now
     },
+    source: {
+      type: String,
+      enum: ['manual', 'ai-assisted', 'ai-batch'],
+      default: 'manual'
+    },
+    aiMeta: {
+      approvedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null
+      },
+      approvedAt: {
+        type: Date,
+        default: null
+      },
+      confidence: {
+        type: Number,
+        default: null
+      },
+      plagiarismSimilarityPercent: {
+        type: Number,
+        default: null
+      },
+      plagiarismLevel: {
+        type: String,
+        default: null
+      }
+    },
     allowResubmission: {
       type: Boolean,
       default: false
@@ -128,6 +156,34 @@ const progressSchema = new mongoose.Schema({
       type: Number,
       min: 0,
       max: 100
+    },
+    source: {
+      type: String,
+      enum: ['manual', 'ai-assisted', 'ai-batch'],
+      default: 'manual'
+    },
+    aiMeta: {
+      approvedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null
+      },
+      approvedAt: {
+        type: Date,
+        default: null
+      },
+      confidence: {
+        type: Number,
+        default: null
+      },
+      plagiarismSimilarityPercent: {
+        type: Number,
+        default: null
+      },
+      plagiarismLevel: {
+        type: String,
+        default: null
+      }
     },
     reviewedAt: Date,
     strengths: [String],

@@ -243,7 +243,13 @@ exports.submitProject = async (req, res) => {
 exports.addReviewerFeedback = async (req, res) => {
   try {
     const { progressId } = req.params;
-    const { comments, allowResubmission } = req.body;
+    const {
+      comments,
+      allowResubmission,
+      source = 'manual',
+      aiMeta = null,
+      skipEvaluationCheck = false
+    } = req.body;
 
     const progress = await Progress.findById(progressId).populate('project student');
     if (!progress) {
@@ -260,40 +266,44 @@ exports.addReviewerFeedback = async (req, res) => {
       });
     }
 
-    // Get the latest individual evaluation
-    const latestIndividualEvaluation = await EvaluationAttempt.findOne({
-      project: progress.project._id,
-      student: progress.student._id,
-      phase: 'individual_oral',
-      isLatestAttempt: true
-    });
+    let scoreFromEvaluation = null;
 
-    if (!latestIndividualEvaluation) {
-      return res.status(400).json({
-        success: false,
-        message: 'يجب إكمال التقييم الفردي قبل حفظ تعليق المراجع'
-      });
-    }
-
-    let scoreFromEvaluation = latestIndividualEvaluation?.calculatedScore ?? null;
-
-    // For individual projects, the score is the average of both observation cards
-    if (!progress.project?.isTeamProject) {
-      const latestGroupEvaluation = await EvaluationAttempt.findOne({
+    if (!skipEvaluationCheck) {
+      // Get the latest individual evaluation
+      const latestIndividualEvaluation = await EvaluationAttempt.findOne({
         project: progress.project._id,
         student: progress.student._id,
-        phase: 'group',
+        phase: 'individual_oral',
         isLatestAttempt: true
       });
 
-      if (!latestGroupEvaluation) {
+      if (!latestIndividualEvaluation) {
         return res.status(400).json({
           success: false,
-          message: 'يجب إكمال بطاقتي الملاحظة قبل حفظ تعليق المراجع'
+          message: 'يجب إكمال التقييم الفردي قبل حفظ تعليق المراجع'
         });
       }
 
-      scoreFromEvaluation = Number((((latestIndividualEvaluation.calculatedScore + latestGroupEvaluation.calculatedScore) / 2)).toFixed(2));
+      scoreFromEvaluation = latestIndividualEvaluation?.calculatedScore ?? null;
+
+      // For individual projects, the score is the average of both observation cards
+      if (!progress.project?.isTeamProject) {
+        const latestGroupEvaluation = await EvaluationAttempt.findOne({
+          project: progress.project._id,
+          student: progress.student._id,
+          phase: 'group',
+          isLatestAttempt: true
+        });
+
+        if (!latestGroupEvaluation) {
+          return res.status(400).json({
+            success: false,
+            message: 'يجب إكمال بطاقتي الملاحظة قبل حفظ تعليق المراجع'
+          });
+        }
+
+        scoreFromEvaluation = Number((((latestIndividualEvaluation.calculatedScore + latestGroupEvaluation.calculatedScore) / 2)).toFixed(2));
+      }
     }
 
     const reviewedAt = new Date();
@@ -302,6 +312,14 @@ exports.addReviewerFeedback = async (req, res) => {
       reviewer: req.user.id,
       comments: comments || '',
       score: scoreFromEvaluation,
+      source,
+      aiMeta: aiMeta ? {
+        approvedBy: req.user.id,
+        approvedAt: new Date(),
+        confidence: Number(aiMeta.confidence || 0),
+        plagiarismSimilarityPercent: Number(aiMeta.plagiarismSimilarityPercent || 0),
+        plagiarismLevel: aiMeta.plagiarismLevel || null
+      } : (progress.feedback?.aiMeta || undefined),
       reviewedAt
     };
     progress.status = 'reviewed';
@@ -313,6 +331,14 @@ exports.addReviewerFeedback = async (req, res) => {
       score: scoreFromEvaluation,
       comments: comments || '',
       reviewedAt,
+      source,
+      aiMeta: aiMeta ? {
+        approvedBy: req.user.id,
+        approvedAt: new Date(),
+        confidence: Number(aiMeta.confidence || 0),
+        plagiarismSimilarityPercent: Number(aiMeta.plagiarismSimilarityPercent || 0),
+        plagiarismLevel: aiMeta.plagiarismLevel || null
+      } : undefined,
       allowResubmission: Boolean(allowResubmission)
     });
 
