@@ -2,6 +2,7 @@ const Project = require('../models/Project.model');
 const User = require('../models/User.model');
 const Progress = require('../models/Progress.model');
 const TeamProject = require('../models/TeamProject.model');
+const mongoose = require('mongoose');
 const cloudinaryService = require('../services/cloudinary.service');
 const { normalizeProjectMilestones } = require('../utils/stagedSubmissionConfig');
 
@@ -51,11 +52,24 @@ exports.getAllProjects = async (req, res) => {
       .select('-solution');
 
     const projectIds = projects.map((p) => p._id);
-    const teamCounts = await TeamProject.aggregate([
-      { $match: { project: { $in: projectIds } } },
-      { $group: { _id: '$project', count: { $sum: 1 } } }
-    ]);
-    const teamCountMap = new Map(teamCounts.map((row) => [row._id.toString(), row.count]));
+    const projectIdStrings = projectIds.map((id) => id.toString());
+    const projectObjectIds = projectIdStrings
+      .filter((id) => mongoose.Types.ObjectId.isValid(id))
+      .map((id) => new mongoose.Types.ObjectId(id));
+
+    // Backward-compatible counting in case some legacy rows stored project as string.
+    const teamEnrollments = await TeamProject.find({
+      $or: [
+        { project: { $in: projectObjectIds } },
+        { project: { $in: projectIdStrings } }
+      ]
+    }).select('project');
+
+    const teamCountMap = new Map();
+    for (const row of teamEnrollments) {
+      const key = String(row.project);
+      teamCountMap.set(key, (teamCountMap.get(key) || 0) + 1);
+    }
 
     const projectsWithCounts = projects.map((project) => {
       const plain = project.toObject();
@@ -94,7 +108,14 @@ exports.getProject = async (req, res) => {
       });
     }
     
-    const enrolledTeamsCount = await TeamProject.countDocuments({ project: project._id });
+    const projectIdString = String(project._id);
+    const projectObjectId = new mongoose.Types.ObjectId(projectIdString);
+    const enrolledTeamsCount = await TeamProject.countDocuments({
+      $or: [
+        { project: projectObjectId },
+        { project: projectIdString }
+      ]
+    });
     const projectWithCount = project.toObject();
     projectWithCount.enrolledTeamsCount = enrolledTeamsCount;
 
