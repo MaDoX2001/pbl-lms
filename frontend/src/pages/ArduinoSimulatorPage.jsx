@@ -18,11 +18,11 @@ function ArduinoSimulatorPage() {
   const location = useLocation();
 
   const stageOptions = [
-    { value: 'design', label: 'تسليم التصميم' },
-    { value: 'wiring', label: 'تسليم التوصيل' },
-    { value: 'programming', label: 'تسليم البرمجة (لكل طالب)' },
-    { value: 'testing', label: 'تسليم الاختبار' },
-    { value: 'final_delivery', label: 'التسليم النهائي' },
+    { value: 'design', label: 'تسليم التصميم', requiredRole: 'system_designer' },
+    { value: 'wiring', label: 'تسليم التوصيل', requiredRole: 'hardware_engineer' },
+    { value: 'programming', label: 'تسليم البرمجة (لكل طالب)', requiredRole: null },
+    { value: 'testing', label: 'تسليم الاختبار', requiredRole: 'tester' },
+    { value: 'final_delivery', label: 'التسليم النهائي', requiredRole: 'tester' },
   ];
 
   // Dialog state
@@ -118,6 +118,10 @@ function ArduinoSimulatorPage() {
     return mine?.role || null;
   })();
 
+  const allowedStageOptions = stageOptions.filter(
+    (stage) => !stage.requiredRole || stage.requiredRole === myProjectRole
+  );
+
   const derivedProgress = selectedProject
     ? deriveProgressFromHistory(historyByProject[selectedProject] || [], teamMembers)
     : null;
@@ -185,16 +189,25 @@ function ArduinoSimulatorPage() {
   };
 
   const openSubmitDialog = () => {
-    const autoStage = currentStageKey && stageOptions.some((s) => s.value === currentStageKey)
+    const autoStage = currentStageKey && allowedStageOptions.some((s) => s.value === currentStageKey)
       ? currentStageKey
       : selectedStage;
 
-    setSelectedStage(autoStage || 'design');
+    const fallbackStage = allowedStageOptions[0]?.value || 'programming';
+    setSelectedStage(autoStage || fallbackStage);
 
     syncWokwiLinkFromIframe(false);
 
     setOpen(true);
   };
+
+  useEffect(() => {
+    if (!selectedProject) return;
+    if (!allowedStageOptions.length) return;
+    if (!allowedStageOptions.some((s) => s.value === selectedStage)) {
+      setSelectedStage(allowedStageOptions[0].value);
+    }
+  }, [selectedProject, myProjectRole, allowedStageOptions, selectedStage]);
 
   useEffect(() => {
     if (currentStageKey && stageOptions.some((s) => s.value === currentStageKey)) {
@@ -296,6 +309,11 @@ function ArduinoSimulatorPage() {
     }
     if (!/^https:\/\/wokwi\.com\/projects\/[a-zA-Z0-9_-]+/.test(wokwiLink.trim())) {
       setSnack({ open: true, msg: t('wokwiLinkInvalid'), severity: 'error' });
+      return;
+    }
+
+    if (!allowedStageOptions.some((s) => s.value === selectedStage)) {
+      setSnack({ open: true, msg: 'لا يمكنك التسليم في هذه المرحلة لأنّها ليست من صلاحيات دورك', severity: 'error' });
       return;
     }
 
@@ -539,7 +557,7 @@ function ArduinoSimulatorPage() {
               onChange={e => setSelectedStage(e.target.value)}
               disabled={submitting}
             >
-              {stageOptions.map(stage => (
+              {allowedStageOptions.map(stage => (
                 <MenuItem key={stage.value} value={stage.value}>
                   {stage.label}
                 </MenuItem>

@@ -25,6 +25,7 @@ import {
 import {
   ExpandMore as ExpandMoreIcon,
   Download as DownloadIcon,
+  OpenInNew as OpenInNewIcon,
   Feedback as FeedbackIcon,
   Grade as GradeIcon,
   ArrowBack as ArrowBackIcon,
@@ -181,6 +182,29 @@ const ProjectSubmissionsManagement = () => {
     }
   };
 
+  const getStageLabel = (stageKey) => {
+    switch (stageKey) {
+      case 'design':
+        return 'التصميم';
+      case 'wiring':
+        return 'الموصل';
+      case 'programming':
+        return 'البرمجة';
+      case 'testing':
+        return 'المختبر';
+      case 'final_delivery':
+        return 'النهائي';
+      default:
+        return stageKey || 'غير محدد';
+    }
+  };
+
+  const getTeamMemberNames = (team) => {
+    return (team?.members || [])
+      .map((member) => member?.user?.name || member?.name)
+      .filter(Boolean);
+  };
+
   // Group submissions by team
   const submissionsByTeam = submissions.reduce((acc, submission) => {
     const teamId = submission.team._id;
@@ -260,7 +284,7 @@ const ProjectSubmissionsManagement = () => {
                   <CardContent>
                     <Typography variant="h6" sx={{ mb: 1 }}>{row.team.name}</Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                      الأعضاء: {(row.team.members || []).map((m) => m.name).join('، ')}
+                      الأعضاء: {getTeamMemberNames(row.team).join('، ') || 'غير متاح'}
                     </Typography>
 
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
@@ -298,7 +322,7 @@ const ProjectSubmissionsManagement = () => {
                 <Chip label={t('teamSubmissionsCount', { count: teamSubmissions.length })} size="small" />
                 <Box sx={{ flex: 1 }} />
                 <Typography variant="body2" color="text.secondary">
-                  {t('membersWithValue', { members: team.members.map(m => m.name).join(', ') })}
+                  {t('membersWithValue', { members: getTeamMemberNames(team).join(', ') || 'غير متاح' })}
                 </Typography>
               </Box>
             </AccordionSummary>
@@ -325,12 +349,24 @@ const ProjectSubmissionsManagement = () => {
                               <Typography variant="h6">
                                 {t('submissionNumber', { number: teamSubmissions.length - index })}
                               </Typography>
+                              <Chip
+                                label={`المرحلة: ${getStageLabel(submission.stageKey)}`}
+                                size="small"
+                                variant="outlined"
+                              />
                               {isLastSubmission && (
                                 <Chip 
                                   label={t('latestSubmissionApproved')} 
                                   color="primary" 
                                   size="small"
                                   sx={{ fontWeight: 'bold' }}
+                                />
+                              )}
+                              {submission.stageKey === 'final_delivery' && (
+                                <Chip
+                                  label="تسليم نهائي"
+                                  color="success"
+                                  size="small"
                                 />
                               )}
                             </Box>
@@ -360,19 +396,39 @@ const ProjectSubmissionsManagement = () => {
                           />
                         </Box>
 
-                      {/* File Info */}
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                        <DescriptionIcon color="action" />
-                        <Typography variant="body2">{submission.fileName}</Typography>
-                        <IconButton
-                          size="small"
-                          href={submission.fileUrl}
-                          target="_blank"
-                          download
-                        >
-                          <DownloadIcon />
-                        </IconButton>
-                      </Box>
+                      {/* Submission Link / File */}
+                      {submission.submissionType === 'wokwi' ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+                          <DescriptionIcon color="action" />
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            رابط المحاكي (Wokwi)
+                          </Typography>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            startIcon={<OpenInNewIcon />}
+                            href={submission.wokwiLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            sx={{ ml: 1 }}
+                          >
+                            فتح المحاكي للتقييم
+                          </Button>
+                        </Box>
+                      ) : (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                          <DescriptionIcon color="action" />
+                          <Typography variant="body2">{submission.fileName}</Typography>
+                          <IconButton
+                            size="small"
+                            href={submission.fileUrl}
+                            target="_blank"
+                            download
+                          >
+                            <DownloadIcon />
+                          </IconButton>
+                        </Box>
+                      )}
 
                       {/* Description */}
                       {submission.description && (
@@ -382,6 +438,17 @@ const ProjectSubmissionsManagement = () => {
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
                             {submission.description}
+                          </Typography>
+                        </Box>
+                      )}
+
+                      {submission.notes && (
+                        <Box sx={{ mb: 2 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                            ملاحظات الطالب
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {submission.notes}
                           </Typography>
                         </Box>
                       )}
