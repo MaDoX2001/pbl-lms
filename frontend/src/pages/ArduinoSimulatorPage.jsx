@@ -5,6 +5,7 @@ import {
   InputLabel, Snackbar, Alert, CircularProgress, Tooltip, Chip
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useSelector } from 'react-redux';
 import api from '../services/api';
 import { useAppSettings } from '../context/AppSettingsContext';
@@ -29,8 +30,11 @@ function ArduinoSimulatorPage() {
   const [selectedStage, setSelectedStage] = useState('design');
   const [projects, setProjects] = useState([]);   // team enrollments
   const [teamId, setTeamId] = useState('');
+  const [teamMembers, setTeamMembers] = useState([]);
   const [progressByProject, setProgressByProject] = useState({});
   const [loadingProgress, setLoadingProgress] = useState(false);
+  const [historyByProject, setHistoryByProject] = useState({});
+  const [loadingQuickLinks, setLoadingQuickLinks] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
 
@@ -66,6 +70,30 @@ function ArduinoSimulatorPage() {
     return mine?.role || null;
   })();
   const currentStageKey = selectedProject ? getCurrentStage(progressByProject[selectedProject]) : null;
+  const currentHistory = historyByProject[selectedProject] || [];
+
+  const getLatestStageSubmission = (stageKey) => {
+    return currentHistory.find((submission) => submission.stageKey === stageKey) || null;
+  };
+
+  const getLatestProgrammingSubmissionByStudent = (studentId) => {
+    return currentHistory.find(
+      (submission) => submission.stageKey === 'programming'
+        && String(submission.submittedBy?._id || submission.submittedBy) === String(studentId)
+    ) || null;
+  };
+
+  const latestDesigner = getLatestStageSubmission('design');
+  const latestWiring = getLatestStageSubmission('wiring');
+  const latestTesting = getLatestStageSubmission('testing');
+
+  const openWokwiLink = (link, label) => {
+    if (!link) {
+      setSnack({ open: true, msg: `لا يوجد رابط محفوظ لـ ${label}`, severity: 'warning' });
+      return;
+    }
+    window.open(link, '_blank', 'noopener,noreferrer');
+  };
 
   // Fetch team's enrolled projects for the dropdown
   useEffect(() => {
@@ -73,6 +101,7 @@ function ArduinoSimulatorPage() {
       api.get('/teams/my-team').then(res => {
         const teamId = res.data.data._id;
         setTeamId(teamId);
+        setTeamMembers(res.data.data?.members || []);
           api.get(`/team-projects/team/${teamId}`).then(r => {
             const enrollments = r.data.data || [];
             setProjects(enrollments);
@@ -99,6 +128,23 @@ function ArduinoSimulatorPage() {
     };
 
     fetchStageProgress();
+  }, [teamId, selectedProject]);
+
+  useEffect(() => {
+    const fetchQuickLinks = async () => {
+      if (!teamId || !selectedProject) return;
+      try {
+        setLoadingQuickLinks(true);
+        const res = await api.get(`/team-submissions/wokwi/${teamId}/${selectedProject}`);
+        setHistoryByProject(prev => ({ ...prev, [selectedProject]: res.data?.data || [] }));
+      } catch {
+        setHistoryByProject(prev => ({ ...prev, [selectedProject]: [] }));
+      } finally {
+        setLoadingQuickLinks(false);
+      }
+    };
+
+    fetchQuickLinks();
   }, [teamId, selectedProject]);
 
   const handleSubmit = async () => {
@@ -129,8 +175,12 @@ function ArduinoSimulatorPage() {
       setOpen(false);
       setWokwiLink('');
       setNotes('');
-      setSelectedProject('');
-      setSelectedStage('design');
+      const [progressRes, historyRes] = await Promise.all([
+        api.get(`/team-submissions/progress/${myTeam.data.data._id}/${selectedProject}`),
+        api.get(`/team-submissions/wokwi/${myTeam.data.data._id}/${selectedProject}`)
+      ]);
+      setProgressByProject(prev => ({ ...prev, [selectedProject]: progressRes.data?.data || {} }));
+      setHistoryByProject(prev => ({ ...prev, [selectedProject]: historyRes.data?.data || [] }));
     } catch (err) {
       const msg = err.response?.data?.message || t('wokwiSubmitError');
       setSnack({ open: true, msg, severity: 'error' });
@@ -199,6 +249,77 @@ function ArduinoSimulatorPage() {
                 />
                 {loadingProgress && <CircularProgress size={18} />}
               </Box>
+            )}
+          </Box>
+        )}
+
+        {user?.role === 'student' && selectedProject && (
+          <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider', bgcolor: '#fff8e1' }}>
+            <Typography variant="body2" fontWeight={700} sx={{ mb: 1 }}>
+              اختصارات الوصول السريع لنسخ المشروع حسب الدور
+            </Typography>
+
+            {loadingQuickLinks ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CircularProgress size={18} />
+                <Typography variant="caption" color="text.secondary">جاري تحميل الروابط...</Typography>
+              </Box>
+            ) : (
+              <>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<OpenInNewIcon />}
+                    onClick={() => openWokwiLink(latestDesigner?.wokwiLink, 'المصمم')}
+                    disabled={!latestDesigner?.wokwiLink}
+                  >
+                    نسخة المصمم
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<OpenInNewIcon />}
+                    onClick={() => openWokwiLink(latestWiring?.wokwiLink, 'الموصل')}
+                    disabled={!latestWiring?.wokwiLink}
+                  >
+                    نسخة الموصل
+                  </Button>
+                </Box>
+
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+                  {(teamMembers || []).map((member) => {
+                    const memberUser = member.user || member;
+                    const memberId = memberUser?._id || memberUser;
+                    const latestProgramming = getLatestProgrammingSubmissionByStudent(memberId);
+                    return (
+                      <Button
+                        key={String(memberId)}
+                        size="small"
+                        variant="outlined"
+                        startIcon={<OpenInNewIcon />}
+                        onClick={() => openWokwiLink(latestProgramming?.wokwiLink, `كود ${memberUser?.name || 'الطالب'}`)}
+                        disabled={!latestProgramming?.wokwiLink}
+                      >
+                        كود {memberUser?.name || 'طالب'}
+                      </Button>
+                    );
+                  })}
+                </Box>
+
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="secondary"
+                    startIcon={<OpenInNewIcon />}
+                    onClick={() => openWokwiLink(latestTesting?.wokwiLink, 'شكل المشروع بعد دور المختبر')}
+                    disabled={!latestTesting?.wokwiLink}
+                  >
+                    الشكل بعد دور المختبر
+                  </Button>
+                </Box>
+              </>
             )}
           </Box>
         )}
