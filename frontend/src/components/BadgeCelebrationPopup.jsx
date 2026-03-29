@@ -38,6 +38,7 @@ const BadgeCelebrationPopup = ({ open, onClose, badge = {} }) => {
   const { t } = useAppSettings();
   const { width, height } = useWindowSize();
   const [showConfetti, setShowConfetti] = useState(false);
+  const safeBadge = badge || {};
 
   useEffect(() => {
     if (open) {
@@ -125,7 +126,7 @@ const BadgeCelebrationPopup = ({ open, onClose, badge = {} }) => {
                 }}
               >
                 <Typography variant="h1" sx={{ fontSize: '4rem' }}>
-                  {badge.icon || '🏆'}
+                  {safeBadge.icon || '🏆'}
                 </Typography>
               </Box>
               
@@ -176,11 +177,11 @@ const BadgeCelebrationPopup = ({ open, onClose, badge = {} }) => {
           </Typography>
 
           <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 1 }}>
-            {badge.name || t('badgeCelebrationNewBadge')}
+            {safeBadge.name || t('badgeCelebrationNewBadge')}
           </Typography>
 
           <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-            {badge.description || t('badgeCelebrationEarnedMessage')}
+            {safeBadge.description || t('badgeCelebrationEarnedMessage')}
           </Typography>
 
           {/* Motivational message */}
