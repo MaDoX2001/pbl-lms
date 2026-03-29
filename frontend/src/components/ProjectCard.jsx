@@ -61,6 +61,10 @@ const ProjectCard = ({ project, onCoverUpdated }) => {
     advanced: t('advanced'),
   };
 
+  const registrationCount = project?.isTeamProject
+    ? (project?.enrolledTeamsCount || 0)
+    : (project?.enrolledStudents?.length || 0);
+
   return (
     <Card 
       sx={{ 
@@ -155,7 +159,7 @@ const ProjectCard = ({ project, onCoverUpdated }) => {
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <PeopleIcon fontSize="small" />
-            <span>{project.enrolledStudents?.length || 0}</span>
+            <span>{registrationCount}</span>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <CodeIcon fontSize="small" />

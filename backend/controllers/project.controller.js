@@ -1,6 +1,7 @@
 const Project = require('../models/Project.model');
 const User = require('../models/User.model');
 const Progress = require('../models/Progress.model');
+const TeamProject = require('../models/TeamProject.model');
 const cloudinaryService = require('../services/cloudinary.service');
 const { normalizeProjectMilestones } = require('../utils/stagedSubmissionConfig');
 
@@ -48,11 +49,24 @@ exports.getAllProjects = async (req, res) => {
       .populate('instructor', 'name avatar')
       .sort(sortOption)
       .select('-solution');
+
+    const projectIds = projects.map((p) => p._id);
+    const teamCounts = await TeamProject.aggregate([
+      { $match: { project: { $in: projectIds } } },
+      { $group: { _id: '$project', count: { $sum: 1 } } }
+    ]);
+    const teamCountMap = new Map(teamCounts.map((row) => [row._id.toString(), row.count]));
+
+    const projectsWithCounts = projects.map((project) => {
+      const plain = project.toObject();
+      plain.enrolledTeamsCount = teamCountMap.get(project._id.toString()) || 0;
+      return plain;
+    });
     
     res.json({
       success: true,
-      count: projects.length,
-      data: projects
+      count: projectsWithCounts.length,
+      data: projectsWithCounts
     });
   } catch (error) {
     res.status(500).json({
@@ -80,9 +94,13 @@ exports.getProject = async (req, res) => {
       });
     }
     
+    const enrolledTeamsCount = await TeamProject.countDocuments({ project: project._id });
+    const projectWithCount = project.toObject();
+    projectWithCount.enrolledTeamsCount = enrolledTeamsCount;
+
     res.json({
       success: true,
-      data: project
+      data: projectWithCount
     });
   } catch (error) {
     res.status(500).json({

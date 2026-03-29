@@ -1053,7 +1053,9 @@ const ProjectDetailPage = () => {
               {t('stats')}
             </Typography>
             <Typography variant="body2" paragraph>
-              {t('enrolledStudentsCount', { count: project.enrolledStudents?.length || 0 })}
+              {project?.isTeamProject
+                ? t('enrolledTeamsCount', { count: project.enrolledTeamsCount || 0 })
+                : t('enrolledStudentsCount', { count: project.enrolledStudents?.length || 0 })}
             </Typography>
             <Typography variant="body2">
               {t('completedCount', { count: project.completedBy?.length || 0 })}
