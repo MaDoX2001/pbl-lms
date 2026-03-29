@@ -410,7 +410,7 @@ exports.setMyRole = async (req, res) => {
   }
 };
 
-// @desc    Student sets their role for a specific project (with rotation enforcement)
+// @desc    Student sets their role for a specific project
 // @route   PUT /api/teams/project/:projectId/role
 // @access  Student only
 exports.setMyProjectRole = async (req, res) => {
@@ -445,24 +445,6 @@ exports.setMyProjectRole = async (req, res) => {
     );
     if (roleTakenByOther) {
       return res.status(409).json({ success: false, message: 'هذا الدور محجوز لزميل آخر في هذا المشروع' });
-    }
-
-    // Enforce rotation: get all previous projects for this team (enrolled before current)
-    const allTeamProjects = await TeamProject.find({ team: team._id }).sort({ enrolledAt: 1 });
-    const prevProjects = allTeamProjects.filter(
-      tp => tp._id.toString() !== teamProject._id.toString()
-        && tp.enrolledAt <= teamProject.enrolledAt
-    );
-    const usedRoles = prevProjects
-      .map(tp => tp.memberRoles.find(mr => mr.user.toString() === req.user._id.toString()))
-      .filter(Boolean)
-      .map(mr => mr.role);
-
-    if (usedRoles.includes(role)) {
-      return res.status(400).json({
-        success: false,
-        message: 'لقد استخدمت هذا الدور في مشروع سابق — يجب تغيير الأدوار عبر المشاريع'
-      });
     }
 
     // Assign or update the role in memberRoles

@@ -230,14 +230,6 @@ const TeamDashboard = () => {
     return mr?.role || null;
   };
 
-  // Helper: get all roles I've already used across previous projects (to enforce rotation)
-  const getMyUsedRoles = (currentEnrollment) => {
-    return projects
-      .filter(p => p._id !== currentEnrollment._id && new Date(p.enrolledAt) <= new Date(currentEnrollment.enrolledAt))
-      .map(p => getMyProjectRole(p))
-      .filter(Boolean);
-  };
-
   return (
     <>
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -365,9 +357,7 @@ const TeamDashboard = () => {
                       const takenRoles = (enrollment.memberRoles || [])
                         .filter(mr => String(mr.user?._id || mr.user) !== String(user?._id))
                         .map(mr => mr.role);
-                      const usedInPrevious = getMyUsedRoles(enrollment);
-                      const suggestedRole = rotationOrder.find(r => !takenRoles.includes(r) && !usedInPrevious.includes(r))
-                        || rotationOrder.find(r => !takenRoles.includes(r))
+                      const suggestedRole = rotationOrder.find(r => !takenRoles.includes(r))
                         || null;
                       return (
                         <Box>
@@ -390,15 +380,13 @@ const TeamDashboard = () => {
                               {['system_designer', 'hardware_engineer', 'tester'].map(r => {
                                 const meta = ROLE_META[r];
                                 const taken = takenRoles.includes(r);
-                                const usedPrev = usedInPrevious.includes(r);
                                 return (
-                                  <MenuItem key={r} value={r} disabled={taken || usedPrev}>
+                                  <MenuItem key={r} value={r} disabled={taken}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                       {meta?.icon}
                                       <span>
                                         {t(meta?.labelKey)}
                                         {taken && ` — ${t('teamRoleAlreadyTaken')}`}
-                                        {!taken && usedPrev && ` — ${t('teamRoleAlreadyUsed')}`}
                                       </span>
                                     </Box>
                                   </MenuItem>
