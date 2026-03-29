@@ -101,6 +101,7 @@ const TeamProjectPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
+      let resolvedTeamId = null;
 
       // Get project details
       const projectResponse = await api.get(`/projects/${projectId}`);
@@ -112,6 +113,7 @@ const TeamProjectPage = () => {
         try {
           const teamResponse = await api.get('/teams/my-team');
           const teamData = teamResponse.data.data;
+          resolvedTeamId = teamData?._id || null;
           setTeam(teamData);
 
           // Get team submissions
@@ -171,7 +173,7 @@ const TeamProjectPage = () => {
 
       // Fetch evaluation status for progress bar
       if (user.role === 'student') {
-        await fetchEvaluationStatus(projectData, teamData?._id || null);
+        await fetchEvaluationStatus(projectData, resolvedTeamId);
       }
 
       setLoading(false);
