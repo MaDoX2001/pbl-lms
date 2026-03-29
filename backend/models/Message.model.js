@@ -19,8 +19,30 @@ const messageSchema = new mongoose.Schema({
   // Message content
   content: {
     type: String,
-    required: true,
+    default: '',
     trim: true
+  },
+
+  // Reply metadata (message this one replies to)
+  replyTo: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Message'
+  },
+
+  // Forward metadata
+  forwardedFrom: {
+    message: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Message'
+    },
+    sender: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    conversation: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Conversation'
+    }
   },
   
   // Message type
@@ -55,7 +77,23 @@ const messageSchema = new mongoose.Schema({
   deletedFor: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
-  }]
+  }],
+
+  // Message lifecycle flags
+  isEdited: {
+    type: Boolean,
+    default: false
+  },
+  editedAt: Date,
+  isDeleted: {
+    type: Boolean,
+    default: false
+  },
+  deletedAt: Date,
+  deletedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }
 }, {
   timestamps: true
 });

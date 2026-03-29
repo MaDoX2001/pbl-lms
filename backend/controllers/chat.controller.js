@@ -2,6 +2,21 @@ const Conversation = require('../models/Conversation.model');
 const Message = require('../models/Message.model');
 const User = require('../models/User.model');
 const Team = require('../models/Team.model');
+const multer = require('multer');
+const cloudinaryService = require('../services/cloudinary.service');
+
+const chatUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }
+});
+
+exports.uploadChatFileMiddleware = chatUpload.single('file');
+
+const emitToConversationRoom = (req, conversationId, eventName, payload) => {
+  const io = req.app.get('io');
+  if (!io) return;
+  io.to(`conversation-${conversationId}`).emit(eventName, payload);
+};
 
 // @desc    Get all conversations for current user (grouped by type)
 // @route   GET /api/chat/conversations
@@ -154,6 +169,12 @@ exports.getMessages = async (req, res) => {
 
     const messages = await Message.find(query)
       .populate('sender', 'name avatar role')
+      .populate({
+        path: 'replyTo',
+        select: 'content sender attachment isDeleted type createdAt',
+        populate: { path: 'sender', select: 'name avatar' }
+      })
+      .populate('forwardedFrom.sender', 'name avatar')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit));
 
@@ -176,9 +197,9 @@ exports.getMessages = async (req, res) => {
 exports.sendMessage = async (req, res) => {
   try {
     const { id } = req.params;
-    const { content, type = 'text', attachment } = req.body;
+    const { content, type = 'text', attachment, replyTo } = req.body;
 
-    if (!content && !attachment) {
+    if (!String(content || '').trim() && !attachment) {
       return res.status(400).json({
         success: false,
         message: 'محتوى الرسالة مطلوب'
@@ -201,13 +222,26 @@ exports.sendMessage = async (req, res) => {
       });
     }
 
+    let replyMessageId = null;
+    if (replyTo) {
+      const targetReply = await Message.findById(replyTo).select('_id conversation');
+      if (!targetReply || targetReply.conversation.toString() !== id) {
+        return res.status(400).json({
+          success: false,
+          message: 'رسالة الرد غير صالحة'
+        });
+      }
+      replyMessageId = targetReply._id;
+    }
+
     // Create message
     const message = await Message.create({
       conversation: id,
       sender: req.user.id,
-      content,
+      content: String(content || '').trim(),
       type,
       attachment,
+      replyTo: replyMessageId,
       readBy: [{
         user: req.user.id,
         readAt: new Date()
@@ -215,10 +249,18 @@ exports.sendMessage = async (req, res) => {
     });
 
     await message.populate('sender', 'name avatar role');
+    await message.populate({
+      path: 'replyTo',
+      select: 'content sender attachment isDeleted type createdAt',
+      populate: { path: 'sender', select: 'name avatar' }
+    });
+    await message.populate('forwardedFrom.sender', 'name avatar');
 
     // Update conversation last message
+    const lastMessageText = String(content || '').trim()
+      || (type === 'image' ? '📷 صورة' : (type === 'file' ? '📎 ملف' : 'رسالة'));
     conversation.lastMessage = {
-      text: content,
+      text: lastMessageText,
       sender: req.user.id,
       timestamp: new Date()
     };
@@ -233,6 +275,11 @@ exports.sendMessage = async (req, res) => {
 
     await conversation.save();
 
+    emitToConversationRoom(req, id, 'new-message', {
+      ...message.toObject(),
+      conversationId: id
+    });
+
     res.status(201).json({
       success: true,
       data: message
@@ -243,6 +290,235 @@ exports.sendMessage = async (req, res) => {
       message: 'خطأ في إرسال الرسالة',
       error: error.message
     });
+  }
+};
+
+// @desc    Send image/file message via multipart upload
+// @route   POST /api/chat/conversations/:id/messages/upload
+// @access  Private
+exports.sendAttachmentMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const caption = String(req.body?.content || '').trim();
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'الملف مطلوب' });
+    }
+
+    const conversation = await Conversation.findById(id);
+    if (!conversation) {
+      return res.status(404).json({ success: false, message: 'المحادثة غير موجودة' });
+    }
+
+    if (!conversation.hasParticipant(req.user.id)) {
+      return res.status(403).json({ success: false, message: 'غير مصرح لك بالإرسال في هذه المحادثة' });
+    }
+
+    const folder = `chat/${id}`;
+    const uploaded = await cloudinaryService.uploadFile(req.file.buffer, req.file.originalname, folder);
+    const isImage = req.file.mimetype?.startsWith('image/');
+
+    const message = await Message.create({
+      conversation: id,
+      sender: req.user.id,
+      content: caption,
+      type: isImage ? 'image' : 'file',
+      attachment: {
+        url: uploaded.url,
+        publicId: uploaded.fileId,
+        fileName: req.file.originalname,
+        fileType: req.file.mimetype,
+        fileSize: req.file.size
+      },
+      readBy: [{ user: req.user.id, readAt: new Date() }]
+    });
+
+    await message.populate('sender', 'name avatar role');
+
+    conversation.lastMessage = {
+      text: caption || (isImage ? '📷 صورة' : '📎 ملف'),
+      sender: req.user.id,
+      timestamp: new Date()
+    };
+
+    conversation.participants.forEach(participantId => {
+      if (participantId.toString() !== req.user.id.toString()) {
+        const currentCount = conversation.unreadCount.get(participantId.toString()) || 0;
+        conversation.unreadCount.set(participantId.toString(), currentCount + 1);
+      }
+    });
+
+    await conversation.save();
+
+    emitToConversationRoom(req, id, 'new-message', {
+      ...message.toObject(),
+      conversationId: id
+    });
+
+    res.status(201).json({ success: true, data: message });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في إرسال المرفق',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Edit own message
+// @route   PUT /api/chat/messages/:messageId
+// @access  Private
+exports.editMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const newContent = String(req.body?.content || '').trim();
+
+    if (!newContent) {
+      return res.status(400).json({ success: false, message: 'نص الرسالة مطلوب للتعديل' });
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ success: false, message: 'الرسالة غير موجودة' });
+    }
+
+    if (message.sender.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ success: false, message: 'يمكنك تعديل رسائلك فقط' });
+    }
+
+    if (message.isDeleted) {
+      return res.status(400).json({ success: false, message: 'لا يمكن تعديل رسالة محذوفة' });
+    }
+
+    message.content = newContent;
+    message.isEdited = true;
+    message.editedAt = new Date();
+    await message.save();
+    await message.populate('sender', 'name avatar role');
+    await message.populate({
+      path: 'replyTo',
+      select: 'content sender attachment isDeleted type createdAt',
+      populate: { path: 'sender', select: 'name avatar' }
+    });
+
+    emitToConversationRoom(req, message.conversation.toString(), 'message-updated', {
+      ...message.toObject(),
+      conversationId: message.conversation.toString()
+    });
+
+    res.json({ success: true, data: message });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'خطأ في تعديل الرسالة', error: error.message });
+  }
+};
+
+// @desc    Delete own message for everyone
+// @route   DELETE /api/chat/messages/:messageId
+// @access  Private
+exports.deleteMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const message = await Message.findById(messageId);
+
+    if (!message) {
+      return res.status(404).json({ success: false, message: 'الرسالة غير موجودة' });
+    }
+
+    if (message.sender.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ success: false, message: 'يمكنك حذف رسائلك فقط' });
+    }
+
+    message.isDeleted = true;
+    message.deletedAt = new Date();
+    message.deletedBy = req.user.id;
+    message.content = 'تم حذف هذه الرسالة';
+    message.attachment = undefined;
+    message.type = 'text';
+    await message.save();
+
+    emitToConversationRoom(req, message.conversation.toString(), 'message-deleted', {
+      messageId: message._id,
+      conversationId: message.conversation.toString(),
+      isDeleted: true,
+      content: message.content,
+      deletedAt: message.deletedAt
+    });
+
+    res.json({ success: true, data: { _id: message._id, isDeleted: true } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'خطأ في حذف الرسالة', error: error.message });
+  }
+};
+
+// @desc    Forward a message to another conversation
+// @route   POST /api/chat/messages/:messageId/forward
+// @access  Private
+exports.forwardMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { targetConversationId } = req.body;
+
+    if (!targetConversationId) {
+      return res.status(400).json({ success: false, message: 'المحادثة المستهدفة مطلوبة' });
+    }
+
+    const [sourceMessage, targetConversation] = await Promise.all([
+      Message.findById(messageId).populate('sender', 'name avatar role'),
+      Conversation.findById(targetConversationId)
+    ]);
+
+    if (!sourceMessage) {
+      return res.status(404).json({ success: false, message: 'الرسالة المراد تحويلها غير موجودة' });
+    }
+
+    if (!targetConversation) {
+      return res.status(404).json({ success: false, message: 'المحادثة المستهدفة غير موجودة' });
+    }
+
+    if (!targetConversation.hasParticipant(req.user.id)) {
+      return res.status(403).json({ success: false, message: 'غير مصرح لك بالتحويل لهذه المحادثة' });
+    }
+
+    const forwarded = await Message.create({
+      conversation: targetConversationId,
+      sender: req.user.id,
+      content: sourceMessage.content,
+      type: sourceMessage.type,
+      attachment: sourceMessage.attachment,
+      forwardedFrom: {
+        message: sourceMessage._id,
+        sender: sourceMessage.sender?._id,
+        conversation: sourceMessage.conversation
+      },
+      readBy: [{ user: req.user.id, readAt: new Date() }]
+    });
+
+    await forwarded.populate('sender', 'name avatar role');
+    await forwarded.populate('forwardedFrom.sender', 'name avatar');
+
+    targetConversation.lastMessage = {
+      text: forwarded.content || (forwarded.type === 'image' ? '📷 صورة (محولة)' : '📎 ملف (محول)'),
+      sender: req.user.id,
+      timestamp: new Date()
+    };
+
+    targetConversation.participants.forEach(participantId => {
+      if (participantId.toString() !== req.user.id.toString()) {
+        const currentCount = targetConversation.unreadCount.get(participantId.toString()) || 0;
+        targetConversation.unreadCount.set(participantId.toString(), currentCount + 1);
+      }
+    });
+
+    await targetConversation.save();
+
+    emitToConversationRoom(req, targetConversationId, 'new-message', {
+      ...forwarded.toObject(),
+      conversationId: targetConversationId
+    });
+
+    res.status(201).json({ success: true, data: forwarded });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'خطأ في تحويل الرسالة', error: error.message });
   }
 };
 

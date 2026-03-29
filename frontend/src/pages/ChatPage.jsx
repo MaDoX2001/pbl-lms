@@ -25,7 +25,9 @@ import {
   Autocomplete,
   Tabs,
   Tab,
-  Divider
+  Divider,
+  Menu,
+  MenuItem
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import GroupAddIcon from '@mui/icons-material/GroupAdd';
@@ -48,6 +50,12 @@ import DoneAllIcon from '@mui/icons-material/DoneAll';
 import CloseIcon from '@mui/icons-material/Close';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import ReplyIcon from '@mui/icons-material/Reply';
+import ForwardToInboxIcon from '@mui/icons-material/ForwardToInbox';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useAppSettings } from '../context/AppSettingsContext';
 
 const ChatPage = () => {
@@ -86,6 +94,12 @@ const ChatPage = () => {
   const [showSearch, setShowSearch] = useState(false);
   const [lastReadMessageId, setLastReadMessageId] = useState(null);
   const lastAutoOpenSearchRef = useRef('');
+  const [replyToMessage, setReplyToMessage] = useState(null);
+  const [editingMessage, setEditingMessage] = useState(null);
+  const [messageMenu, setMessageMenu] = useState({ anchorEl: null, message: null });
+  const [forwardDialogOpen, setForwardDialogOpen] = useState(false);
+  const [forwardTargetId, setForwardTargetId] = useState('');
+  const fileInputRef = useRef(null);
   const dateLocale = language === 'ar' ? ar : enUS;
 
   // Debounce search query for better performance
@@ -119,6 +133,9 @@ const ChatPage = () => {
   useEffect(() => {
     const handleNewMessage = (data) => {
       if (selectedConversation && data.conversationId === selectedConversation._id) {
+        if (String(data.sender?._id || data.sender) === String(user.id)) {
+          return;
+        }
         setMessages((prev) => [...prev, data]);
         scrollToBottom();
       }
@@ -153,6 +170,20 @@ const ChatPage = () => {
       });
     };
 
+    const handleMessageUpdated = (data) => {
+      if (!selectedConversation || data.conversationId !== selectedConversation._id) return;
+      setMessages((prev) => prev.map((msg) => (msg._id === data._id ? { ...msg, ...data } : msg)));
+    };
+
+    const handleMessageDeleted = (data) => {
+      if (!selectedConversation || data.conversationId !== selectedConversation._id) return;
+      setMessages((prev) => prev.map((msg) => (
+        msg._id === data.messageId
+          ? { ...msg, isDeleted: true, content: data.content || 'تم حذف هذه الرسالة', attachment: null, type: 'text' }
+          : msg
+      )));
+    };
+
     const handleUserTyping = (data) => {
       if (selectedConversation && data.conversationId === selectedConversation._id) {
         setTypingUsers((prev) => new Map(prev).set(data.userId, data.userName || t('user')));
@@ -168,20 +199,26 @@ const ChatPage = () => {
     };
 
     socketService.onNewMessage(handleNewMessage);
+    socketService.onMessageUpdated(handleMessageUpdated);
+    socketService.onMessageDeleted(handleMessageDeleted);
     socketService.onUserTyping(handleUserTyping);
     socketService.onUserStopTyping(handleUserStopTyping);
 
     return () => {
       socketService.offNewMessage();
+      socketService.offMessageUpdated();
+      socketService.offMessageDeleted();
       socketService.offUserTyping();
       socketService.offUserStopTyping();
     };
-  }, [selectedConversation]);
+  }, [selectedConversation, user.id, t]);
 
   useEffect(() => {
     if (selectedConversation) {
       setMessagePage(1);
       setMessages([]);
+      setReplyToMessage(null);
+      setEditingMessage(null);
       fetchMessages(selectedConversation._id, 1);
       socketService.joinConversation(selectedConversation._id);
       markAsRead(selectedConversation._id);
@@ -340,13 +377,29 @@ const ChatPage = () => {
     e.preventDefault();
     if (!messageText.trim() || !selectedConversation) return;
 
+    if (editingMessage?._id) {
+      try {
+        const response = await api.put(`/chat/messages/${editingMessage._id}`, {
+          content: messageText.trim()
+        });
+        const updated = response.data.data;
+        setMessages((prev) => prev.map((msg) => (msg._id === updated._id ? updated : msg)));
+        setEditingMessage(null);
+        setMessageText('');
+      } catch {
+        toast.error('فشل تعديل الرسالة');
+      }
+      return;
+    }
+
     const tempId = `temp-${Date.now()}`;
     const optimisticMessage = {
       _id: tempId,
       content: messageText,
       sender: { _id: user.id, name: user.name },
       createdAt: new Date().toISOString(),
-      status: 'sending'
+      status: 'sending',
+      replyTo: replyToMessage || null
     };
 
     // Optimistic UI - show message immediately
@@ -358,19 +411,14 @@ const ChatPage = () => {
     try {
       const response = await api.post(`/chat/conversations/${selectedConversation._id}/messages`, {
         content: contentToSend,
-        type: 'text'
+        type: 'text',
+        replyTo: replyToMessage?._id
       });
 
       const newMessage = response.data.data;
       // Replace temp message with real one
       setMessages((prev) => prev.map(msg => msg._id === tempId ? newMessage : msg));
-
-      // Emit via socket
-      socketService.sendMessage({
-        conversationId: selectedConversation._id,
-        content: contentToSend,
-        type: 'text'
-      });
+      setReplyToMessage(null);
 
       fetchConversations();
     } catch (error) {
@@ -400,12 +448,6 @@ const ChatPage = () => {
       const newMessage = response.data.data;
       setMessages((prev) => prev.map(msg => msg._id === tempId ? newMessage : msg));
 
-      socketService.sendMessage({
-        conversationId: selectedConversation._id,
-        content: message.content,
-        type: 'text'
-      });
-
       fetchConversations();
     } catch (error) {
       setMessages((prev) => prev.map(msg => 
@@ -426,6 +468,107 @@ const ChatPage = () => {
       typingTimeoutRef.current = setTimeout(() => {
         socketService.emitStopTyping(selectedConversation._id);
       }, 2000);
+    }
+  };
+
+  const openMessageMenu = (event, message) => {
+    setMessageMenu({ anchorEl: event.currentTarget, message });
+  };
+
+  const closeMessageMenu = () => {
+    setMessageMenu({ anchorEl: null, message: null });
+  };
+
+  const handleCopyMessage = async (message) => {
+    try {
+      await navigator.clipboard.writeText(message.content || '');
+      toast.success('تم نسخ الرسالة');
+    } catch {
+      toast.error('تعذر نسخ الرسالة');
+    }
+    closeMessageMenu();
+  };
+
+  const handleReplyMessage = (message) => {
+    setReplyToMessage(message);
+    setEditingMessage(null);
+    closeMessageMenu();
+  };
+
+  const handleEditMessage = (message) => {
+    setEditingMessage(message);
+    setReplyToMessage(null);
+    setMessageText(message.content || '');
+    closeMessageMenu();
+  };
+
+  const handleDeleteMessage = async (message) => {
+    try {
+      await api.delete(`/chat/messages/${message._id}`);
+      setMessages((prev) => prev.map((msg) => (
+        msg._id === message._id
+          ? { ...msg, isDeleted: true, content: 'تم حذف هذه الرسالة', attachment: null, type: 'text' }
+          : msg
+      )));
+      toast.success('تم حذف الرسالة');
+    } catch {
+      toast.error('فشل حذف الرسالة');
+    }
+    closeMessageMenu();
+  };
+
+  const handleForwardMessage = (message) => {
+    setMessageMenu({ anchorEl: null, message });
+    setForwardDialogOpen(true);
+    setForwardTargetId('');
+  };
+
+  const submitForwardMessage = async () => {
+    if (!messageMenu.message?._id || !forwardTargetId) return;
+    try {
+      await api.post(`/chat/messages/${messageMenu.message._id}/forward`, {
+        targetConversationId: forwardTargetId
+      });
+      setForwardDialogOpen(false);
+      setForwardTargetId('');
+      setMessageMenu({ anchorEl: null, message: null });
+      toast.success('تم تحويل الرسالة');
+      fetchConversations();
+    } catch {
+      toast.error('فشل تحويل الرسالة');
+    }
+  };
+
+  const handleSelectAttachment = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file || !selectedConversation?._id) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+    if (messageText.trim()) {
+      formData.append('content', messageText.trim());
+    }
+
+    try {
+      const response = await api.post(
+        `/chat/conversations/${selectedConversation._id}/messages/upload`,
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
+      const newMessage = response.data.data;
+      setMessages((prev) => [...prev, newMessage]);
+      setMessageText('');
+      setReplyToMessage(null);
+      fetchConversations();
+      scrollToBottom();
+    } catch {
+      toast.error('فشل إرسال المرفق');
+    } finally {
+      event.target.value = '';
     }
   };
 
@@ -885,6 +1028,8 @@ const ChatPage = () => {
                   const isSending = message.status === 'sending';
                   const isFailed = message.status === 'failed';
                   const isOwn = message.sender._id === user.id;
+                  const hasImage = (message.type === 'image') || message.attachment?.fileType?.startsWith('image/');
+                  const hasAttachment = !!message.attachment?.url;
                   
                   const showDateSeparator = shouldShowDateSeparator(message, messages[index - 1]);
                   const showNewMessagesDivider = lastReadMessageId && message._id === lastReadMessageId;
@@ -925,7 +1070,7 @@ const ChatPage = () => {
                           display: 'flex',
                           justifyContent: isOwn ? 'flex-end' : 'flex-start',
                           mb: 2,
-                          alignItems: 'center',
+                          alignItems: 'flex-start',
                           gap: 1
                         }}
                       >
@@ -941,20 +1086,37 @@ const ChatPage = () => {
                         )}
                         <Box
                           sx={{
-                            maxWidth: '70%',
-                            color: isOwn ? 'white' : 'text.primary',
+                            maxWidth: '78%',
+                            color: isOwn ? '#0b1f2a' : 'text.primary',
                             p: 1.5,
-                            borderRadius: 2,
-                            boxShadow: 1,
+                            borderRadius: isOwn ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                            boxShadow: 2,
                             opacity: isSending ? 0.6 : 1,
                             border: isFailed ? '1px solid #d32f2f' 
                               : isCurrentSearchResult ? '2px solid #ff9800'
                               : isSearchResult ? '1px solid #2196f3'
                               : 'none',
-                            bgcolor: isSearchResult && !isOwn ? '#fff3e0' : (isOwn ? 'primary.main' : 'white'),
+                            bgcolor: isSearchResult && !isOwn ? '#fff3e0' : (isOwn ? '#dcf8c6' : 'white'),
                             transition: 'all 0.3s'
                           }}
                         >
+                          {message.replyTo && (
+                            <Box sx={{ mb: 1, px: 1, py: 0.75, borderRadius: 1.5, bgcolor: 'rgba(0,0,0,0.08)' }}>
+                              <Typography variant="caption" sx={{ fontWeight: 700, display: 'block' }}>
+                                رد على {message.replyTo.sender?.name || 'رسالة'}
+                              </Typography>
+                              <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                                {message.replyTo.isDeleted ? 'تم حذف الرسالة الأصلية' : (message.replyTo.content || 'مرفق')}
+                              </Typography>
+                            </Box>
+                          )}
+
+                          {message.forwardedFrom?.message && (
+                            <Typography variant="caption" sx={{ display: 'block', opacity: 0.75, mb: 0.5 }}>
+                              تمت إعادة توجيه هذه الرسالة
+                            </Typography>
+                          )}
+
                           {(selectedConversation.type === 'team' || 
                             selectedConversation.type === 'team_teachers' || 
                             selectedConversation.type === 'general' ||
@@ -964,13 +1126,57 @@ const ChatPage = () => {
                               {message.sender.name}
                             </Typography>
                           )}
-                          <Typography variant="body1">{message.content}</Typography>
+
+                          {message.isDeleted ? (
+                            <Typography variant="body2" sx={{ fontStyle: 'italic', opacity: 0.8 }}>
+                              {message.content}
+                            </Typography>
+                          ) : (
+                            <>
+                              {hasImage && hasAttachment && (
+                                <Box sx={{ mb: message.content ? 0.75 : 0 }}>
+                                  <Box
+                                    component="img"
+                                    src={message.attachment.url}
+                                    alt={message.attachment.fileName || 'chat-image'}
+                                    sx={{
+                                      width: '100%',
+                                      maxWidth: 280,
+                                      borderRadius: 2,
+                                      display: 'block'
+                                    }}
+                                  />
+                                </Box>
+                              )}
+
+                              {!hasImage && hasAttachment && (
+                                <Button
+                                  variant="outlined"
+                                  size="small"
+                                  href={message.attachment.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  sx={{ mb: message.content ? 0.75 : 0 }}
+                                >
+                                  تحميل {message.attachment.fileName || 'الملف'}
+                                </Button>
+                              )}
+
+                              {!!message.content && (
+                                <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>{message.content}</Typography>
+                              )}
+                            </>
+                          )}
+
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
                             <Typography variant="caption" sx={{ opacity: 0.7 }}>
                               {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true, locale: dateLocale })}
                             </Typography>
+                            {message.isEdited && !message.isDeleted && (
+                              <Typography variant="caption" sx={{ opacity: 0.7 }}>(معدلة)</Typography>
+                            )}
                             {isSending && (
-                              <CircularProgress size={10} sx={{ color: isOwn ? 'white' : 'primary.main' }} />
+                              <CircularProgress size={10} sx={{ color: isOwn ? '#0b1f2a' : 'primary.main' }} />
                             )}
                             {isFailed && (
                               <ErrorOutlineIcon sx={{ fontSize: 12, color: '#d32f2f' }} />
@@ -984,6 +1190,12 @@ const ChatPage = () => {
                             )}
                           </Box>
                         </Box>
+
+                        {!isSending && !isFailed && !message.isDeleted && (
+                          <IconButton size="small" onClick={(event) => openMessageMenu(event, message)}>
+                            <MoreVertIcon fontSize="small" />
+                          </IconButton>
+                        )}
                       </Box>
                     </React.Fragment>
                   );
@@ -1001,6 +1213,30 @@ const ChatPage = () => {
 
               {/* Input */}
               <Box component="form" onSubmit={handleSendMessage} sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+                {(replyToMessage || editingMessage) && (
+                  <Box sx={{ mb: 1, p: 1, borderRadius: 1.5, bgcolor: 'grey.100', display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <ReplyIcon fontSize="small" color="action" />
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 700, display: 'block' }}>
+                        {editingMessage ? 'تعديل الرسالة' : `الرد على ${replyToMessage?.sender?.name || 'رسالة'}`}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {editingMessage ? (editingMessage?.content || '') : (replyToMessage?.content || 'مرفق')}
+                      </Typography>
+                    </Box>
+                    <IconButton
+                      size="small"
+                      onClick={() => {
+                        setReplyToMessage(null);
+                        setEditingMessage(null);
+                        setMessageText('');
+                      }}
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                )}
+
                 <TextField
                   fullWidth
                   multiline
@@ -1023,6 +1259,19 @@ const ChatPage = () => {
                   placeholder={t('typeMessageHint')}
                   disabled={sendingMessage}
                   InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <IconButton onClick={handleSelectAttachment} disabled={sendingMessage}>
+                          <AttachFileIcon />
+                        </IconButton>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          hidden
+                          onChange={handleFileChange}
+                        />
+                      </InputAdornment>
+                    ),
                     endAdornment: (
                       <InputAdornment position="end">
                         <IconButton type="submit" disabled={!messageText.trim() || sendingMessage}>
@@ -1043,6 +1292,65 @@ const ChatPage = () => {
           )}
         </Grid>
       </Grid>
+
+      <Menu
+        anchorEl={messageMenu.anchorEl}
+        open={Boolean(messageMenu.anchorEl)}
+        onClose={closeMessageMenu}
+      >
+        <MenuItem onClick={() => handleReplyMessage(messageMenu.message)}>
+          <ReplyIcon fontSize="small" sx={{ mr: 1 }} />
+          رد
+        </MenuItem>
+        <MenuItem onClick={() => handleForwardMessage(messageMenu.message)}>
+          <ForwardToInboxIcon fontSize="small" sx={{ mr: 1 }} />
+          إعادة توجيه
+        </MenuItem>
+        <MenuItem onClick={() => handleCopyMessage(messageMenu.message)}>
+          <ContentCopyIcon fontSize="small" sx={{ mr: 1 }} />
+          نسخ
+        </MenuItem>
+        {String(messageMenu.message?.sender?._id || messageMenu.message?.sender) === String(user.id) && (
+          <MenuItem onClick={() => handleEditMessage(messageMenu.message)}>
+            <EditIcon fontSize="small" sx={{ mr: 1 }} />
+            تعديل
+          </MenuItem>
+        )}
+        {String(messageMenu.message?.sender?._id || messageMenu.message?.sender) === String(user.id) && (
+          <MenuItem onClick={() => handleDeleteMessage(messageMenu.message)} sx={{ color: 'error.main' }}>
+            <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
+            حذف
+          </MenuItem>
+        )}
+      </Menu>
+
+      <Dialog open={forwardDialogOpen} onClose={() => setForwardDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>إعادة توجيه الرسالة</DialogTitle>
+        <DialogContent>
+          <TextField
+            select
+            fullWidth
+            sx={{ mt: 1 }}
+            label="اختر المحادثة"
+            value={forwardTargetId}
+            onChange={(e) => setForwardTargetId(e.target.value)}
+          >
+            {conversations
+              .filter((conv) => conv._id !== selectedConversation?._id)
+              .map((conv) => (
+                <MenuItem key={conv._id} value={conv._id}>
+                  {getConversationName(conv)}
+                </MenuItem>
+              ))}
+          </TextField>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setForwardDialogOpen(false)}>{t('cancel')}</Button>
+          <Button variant="contained" onClick={submitForwardMessage} disabled={!forwardTargetId}>
+            إرسال
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* New Chat Dialog */}
       <Dialog open={newChatDialogOpen} onClose={() => setNewChatDialogOpen(false)} maxWidth="sm" fullWidth>

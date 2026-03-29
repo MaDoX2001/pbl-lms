@@ -71,6 +71,30 @@ class SocketService {
     }
   }
 
+  onMessageUpdated(callback) {
+    if (this.socket) {
+      this.socket.on('message-updated', callback);
+    }
+  }
+
+  offMessageUpdated() {
+    if (this.socket) {
+      this.socket.off('message-updated');
+    }
+  }
+
+  onMessageDeleted(callback) {
+    if (this.socket) {
+      this.socket.on('message-deleted', callback);
+    }
+  }
+
+  offMessageDeleted() {
+    if (this.socket) {
+      this.socket.off('message-deleted');
+    }
+  }
+
   emitTyping(conversationId) {
     if (this.socket) {
       this.socket.emit('typing', conversationId);

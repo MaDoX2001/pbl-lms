@@ -10,6 +10,11 @@ const {
   getOrCreateGeneralConversation,
   getMessages,
   sendMessage,
+  uploadChatFileMiddleware,
+  sendAttachmentMessage,
+  editMessage,
+  deleteMessage,
+  forwardMessage,
   markAsRead,
   getUsers
 } = require('../controllers/chat.controller');
@@ -40,6 +45,14 @@ router.get('/conversations/:id/messages', getMessages);
 
 // Send message to a conversation
 router.post('/conversations/:id/messages', sendMessage);
+
+// Send image/file message (multipart)
+router.post('/conversations/:id/messages/upload', uploadChatFileMiddleware, sendAttachmentMessage);
+
+// Edit/delete/forward message
+router.put('/messages/:messageId', editMessage);
+router.delete('/messages/:messageId', deleteMessage);
+router.post('/messages/:messageId/forward', forwardMessage);
 
 // Mark messages as read
 router.put('/conversations/:id/read', markAsRead);

@@ -145,6 +145,9 @@ const io = socketIO(server, {
   }
 });
 
+// Make io accessible from express controllers.
+app.set('io', io);
+
 // Socket.IO authentication middleware
 const Message = require('./models/Message.model');
 const Conversation = require('./models/Conversation.model');
