@@ -9,6 +9,7 @@ const {
   addGrade,
   deleteSubmission,
   uploadMiddleware,
+  uploadWokwiFilesMiddleware,
   getStageProgress,
   acknowledgeWokwiHandoff
 } = require('../controllers/teamSubmission.controller');
@@ -28,7 +29,7 @@ const { protect } = require('../middleware/auth.middleware');
 router.post('/', protect, uploadMiddleware, createSubmission);
 
 // Submit a Wokwi simulator link  
-router.post('/wokwi', protect, submitWokwiLink);
+router.post('/wokwi', protect, uploadWokwiFilesMiddleware, submitWokwiLink);
 
 // Get ONLY the latest Wokwi submission (most efficient for page load)
 router.get('/wokwi/:teamId/:projectId/latest', protect, getLatestWokwiSubmission);

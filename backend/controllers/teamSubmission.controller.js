@@ -35,6 +35,7 @@ const upload = multer({
 
 // Export upload middleware
 exports.uploadMiddleware = upload.single('file');
+exports.uploadWokwiFilesMiddleware = upload.array('attachments', 8);
 
 const getTeamMemberIds = (team) => {
   return (team.members || []).map((member) => (member.user?._id || member.user || member).toString());
@@ -643,6 +644,7 @@ exports.deleteSubmission = async (req, res) => {
   exports.submitWokwiLink = async (req, res) => {
     try {
       const { teamId, projectId, wokwiLink, notes, stageKey = 'wiring' } = req.body;
+      const attachedFiles = Array.isArray(req.files) ? req.files : [];
 
       if (!teamId || !projectId || !wokwiLink) {
         return res.status(400).json({
@@ -730,10 +732,31 @@ exports.deleteSubmission = async (req, res) => {
         submissionType: 'wokwi',
         wokwiLink,
         notes: notes || '',
+        attachments: [],
         handoffAcceptedBy: null,
         handoffAcceptedAt: null,
         submittedBy: req.user._id
       });
+
+      // Optional attachments upload (images, pdf, docs, etc.)
+      if (attachedFiles.length > 0) {
+        const folder = `pbl-lms/team-submissions/team-${teamId}/wokwi-attachments`;
+        const uploadedAttachments = await Promise.all(
+          attachedFiles.map(async (file) => {
+            const uploaded = await cloudinary.uploadFile(file.buffer, file.originalname, folder);
+            return {
+              url: uploaded.url,
+              publicId: uploaded.fileId,
+              fileName: file.originalname,
+              fileType: file.mimetype,
+              fileSize: file.size
+            };
+          })
+        );
+
+        submission.attachments = uploadedAttachments;
+        await submission.save();
+      }
 
       await submission.populate([
         { path: 'submittedBy', select: 'name email' },

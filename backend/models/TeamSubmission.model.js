@@ -58,6 +58,15 @@ const teamSubmissionSchema = new mongoose.Schema({
     }
   },
 
+  // Optional attachments with Wokwi submission (images, pdf, docs, etc.)
+  attachments: [{
+    url: { type: String },
+    publicId: { type: String },
+    fileName: { type: String },
+    fileType: { type: String },
+    fileSize: { type: Number }
+  }],
+
   // Notes from student about what changed in this version
   notes: {
     type: String,

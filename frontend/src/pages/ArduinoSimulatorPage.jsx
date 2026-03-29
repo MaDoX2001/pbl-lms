@@ -6,6 +6,7 @@ import {
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
 import { useSelector } from 'react-redux';
 import { useLocation } from 'react-router-dom';
 import api from '../services/api';
@@ -42,6 +43,7 @@ function ArduinoSimulatorPage() {
   const [submitting, setSubmitting] = useState(false);
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
   const [pendingProjectId, setPendingProjectId] = useState('');
+  const [attachments, setAttachments] = useState([]);
 
   const roleLabelMap = {
     system_designer: 'مصمم النظام',
@@ -113,6 +115,31 @@ function ArduinoSimulatorPage() {
     }
     setSimulatorUrl(link);
     setSnack({ open: true, msg: `تم فتح نسخة ${label} داخل المحاكي`, severity: 'info' });
+  };
+
+  const openSubmitDialog = () => {
+    const autoStage = currentStageKey && stageOptions.some((s) => s.value === currentStageKey)
+      ? currentStageKey
+      : selectedStage;
+
+    setSelectedStage(autoStage || 'design');
+
+    if (/^https:\/\/wokwi\.com\/projects\//.test(simulatorUrl)) {
+      setWokwiLink(simulatorUrl);
+    }
+
+    setOpen(true);
+  };
+
+  const onAttachmentChange = (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+    setAttachments((prev) => [...prev, ...files].slice(0, 8));
+    event.target.value = '';
+  };
+
+  const removeAttachmentAt = (index) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
   useEffect(() => {
@@ -203,17 +230,23 @@ function ArduinoSimulatorPage() {
     setSubmitting(true);
     try {
       const myTeam = await api.get('/teams/my-team');
-      await api.post('/team-submissions/wokwi', {
-        teamId: myTeam.data.data._id,
-        projectId: selectedProject,
-        stageKey: selectedStage,
-        wokwiLink: wokwiLink.trim(),
-        notes: notes.trim()
+      const formData = new FormData();
+      formData.append('teamId', myTeam.data.data._id);
+      formData.append('projectId', selectedProject);
+      formData.append('stageKey', selectedStage);
+      formData.append('wokwiLink', wokwiLink.trim());
+      formData.append('notes', notes.trim());
+      attachments.forEach((file) => formData.append('attachments', file));
+
+      await api.post('/team-submissions/wokwi', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
+
       setSnack({ open: true, msg: t('wokwiSubmitSuccess'), severity: 'success' });
       setOpen(false);
       setWokwiLink('');
       setNotes('');
+      setAttachments([]);
       const [progressRes, historyRes] = await Promise.all([
         api.get(`/team-submissions/progress/${myTeam.data.data._id}/${selectedProject}`),
         api.get(`/team-submissions/wokwi/${myTeam.data.data._id}/${selectedProject}`)
@@ -245,7 +278,7 @@ function ArduinoSimulatorPage() {
                 variant="contained"
                 size="small"
                 startIcon={<SaveIcon />}
-                onClick={() => setOpen(true)}
+                onClick={openSubmitDialog}
                 color="success"
               >
                 {t('wokwiSubmitBtn')}
@@ -461,6 +494,39 @@ function ArduinoSimulatorPage() {
             inputProps={{ maxLength: 500 }}
             helperText={`${notes.length}/500`}
           />
+
+          <Box>
+            <Button
+              component="label"
+              variant="outlined"
+              startIcon={<AttachFileIcon />}
+              disabled={submitting}
+              sx={{ mb: 1 }}
+            >
+              إضافة ملفات (حتى 8 ملفات)
+              <input
+                hidden
+                type="file"
+                multiple
+                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
+                onChange={onAttachmentChange}
+              />
+            </Button>
+
+            {attachments.length > 0 && (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                {attachments.map((file, index) => (
+                  <Chip
+                    key={`${file.name}-${index}`}
+                    label={file.name}
+                    onDelete={submitting ? undefined : () => removeAttachmentAt(index)}
+                    size="small"
+                    variant="outlined"
+                  />
+                ))}
+              </Box>
+            )}
+          </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setOpen(false)} disabled={submitting}>{t('cancel')}</Button>
