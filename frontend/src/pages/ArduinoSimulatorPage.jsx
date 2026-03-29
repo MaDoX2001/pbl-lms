@@ -25,6 +25,7 @@ function ArduinoSimulatorPage() {
   // Dialog state
   const [open, setOpen] = useState(false);
   const [wokwiLink, setWokwiLink] = useState('');
+  const [simulatorUrl, setSimulatorUrl] = useState('https://wokwi.com/projects/new/arduino-uno');
   const [notes, setNotes] = useState('');
   const [selectedProject, setSelectedProject] = useState('');
   const [selectedStage, setSelectedStage] = useState('design');
@@ -107,7 +108,8 @@ function ArduinoSimulatorPage() {
       setSnack({ open: true, msg: `لا يوجد رابط محفوظ لـ ${label}`, severity: 'warning' });
       return;
     }
-    window.open(link, '_blank', 'noopener,noreferrer');
+    setSimulatorUrl(link);
+    setSnack({ open: true, msg: `تم فتح نسخة ${label} داخل المحاكي`, severity: 'info' });
   };
 
   // Fetch team's enrolled projects for the dropdown
@@ -352,7 +354,7 @@ function ArduinoSimulatorPage() {
         
         <Box sx={{ width: '100%', height: simulatorHeight, minHeight: { xs: 500, md: 620 } }}>
           <iframe
-            src="https://wokwi.com/projects/new/arduino-uno"
+            src={simulatorUrl}
             title="Arduino Simulator"
             style={{
               width: '100%',
