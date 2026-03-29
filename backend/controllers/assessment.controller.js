@@ -1220,9 +1220,10 @@ exports.getFinalEvaluation = async (req, res) => {
       .populate('individualEvaluation');
 
     if (!finalEvaluation) {
-      return res.status(404).json({
-        success: false,
-        message: 'التقييم النهائي غير موجود'
+      return res.json({
+        success: true,
+        data: null,
+        message: 'التقييم النهائي غير متاح بعد'
       });
     }
 
