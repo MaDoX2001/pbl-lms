@@ -16,6 +16,7 @@ import {
   Group as GroupIcon,
   Assignment as AssignmentIcon,
   Person as PersonIcon,
+  Chat as ChatIcon,
   Folder as FolderIcon,
   Download as DownloadIcon,
   Engineering as EngineeringIcon,
@@ -252,6 +253,14 @@ const TeamDashboard = () => {
               <Typography variant="body2" color="text.secondary">{team.description}</Typography>
             )}
           </Box>
+          <Box sx={{ flex: 1 }} />
+          <Button
+            variant="contained"
+            startIcon={<ChatIcon />}
+            onClick={() => navigate('/chat?type=team&autoOpen=1')}
+          >
+            شات الفريق
+          </Button>
         </Box>
 
         <Divider sx={{ my: 2 }} />

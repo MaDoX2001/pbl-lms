@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSelector } from 'react-redux';
+import { useLocation } from 'react-router-dom';
 import {
   Box,
   Grid,
@@ -52,6 +53,7 @@ import { useAppSettings } from '../context/AppSettingsContext';
 const ChatPage = () => {
   const { user, token } = useSelector((state) => state.auth);
   const { t, language } = useAppSettings();
+  const location = useLocation();
   
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -83,6 +85,7 @@ const ChatPage = () => {
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
   const [showSearch, setShowSearch] = useState(false);
   const [lastReadMessageId, setLastReadMessageId] = useState(null);
+  const lastAutoOpenSearchRef = useRef('');
   const dateLocale = language === 'ar' ? ar : enUS;
 
   // Debounce search query for better performance
@@ -597,6 +600,23 @@ const ChatPage = () => {
       console.error('Error in handleTabChange:', error);
     }
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const type = params.get('type');
+    const autoOpen = params.get('autoOpen') === '1';
+
+    if (type !== 'team') return;
+
+    if (chatType !== 'team') {
+      setChatType('team');
+    }
+
+    if (autoOpen && user?.role === 'student' && lastAutoOpenSearchRef.current !== location.search) {
+      lastAutoOpenSearchRef.current = location.search;
+      handleOpenTeamChat();
+    }
+  }, [location.search, user?.role]);
 
   if (loading) {
     return (
