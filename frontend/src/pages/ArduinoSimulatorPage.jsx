@@ -40,6 +40,7 @@ function ArduinoSimulatorPage() {
   const [historyByProject, setHistoryByProject] = useState({});
   const [loadingQuickLinks, setLoadingQuickLinks] = useState(false);
   const [showQuickLinks, setShowQuickLinks] = useState(false);
+  const [quickLinkStage, setQuickLinkStage] = useState('design');
   const [submitting, setSubmitting] = useState(false);
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
   const [pendingProjectId, setPendingProjectId] = useState('');
@@ -70,38 +71,85 @@ function ArduinoSimulatorPage() {
     return 'completed';
   };
 
-  const selectedEnrollment = projects.find((e) => String(e.project?._id || e._id) === String(selectedProject));
+  const getProjectRefId = (enrollment) => {
+    if (!enrollment) return '';
+    return enrollment.project?._id || enrollment.project || enrollment._id;
+  };
+
+  const deriveProgressFromHistory = (history = [], members = []) => {
+    const byStage = {
+      design: history.filter((s) => s.stageKey === 'design'),
+      wiring: history.filter((s) => s.stageKey === 'wiring'),
+      programming: history.filter((s) => s.stageKey === 'programming'),
+      testing: history.filter((s) => s.stageKey === 'testing'),
+      final_delivery: history.filter((s) => s.stageKey === 'final_delivery'),
+    };
+
+    const memberIds = (members || [])
+      .map((member) => member?.user?._id || member?.user || member?._id || member)
+      .filter(Boolean)
+      .map((id) => String(id));
+
+    const programmingSubmitters = new Set(
+      byStage.programming
+        .map((s) => s.submittedBy?._id || s.submittedBy)
+        .filter(Boolean)
+        .map((id) => String(id))
+    );
+
+    return {
+      completed: {
+        design: byStage.design.length > 0,
+        wiring: byStage.wiring.length > 0,
+        programming: memberIds.length > 0 && memberIds.every((id) => programmingSubmitters.has(id)),
+        testing: byStage.testing.length > 0,
+        final_delivery: byStage.final_delivery.length > 0,
+      },
+      programmingSubmittedCount: programmingSubmitters.size,
+      programmingRequiredCount: memberIds.length,
+    };
+  };
+
+  const selectedEnrollment = projects.find((e) => String(getProjectRefId(e)) === String(selectedProject));
   const myProjectRole = (() => {
     const memberRoles = selectedEnrollment?.memberRoles || [];
     const mine = memberRoles.find((mr) => String(mr.user?._id || mr.user) === String(user?._id));
     return mine?.role || null;
   })();
-  const currentStageKey = selectedProject ? getCurrentStage(progressByProject[selectedProject]) : null;
+
+  const derivedProgress = selectedProject
+    ? deriveProgressFromHistory(historyByProject[selectedProject] || [], teamMembers)
+    : null;
+
+  const currentProgress = selectedProject
+    ? ((progressByProject[selectedProject]?.completed ? progressByProject[selectedProject] : derivedProgress) || null)
+    : null;
+
+  const currentStageKey = selectedProject ? getCurrentStage(currentProgress) : null;
   const currentHistory = historyByProject[selectedProject] || [];
 
-  const getLatestStageSubmission = (stageKey) => {
-    return currentHistory.find((submission) => submission.stageKey === stageKey) || null;
+  const roleByUserId = (selectedEnrollment?.memberRoles || []).reduce((acc, mr) => {
+    const id = String(mr.user?._id || mr.user || '');
+    if (id) acc[id] = mr.role;
+    return acc;
+  }, {});
+
+  const getLatestStageSubmission = (stageKey, role = null) => {
+    return currentHistory.find((submission) => {
+      if (submission.stageKey !== stageKey) return false;
+      if (!role) return true;
+      const submitterId = String(submission.submittedBy?._id || submission.submittedBy || '');
+      return roleByUserId[submitterId] === role;
+    }) || null;
   };
 
-  const getLatestProgrammingSubmissionByStudent = (studentId) => {
-    return currentHistory.find(
-      (submission) => submission.stageKey === 'programming'
-        && String(submission.submittedBy?._id || submission.submittedBy) === String(studentId)
-    ) || null;
-  };
-
-  const latestDesigner = getLatestStageSubmission('design');
-  const latestWiring = getLatestStageSubmission('wiring');
-  const latestTesting = getLatestStageSubmission('testing');
+  const latestDesigner = getLatestStageSubmission(quickLinkStage, 'system_designer');
+  const latestWiring = getLatestStageSubmission(quickLinkStage, 'hardware_engineer');
+  const latestTesting = getLatestStageSubmission(quickLinkStage, 'tester');
   const hasAnyQuickLink = !!(
     latestDesigner?.wokwiLink
     || latestWiring?.wokwiLink
     || latestTesting?.wokwiLink
-    || (teamMembers || []).some((member) => {
-      const memberUser = member.user || member;
-      const memberId = memberUser?._id || memberUser;
-      return !!getLatestProgrammingSubmissionByStudent(memberId)?.wokwiLink;
-    })
   );
 
   const simulatorHeight = showQuickLinks
@@ -130,6 +178,13 @@ function ArduinoSimulatorPage() {
 
     setOpen(true);
   };
+
+  useEffect(() => {
+    if (currentStageKey && stageOptions.some((s) => s.value === currentStageKey)) {
+      setQuickLinkStage(currentStageKey);
+      setSelectedStage((prev) => (stageOptions.some((s) => s.value === prev) ? prev : currentStageKey));
+    }
+  }, [currentStageKey]);
 
   const onAttachmentChange = (event) => {
     const files = Array.from(event.target.files || []);
@@ -170,9 +225,9 @@ function ArduinoSimulatorPage() {
             setProjects(enrollments);
             if (enrollments.length > 0) {
               const matched = pendingProjectId
-                ? enrollments.find((e) => String(e.project?._id || e._id) === String(pendingProjectId))
+                ? enrollments.find((e) => String(getProjectRefId(e)) === String(pendingProjectId))
                 : null;
-              setSelectedProject(matched ? (matched.project?._id || matched._id) : (enrollments[0].project?._id || enrollments[0]._id));
+              setSelectedProject(matched ? getProjectRefId(matched) : getProjectRefId(enrollments[0]));
             }
           }).catch(() => {});
       }).catch(() => {});
@@ -304,7 +359,7 @@ function ArduinoSimulatorPage() {
                     onChange={(e) => setSelectedProject(e.target.value)}
                   >
                     {projects.map(e => (
-                      <MenuItem key={e.project?._id || e._id} value={e.project?._id || e._id}>
+                      <MenuItem key={getProjectRefId(e)} value={getProjectRefId(e)}>
                         {e.project?.title || e.title || e._id}
                       </MenuItem>
                     ))}
@@ -321,6 +376,12 @@ function ArduinoSimulatorPage() {
                   color="secondary"
                   label={`مرحلة الفريق الحالية: ${currentStageKey ? (stageLabelMap[currentStageKey] || currentStageKey) : 'غير متاحة'}`}
                 />
+                {currentProgress && (
+                  <Chip
+                    color="info"
+                    label={`البرمجة: ${currentProgress.programmingSubmittedCount || 0}/${currentProgress.programmingRequiredCount || 0}`}
+                  />
+                )}
                 <Button
                   size="small"
                   variant={showQuickLinks ? 'contained' : 'outlined'}
@@ -337,8 +398,22 @@ function ArduinoSimulatorPage() {
         {user?.role === 'student' && selectedProject && showQuickLinks && (
           <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider', bgcolor: '#fff8e1' }}>
             <Typography variant="body2" fontWeight={700} sx={{ mb: 1 }}>
-              اختصارات الوصول السريع لنسخ المشروع حسب الدور
+              اختصارات الوصول السريع: اختر مرحلة، ثم افتح آخر نسخة لكل دور في هذه المرحلة
             </Typography>
+
+            <FormControl size="small" sx={{ minWidth: 240, mb: 1 }}>
+              <InputLabel id="quick-link-stage-label">مرحلة الاختصارات</InputLabel>
+              <Select
+                labelId="quick-link-stage-label"
+                value={quickLinkStage}
+                label="مرحلة الاختصارات"
+                onChange={(e) => setQuickLinkStage(e.target.value)}
+              >
+                {stageOptions.map((stage) => (
+                  <MenuItem key={stage.value} value={stage.value}>{stage.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
             {loadingQuickLinks ? (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -347,7 +422,7 @@ function ArduinoSimulatorPage() {
               </Box>
             ) : !hasAnyQuickLink ? (
               <Alert severity="info" sx={{ py: 0.5 }}>
-                لا توجد روابط محفوظة حالياً لهذه المرحلة.
+                لا توجد نسخة محفوظة للأدوار في هذه المرحلة.
               </Alert>
             ) : (
               <>
@@ -356,7 +431,7 @@ function ArduinoSimulatorPage() {
                     size="small"
                     variant="outlined"
                     startIcon={<OpenInNewIcon />}
-                    onClick={() => openWokwiLink(latestDesigner?.wokwiLink, 'المصمم')}
+                    onClick={() => openWokwiLink(latestDesigner?.wokwiLink, `المصمم - ${stageLabelMap[quickLinkStage] || quickLinkStage}`)}
                     disabled={!latestDesigner?.wokwiLink}
                   >
                     نسخة المصمم
@@ -365,43 +440,19 @@ function ArduinoSimulatorPage() {
                     size="small"
                     variant="outlined"
                     startIcon={<OpenInNewIcon />}
-                    onClick={() => openWokwiLink(latestWiring?.wokwiLink, 'الموصل')}
+                    onClick={() => openWokwiLink(latestWiring?.wokwiLink, `الموصل - ${stageLabelMap[quickLinkStage] || quickLinkStage}`)}
                     disabled={!latestWiring?.wokwiLink}
                   >
                     نسخة الموصل
                   </Button>
-                </Box>
-
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
-                  {(teamMembers || []).map((member) => {
-                    const memberUser = member.user || member;
-                    const memberId = memberUser?._id || memberUser;
-                    const latestProgramming = getLatestProgrammingSubmissionByStudent(memberId);
-                    return (
-                      <Button
-                        key={String(memberId)}
-                        size="small"
-                        variant="outlined"
-                        startIcon={<OpenInNewIcon />}
-                        onClick={() => openWokwiLink(latestProgramming?.wokwiLink, `كود ${memberUser?.name || 'الطالب'}`)}
-                        disabled={!latestProgramming?.wokwiLink}
-                      >
-                        كود {memberUser?.name || 'طالب'}
-                      </Button>
-                    );
-                  })}
-                </Box>
-
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                   <Button
                     size="small"
-                    variant="contained"
-                    color="secondary"
+                    variant="outlined"
                     startIcon={<OpenInNewIcon />}
-                    onClick={() => openWokwiLink(latestTesting?.wokwiLink, 'شكل المشروع بعد دور المختبر')}
+                    onClick={() => openWokwiLink(latestTesting?.wokwiLink, `المختبر - ${stageLabelMap[quickLinkStage] || quickLinkStage}`)}
                     disabled={!latestTesting?.wokwiLink}
                   >
-                    الشكل بعد دور المختبر
+                    نسخة المختبر
                   </Button>
                 </Box>
               </>
@@ -443,7 +494,7 @@ function ArduinoSimulatorPage() {
               disabled={submitting}
             >
               {projects.length > 0 ? projects.map(e => (
-                <MenuItem key={e.project?._id || e._id} value={e.project?._id || e._id}>
+                <MenuItem key={getProjectRefId(e)} value={getProjectRefId(e)}>
                   {e.project?.title || e.title || e._id}
                 </MenuItem>
               )) : (
