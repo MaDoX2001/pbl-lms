@@ -72,6 +72,7 @@ const EditProjectPage = () => {
     teachingStrategy: '',
     finalReportNote: '',
     points: 100,
+    isTeamProject: false,
     isPublished: false,
     showObjectives: true,
     components: [''],
@@ -124,6 +125,7 @@ const EditProjectPage = () => {
         teachingStrategy: project.teachingStrategy || '',
         finalReportNote: project.finalReportNote || '',
         points: project.points || 100,
+        isTeamProject: Boolean(project.isTeamProject),
         isPublished: project.isPublished || false,
         showObjectives: project.showObjectives !== undefined ? project.showObjectives : true,
         components: project.components?.length > 0 ? project.components : [''],
@@ -485,6 +487,22 @@ const EditProjectPage = () => {
 
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
+                <InputLabel>{t('projectTypeLabel')}</InputLabel>
+                <Select
+                  name="isTeamProject"
+                  value={formData.isTeamProject}
+                  onChange={handleChange}
+                  disabled={loading}
+                  label={t('projectTypeLabel')}
+                >
+                  <MenuItem value={false}>{t('individualProject')}</MenuItem>
+                  <MenuItem value={true}>{t('teamProject')}</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
                 <InputLabel>{t('status')}</InputLabel>
                 <Select
                   name="isPublished"
@@ -770,7 +788,7 @@ const EditProjectPage = () => {
                 <ObservationCardBuilder
                   projectId={id}
                   phase="group"
-                  isTeamProject={true}
+                  isTeamProject={Boolean(formData.isTeamProject)}
                   initialData={existingGroupCard}
                   onSave={setGroupCard}
                 />
@@ -789,7 +807,7 @@ const EditProjectPage = () => {
                 <ObservationCardBuilder
                   projectId={id}
                   phase="individual_oral"
-                  isTeamProject={true}
+                  isTeamProject={Boolean(formData.isTeamProject)}
                   initialData={existingIndividualCard}
                   onSave={setIndividualCard}
                 />

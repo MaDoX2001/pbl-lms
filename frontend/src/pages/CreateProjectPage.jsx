@@ -72,6 +72,7 @@ const CreateProjectPage = () => {
     teachingStrategy: t('teachingStrategyPlaceholder'),
     finalReportNote: t('finalReportNotePlaceholder'),
     points: 100,
+    isTeamProject: false,
     isPublished: false,
     showObjectives: true,
     components: [''],
@@ -399,6 +400,24 @@ const CreateProjectPage = () => {
 
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
+                <InputLabel id="project-type-label">{t('projectTypeLabel')}</InputLabel>
+                <Select
+                  id="isTeamProject"
+                  name="isTeamProject"
+                  labelId="project-type-label"
+                  value={formData.isTeamProject}
+                  onChange={handleChange}
+                  disabled={loading}
+                  label={t('projectTypeLabel')}
+                >
+                  <MenuItem value={false}>{t('individualProject')}</MenuItem>
+                  <MenuItem value={true}>{t('teamProject')}</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
                 <InputLabel id="isPublished-label">{t('status')}</InputLabel>
                 <Select
                   id="isPublished"
@@ -703,7 +722,7 @@ const CreateProjectPage = () => {
                 <ObservationCardBuilder
                   projectId={null}
                   phase="group"
-                  isTeamProject={true}
+                  isTeamProject={Boolean(formData.isTeamProject)}
                   onSave={setGroupCard}
                 />
               </Paper>
@@ -721,7 +740,7 @@ const CreateProjectPage = () => {
                 <ObservationCardBuilder
                   projectId={null}
                   phase="individual_oral"
-                  isTeamProject={true}
+                  isTeamProject={Boolean(formData.isTeamProject)}
                   onSave={setIndividualCard}
                 />
               </Paper>
