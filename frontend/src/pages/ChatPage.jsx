@@ -179,7 +179,7 @@ const ChatPage = () => {
       if (!selectedConversation || data.conversationId !== selectedConversation._id) return;
       setMessages((prev) => prev.map((msg) => (
         msg._id === data.messageId
-          ? { ...msg, isDeleted: true, content: data.content || 'تم حذف هذه الرسالة', attachment: null, type: 'text' }
+          ? { ...msg, isDeleted: true, content: data.content || t('messageDeletedText'), attachment: null, type: 'text' }
           : msg
       )));
     };
@@ -387,7 +387,7 @@ const ChatPage = () => {
         setEditingMessage(null);
         setMessageText('');
       } catch {
-        toast.error('فشل تعديل الرسالة');
+        toast.error(t('messageEditFailed'));
       }
       return;
     }
@@ -482,9 +482,9 @@ const ChatPage = () => {
   const handleCopyMessage = async (message) => {
     try {
       await navigator.clipboard.writeText(message.content || '');
-      toast.success('تم نسخ الرسالة');
+      toast.success(t('messageCopied'));
     } catch {
-      toast.error('تعذر نسخ الرسالة');
+      toast.error(t('messageCopyFailed'));
     }
     closeMessageMenu();
   };
@@ -507,12 +507,12 @@ const ChatPage = () => {
       await api.delete(`/chat/messages/${message._id}`);
       setMessages((prev) => prev.map((msg) => (
         msg._id === message._id
-          ? { ...msg, isDeleted: true, content: 'تم حذف هذه الرسالة', attachment: null, type: 'text' }
+          ? { ...msg, isDeleted: true, content: t('messageDeletedText'), attachment: null, type: 'text' }
           : msg
       )));
-      toast.success('تم حذف الرسالة');
+      toast.success(t('messageDeletedSuccess'));
     } catch {
-      toast.error('فشل حذف الرسالة');
+      toast.error(t('messageDeleteFailed'));
     }
     closeMessageMenu();
   };
@@ -532,10 +532,10 @@ const ChatPage = () => {
       setForwardDialogOpen(false);
       setForwardTargetId('');
       setMessageMenu({ anchorEl: null, message: null });
-      toast.success('تم تحويل الرسالة');
+      toast.success(t('messageForwardedSuccess'));
       fetchConversations();
     } catch {
-      toast.error('فشل تحويل الرسالة');
+      toast.error(t('messageForwardFailed'));
     }
   };
 
@@ -566,7 +566,7 @@ const ChatPage = () => {
       fetchConversations();
       scrollToBottom();
     } catch {
-      toast.error('فشل إرسال المرفق');
+      toast.error(t('attachmentSendFailed'));
     } finally {
       event.target.value = '';
     }
@@ -1103,17 +1103,17 @@ const ChatPage = () => {
                           {message.replyTo && (
                             <Box sx={{ mb: 1, px: 1, py: 0.75, borderRadius: 1.5, bgcolor: 'rgba(0,0,0,0.08)' }}>
                               <Typography variant="caption" sx={{ fontWeight: 700, display: 'block' }}>
-                                رد على {message.replyTo.sender?.name || 'رسالة'}
+                                {t('replyToLabel', { name: message.replyTo.sender?.name || t('messageLabel') })}
                               </Typography>
                               <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                                {message.replyTo.isDeleted ? 'تم حذف الرسالة الأصلية' : (message.replyTo.content || 'مرفق')}
+                                {message.replyTo.isDeleted ? t('originalMessageDeleted') : (message.replyTo.content || t('attachmentLabel'))}
                               </Typography>
                             </Box>
                           )}
 
                           {message.forwardedFrom?.message && (
                             <Typography variant="caption" sx={{ display: 'block', opacity: 0.75, mb: 0.5 }}>
-                              تمت إعادة توجيه هذه الرسالة
+                              {t('messageForwardedBadge')}
                             </Typography>
                           )}
 
@@ -1158,7 +1158,7 @@ const ChatPage = () => {
                                   rel="noopener noreferrer"
                                   sx={{ mb: message.content ? 0.75 : 0 }}
                                 >
-                                  تحميل {message.attachment.fileName || 'الملف'}
+                                  {t('downloadAttachmentLabel', { name: message.attachment.fileName || t('attachmentLabel') })}
                                 </Button>
                               )}
 
@@ -1173,7 +1173,7 @@ const ChatPage = () => {
                               {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true, locale: dateLocale })}
                             </Typography>
                             {message.isEdited && !message.isDeleted && (
-                              <Typography variant="caption" sx={{ opacity: 0.7 }}>(معدلة)</Typography>
+                              <Typography variant="caption" sx={{ opacity: 0.7 }}>({t('editedMessageTag')})</Typography>
                             )}
                             {isSending && (
                               <CircularProgress size={10} sx={{ color: isOwn ? '#0b1f2a' : 'primary.main' }} />
@@ -1218,10 +1218,12 @@ const ChatPage = () => {
                     <ReplyIcon fontSize="small" color="action" />
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography variant="caption" sx={{ fontWeight: 700, display: 'block' }}>
-                        {editingMessage ? 'تعديل الرسالة' : `الرد على ${replyToMessage?.sender?.name || 'رسالة'}`}
+                        {editingMessage
+                          ? t('editMessageLabel')
+                          : t('replyToLabel', { name: replyToMessage?.sender?.name || t('messageLabel') })}
                       </Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {editingMessage ? (editingMessage?.content || '') : (replyToMessage?.content || 'مرفق')}
+                        {editingMessage ? (editingMessage?.content || '') : (replyToMessage?.content || t('attachmentLabel'))}
                       </Typography>
                     </Box>
                     <IconButton
@@ -1300,38 +1302,38 @@ const ChatPage = () => {
       >
         <MenuItem onClick={() => handleReplyMessage(messageMenu.message)}>
           <ReplyIcon fontSize="small" sx={{ mr: 1 }} />
-          رد
+          {t('replyAction')}
         </MenuItem>
         <MenuItem onClick={() => handleForwardMessage(messageMenu.message)}>
           <ForwardToInboxIcon fontSize="small" sx={{ mr: 1 }} />
-          إعادة توجيه
+          {t('forwardAction')}
         </MenuItem>
         <MenuItem onClick={() => handleCopyMessage(messageMenu.message)}>
           <ContentCopyIcon fontSize="small" sx={{ mr: 1 }} />
-          نسخ
+          {t('copyAction')}
         </MenuItem>
         {String(messageMenu.message?.sender?._id || messageMenu.message?.sender) === String(user.id) && (
           <MenuItem onClick={() => handleEditMessage(messageMenu.message)}>
             <EditIcon fontSize="small" sx={{ mr: 1 }} />
-            تعديل
+            {t('editAction')}
           </MenuItem>
         )}
         {String(messageMenu.message?.sender?._id || messageMenu.message?.sender) === String(user.id) && (
           <MenuItem onClick={() => handleDeleteMessage(messageMenu.message)} sx={{ color: 'error.main' }}>
             <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
-            حذف
+            {t('deleteAction')}
           </MenuItem>
         )}
       </Menu>
 
       <Dialog open={forwardDialogOpen} onClose={() => setForwardDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>إعادة توجيه الرسالة</DialogTitle>
+        <DialogTitle>{t('forwardMessageTitle')}</DialogTitle>
         <DialogContent>
           <TextField
             select
             fullWidth
             sx={{ mt: 1 }}
-            label="اختر المحادثة"
+            label={t('selectConversationLabel')}
             value={forwardTargetId}
             onChange={(e) => setForwardTargetId(e.target.value)}
           >
@@ -1347,7 +1349,7 @@ const ChatPage = () => {
         <DialogActions>
           <Button onClick={() => setForwardDialogOpen(false)}>{t('cancel')}</Button>
           <Button variant="contained" onClick={submitForwardMessage} disabled={!forwardTargetId}>
-            إرسال
+            {t('send')}
           </Button>
         </DialogActions>
       </Dialog>
