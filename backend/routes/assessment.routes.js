@@ -10,6 +10,7 @@ const {
   getGroupStatus,
   evaluateIndividual,
   getIndividualStatus,
+  generateAIEvaluationDraft,
   finalizeEvaluation,
   getFinalEvaluation,
   getAllFinalEvaluations,
@@ -40,6 +41,7 @@ router.get('/group-status/:projectId/:teamId', protect, getGroupStatus);
 // ============================================================================
 router.post('/evaluate-individual', protect, authorize('teacher', 'admin'), evaluateIndividual);
 router.get('/individual-status/:projectId/:studentId', protect, getIndividualStatus);
+router.post('/ai-evaluate-individual', protect, authorize('teacher', 'admin'), generateAIEvaluationDraft);
 
 // ============================================================================
 // FINAL EVALUATION ROUTES

@@ -4,8 +4,177 @@ const FinalEvaluation = require('../models/FinalEvaluation.model');
 const StudentLevel = require('../models/StudentLevel.model');
 const Badge = require('../models/Badge.model');
 const Submission = require('../models/Submission.model');
+const Progress = require('../models/Progress.model');
 const Project = require('../models/Project.model');
 const Team = require('../models/Team.model');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+
+const geminiClient = process.env.GEMINI_API_KEY
+  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+  : null;
+
+const AI_EVAL_MODELS = (process.env.AI_MODELS || 'gemini-2.0-flash')
+  .split(',')
+  .map((m) => m.trim())
+  .filter(Boolean);
+
+const extractWokwiLink = (text) => {
+  if (!text || typeof text !== 'string') return null;
+  const match = text.match(/https:\/\/wokwi\.com\/projects\/[a-zA-Z0-9_-]+/);
+  return match ? match[0] : null;
+};
+
+const safeJsonParse = (rawText) => {
+  if (!rawText) return null;
+  const text = String(rawText).trim();
+
+  try {
+    return JSON.parse(text);
+  } catch (_) {}
+
+  const fenced = text.match(/```json\s*([\s\S]*?)```/i) || text.match(/```\s*([\s\S]*?)```/i);
+  if (fenced && fenced[1]) {
+    try {
+      return JSON.parse(fenced[1].trim());
+    } catch (_) {}
+  }
+
+  const firstBrace = text.indexOf('{');
+  const lastBrace = text.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    try {
+      return JSON.parse(text.slice(firstBrace, lastBrace + 1));
+    } catch (_) {}
+  }
+
+  return null;
+};
+
+const buildRecommendedMap = (recommendations = []) => {
+  const map = {};
+  for (const section of recommendations) {
+    if (!section?.sectionName) continue;
+    const key = String(section.sectionName).trim();
+    map[key] = {};
+    for (const criterion of section.criteria || []) {
+      if (!criterion?.criterionName) continue;
+      map[key][String(criterion.criterionName).trim()] = Number(criterion.selectedPercentage || 0);
+    }
+  }
+  return map;
+};
+
+const nearestAllowedPercentage = (value, allowed = []) => {
+  if (!allowed.length) return 0;
+  let nearest = allowed[0];
+  let minDiff = Math.abs(value - nearest);
+  for (const option of allowed) {
+    const diff = Math.abs(value - option);
+    if (diff < minDiff) {
+      minDiff = diff;
+      nearest = option;
+    }
+  }
+  return nearest;
+};
+
+const buildSectionEvaluationsFromCard = ({
+  card,
+  recommendations,
+  project,
+  studentRole,
+  enforceAllCriteria = false
+}) => {
+  const recMap = buildRecommendedMap(recommendations);
+  let totalScore = 0;
+  const sectionEvaluations = [];
+
+  for (const section of card.sections || []) {
+    const sectionRec = recMap[section.name] || {};
+    let sumPercentages = 0;
+    let requiredCount = 0;
+
+    const criterionSelections = (section.criteria || []).map((criterion) => {
+      const isRequired = enforceAllCriteria
+        ? true
+        : (
+          !project.isTeamProject
+          || (criterion.applicableRoles || []).includes('all')
+          || (criterion.applicableRoles || []).includes(studentRole)
+        );
+
+      const rawValue = Number(sectionRec[criterion.name] ?? 0);
+      const allowedOptions = (criterion.options || []).map((o) => Number(o.percentage));
+      const selectedPercentage = nearestAllowedPercentage(rawValue, allowedOptions);
+      const selectedOption = (criterion.options || []).find((o) => Number(o.percentage) === selectedPercentage);
+
+      if (isRequired) {
+        sumPercentages += selectedPercentage;
+        requiredCount += 1;
+      }
+
+      return {
+        criterionName: criterion.name,
+        isRequired,
+        selectedPercentage,
+        selectedDescription: selectedOption?.description || ''
+      };
+    });
+
+    const avgPercentage = requiredCount > 0 ? (sumPercentages / requiredCount) : 0;
+    const calculatedSectionScore = avgPercentage * ((section.weight || 0) / 100);
+    totalScore += calculatedSectionScore;
+
+    sectionEvaluations.push({
+      sectionName: section.name,
+      sectionWeight: section.weight,
+      criterionSelections,
+      calculatedSectionScore
+    });
+  }
+
+  return {
+    sectionEvaluations,
+    calculatedScore: Number(totalScore.toFixed(2))
+  };
+};
+
+const buildCardPromptShape = (card) => {
+  return (card.sections || []).map((section) => ({
+    sectionName: section.name,
+    weight: section.weight,
+    criteria: (section.criteria || []).map((criterion) => ({
+      criterionName: criterion.name,
+      applicableRoles: criterion.applicableRoles || ['all'],
+      allowedPercentages: (criterion.options || []).map((o) => o.percentage),
+      options: (criterion.options || []).map((o) => ({
+        percentage: o.percentage,
+        description: o.description
+      }))
+    }))
+  }));
+};
+
+const callGeminiForAssessment = async (prompt) => {
+  if (!geminiClient) {
+    throw new Error('GEMINI_API_KEY غير مضبوط في إعدادات السيرفر');
+  }
+
+  let lastError = null;
+  for (const modelName of AI_EVAL_MODELS) {
+    try {
+      const model = geminiClient.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      const text = result?.response?.text?.() || '';
+      if (text) return text;
+      lastError = new Error(`No response text from ${modelName}`);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error('فشل استدعاء نموذج الذكاء الاصطناعي');
+};
 
 // ============================================================================
 // OBSERVATION CARD MANAGEMENT
@@ -162,7 +331,9 @@ exports.evaluateGroup = async (req, res) => {
       studentId,
       submissionId, 
       sectionEvaluations, 
-      feedbackSummary 
+      feedbackSummary,
+      evaluationSource = 'manual',
+      aiApproval = null
     } = req.body;
 
     // Verify project exists
@@ -283,6 +454,15 @@ exports.evaluateGroup = async (req, res) => {
       sectionEvaluations: processedSections,
       calculatedScore,
       feedbackSummary,
+      evaluationSource,
+      aiApproval: aiApproval ? {
+        evaluationApprovedBy: req.user.id,
+        evaluationApprovedAt: new Date(),
+        confidence: Number(aiApproval.confidence || 0),
+        plagiarismSimilarityPercent: Number(aiApproval.plagiarismSimilarityPercent || 0),
+        plagiarismLevel: aiApproval.plagiarismLevel || null,
+        rationale: aiApproval.rationale || ''
+      } : undefined,
       retryAllowed: false,
       isLatestAttempt: true
     });
@@ -359,7 +539,9 @@ exports.evaluateIndividual = async (req, res) => {
       studentRole,
       submissionId, 
       sectionEvaluations, 
-      feedbackSummary 
+      feedbackSummary,
+      evaluationSource = 'manual',
+      aiApproval = null
     } = req.body;
 
     // Verify project exists
@@ -512,6 +694,15 @@ exports.evaluateIndividual = async (req, res) => {
       sectionEvaluations: processedSections,
       calculatedScore,
       feedbackSummary,
+      evaluationSource,
+      aiApproval: aiApproval ? {
+        evaluationApprovedBy: req.user.id,
+        evaluationApprovedAt: new Date(),
+        confidence: Number(aiApproval.confidence || 0),
+        plagiarismSimilarityPercent: Number(aiApproval.plagiarismSimilarityPercent || 0),
+        plagiarismLevel: aiApproval.plagiarismLevel || null,
+        rationale: aiApproval.rationale || ''
+      } : undefined,
       retryAllowed: false,
       isLatestAttempt: true
     });
@@ -605,6 +796,270 @@ exports.getIndividualStatus = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'خطأ في جلب حالة التقييم الفردي',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Generate AI evaluation draft for one student (individual project pilot)
+// @route   POST /api/assessment/ai-evaluate-individual
+// @access  Private (Teacher/Admin)
+exports.generateAIEvaluationDraft = async (req, res) => {
+  try {
+    const { projectId, studentId, submissionId } = req.body;
+
+    if (!projectId || !studentId) {
+      return res.status(400).json({
+        success: false,
+        message: 'projectId و studentId مطلوبان'
+      });
+    }
+
+    const project = await Project.findById(projectId).select('title description instructor isTeamProject');
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'المشروع غير موجود' });
+    }
+
+    if (req.user.role !== 'admin' && project.instructor?.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'غير مصرح لك بتقييم هذا المشروع' });
+    }
+
+    if (project.isTeamProject) {
+      return res.status(400).json({
+        success: false,
+        message: 'نسخة AI الحالية مفعلة فقط للمشروع الفردي. سنوسعها للمشروع الجماعي بعد التجربة.'
+      });
+    }
+
+    const [groupCard, individualCard] = await Promise.all([
+      ObservationCard.findOne({ project: projectId, phase: 'group' }),
+      ObservationCard.findOne({ project: projectId, phase: 'individual_oral' })
+    ]);
+
+    if (!groupCard || !individualCard) {
+      return res.status(404).json({
+        success: false,
+        message: 'بطاقات الملاحظة المطلوبة (الجماعية + الفردية) غير متاحة لهذا المشروع'
+      });
+    }
+
+    let submissionRecord = null;
+    let submissionSource = 'submission-model';
+
+    if (submissionId) {
+      submissionRecord = await Submission.findById(submissionId).populate('student', 'name email');
+    }
+
+    if (!submissionRecord || String(submissionRecord.student?._id || submissionRecord.student) !== String(studentId)) {
+      submissionRecord = await Submission.findOne({
+        'assignment.projectId': projectId,
+        student: studentId
+      })
+        .sort({ submittedAt: -1 })
+        .populate('student', 'name email');
+    }
+
+    if (!submissionRecord) {
+      submissionSource = 'progress-model';
+      if (submissionId) {
+        submissionRecord = await Progress.findById(submissionId).populate('student', 'name email');
+      }
+      if (!submissionRecord || String(submissionRecord.student?._id || submissionRecord.student) !== String(studentId)) {
+        submissionRecord = await Progress.findOne({
+          project: projectId,
+          student: studentId,
+          status: { $in: ['submitted', 'reviewed', 'completed'] }
+        })
+          .sort({ submittedAt: -1, updatedAt: -1 })
+          .populate('student', 'name email');
+      }
+    }
+
+    if (!submissionRecord) {
+      return res.status(404).json({
+        success: false,
+        message: 'لا يوجد تسليم لهذا الطالب في هذا المشروع'
+      });
+    }
+
+    const submissionView = submissionSource === 'submission-model'
+      ? {
+        id: submissionRecord._id,
+        student: submissionRecord.student,
+        fileTitle: submissionRecord.fileTitle || '',
+        fileName: submissionRecord.fileName || '',
+        fileType: submissionRecord.fileType || '',
+        fileUrl: submissionRecord.fileUrl || '',
+        comments: submissionRecord.comments || '',
+        codeSubmission: '',
+        notes: '',
+        submittedAt: submissionRecord.submittedAt
+      }
+      : {
+        id: submissionRecord._id,
+        student: submissionRecord.student,
+        fileTitle: 'Project Submission',
+        fileName: submissionRecord.submissionFiles?.[submissionRecord.submissionFiles.length - 1]?.filename || 'No file',
+        fileType: '',
+        fileUrl: submissionRecord.submissionUrl || submissionRecord.submissionFiles?.[submissionRecord.submissionFiles.length - 1]?.url || '',
+        comments: submissionRecord.notes || '',
+        codeSubmission: submissionRecord.codeSubmission || '',
+        notes: submissionRecord.notes || '',
+        submittedAt: submissionRecord.submittedAt || submissionRecord.updatedAt
+      };
+
+    const wokwiLink = extractWokwiLink(submissionView.comments)
+      || extractWokwiLink(submissionView.fileUrl)
+      || extractWokwiLink(submissionView.codeSubmission)
+      || null;
+
+    const otherSubmissions = submissionSource === 'submission-model'
+      ? await Submission.find({
+        'assignment.projectId': projectId,
+        student: { $ne: studentId }
+      }).select('student comments fileUrl').populate('student', 'name')
+      : await Progress.find({
+        project: projectId,
+        student: { $ne: studentId },
+        status: { $in: ['submitted', 'reviewed', 'completed'] }
+      }).select('student notes submissionUrl codeSubmission').populate('student', 'name');
+
+    const matchedStudents = [];
+    if (wokwiLink) {
+      for (const other of otherSubmissions) {
+        const otherWokwi = submissionSource === 'submission-model'
+          ? (extractWokwiLink(other.comments) || extractWokwiLink(other.fileUrl))
+          : (extractWokwiLink(other.notes) || extractWokwiLink(other.submissionUrl) || extractWokwiLink(other.codeSubmission));
+        if (otherWokwi && otherWokwi === wokwiLink) {
+          matchedStudents.push({
+            studentId: other.student?._id,
+            studentName: other.student?.name || 'طالب آخر',
+            matchedLink: otherWokwi
+          });
+        }
+      }
+    }
+
+    const plagiarismSimilarityPercent = matchedStudents.length > 0 ? 90 : 10;
+    const plagiarismLevel = matchedStudents.length > 0 ? 'high' : 'low';
+    const plagiarismReason = matchedStudents.length > 0
+      ? 'تم العثور على رابط Wokwi مطابق لتسليمات طلاب آخرين في نفس المشروع.'
+      : 'لا يوجد تطابق مباشر واضح في رابط Wokwi مع تسليمات أخرى.';
+
+    const promptPayload = {
+      language: 'Arabic',
+      task: 'Evaluate one student submission based on provided observation cards and return structured JSON only.',
+      strictRules: [
+        'Return JSON only without markdown fences.',
+        'For every criterion in both cards, choose only one allowed percentage from allowedPercentages.',
+        'Keep rationale concise and actionable for teacher review.',
+        'Include feedbackSuggestion for the student in Arabic.'
+      ],
+      teacherGoal: 'Draft teacher-like observation-card evaluation to review and approve manually.',
+      project: {
+        id: project._id,
+        title: project.title,
+        description: project.description || ''
+      },
+      student: {
+        id: submissionView.student?._id || submissionView.student,
+        name: submissionView.student?.name || 'طالب',
+        email: submissionView.student?.email || ''
+      },
+      submission: {
+        id: submissionView.id,
+        source: submissionSource,
+        fileTitle: submissionView.fileTitle,
+        fileName: submissionView.fileName,
+        fileType: submissionView.fileType,
+        fileUrl: submissionView.fileUrl,
+        comments: submissionView.comments,
+        codeSubmission: submissionView.codeSubmission,
+        submittedAt: submissionView.submittedAt,
+        wokwiLink: wokwiLink || ''
+      },
+      plagiarismSignal: {
+        similarityPercent: plagiarismSimilarityPercent,
+        level: plagiarismLevel,
+        reason: plagiarismReason,
+        matchedStudents
+      },
+      observationCards: {
+        group: buildCardPromptShape(groupCard),
+        individual_oral: buildCardPromptShape(individualCard)
+      },
+      requiredOutputShape: {
+        groupRecommendations: [
+          {
+            sectionName: 'string',
+            criteria: [{ criterionName: 'string', selectedPercentage: 0 }]
+          }
+        ],
+        individualRecommendations: [
+          {
+            sectionName: 'string',
+            criteria: [{ criterionName: 'string', selectedPercentage: 0 }]
+          }
+        ],
+        rationale: 'string',
+        feedbackSuggestion: 'string',
+        confidence: 0
+      }
+    };
+
+    const rawResponse = await callGeminiForAssessment(JSON.stringify(promptPayload));
+    const parsed = safeJsonParse(rawResponse);
+
+    if (!parsed) {
+      return res.status(502).json({
+        success: false,
+        message: 'تعذر قراءة مخرجات AI بصيغة JSON صالحة. حاول مرة أخرى.'
+      });
+    }
+
+    const groupDraft = buildSectionEvaluationsFromCard({
+      card: groupCard,
+      recommendations: parsed.groupRecommendations || [],
+      project,
+      studentRole: 'programmer',
+      enforceAllCriteria: true
+    });
+
+    const individualDraft = buildSectionEvaluationsFromCard({
+      card: individualCard,
+      recommendations: parsed.individualRecommendations || [],
+      project,
+      studentRole: 'programmer',
+      enforceAllCriteria: true
+    });
+
+    const overallScore = Number((((groupDraft.calculatedScore + individualDraft.calculatedScore) / 2)).toFixed(2));
+
+    return res.json({
+      success: true,
+      data: {
+        basedOnSubmissionId: submissionView.id,
+        basedOnSubmissionSource: submissionSource,
+        studentRole: 'programmer',
+        groupCard: groupDraft,
+        individualCard: individualDraft,
+        overallScore,
+        rationale: parsed.rationale || 'لم يتم توفير مبرر مفصل من AI.',
+        feedbackSuggestion: parsed.feedbackSuggestion || '',
+        confidence: Number(parsed.confidence || 0),
+        plagiarism: {
+          similarityPercent: plagiarismSimilarityPercent,
+          level: plagiarismLevel,
+          reason: plagiarismReason,
+          matchedStudents
+        },
+        generatedAt: new Date()
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'حدث خطأ أثناء توليد تقييم AI',
       error: error.message
     });
   }

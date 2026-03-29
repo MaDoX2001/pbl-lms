@@ -87,6 +87,38 @@ const evaluationAttemptSchema = new mongoose.Schema({
     trim: true,
     maxlength: 2000
   },
+  evaluationSource: {
+    type: String,
+    enum: ['manual', 'ai-assisted', 'ai-batch'],
+    default: 'manual'
+  },
+  aiApproval: {
+    evaluationApprovedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    evaluationApprovedAt: {
+      type: Date,
+      default: null
+    },
+    confidence: {
+      type: Number,
+      default: null
+    },
+    plagiarismSimilarityPercent: {
+      type: Number,
+      default: null
+    },
+    plagiarismLevel: {
+      type: String,
+      default: null
+    },
+    rationale: {
+      type: String,
+      default: ''
+    }
+  },
   retryAllowed: {
     type: Boolean,
     default: false
