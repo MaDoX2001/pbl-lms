@@ -43,6 +43,7 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import AssessmentIcon from '@mui/icons-material/Assessment';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import EditIcon from '@mui/icons-material/Edit';
 import GroupsIcon from '@mui/icons-material/Groups';
@@ -99,6 +100,8 @@ const ProjectDetailPage = () => {
   const [allowResubmitBySubmission, setAllowResubmitBySubmission] = useState({});
   const [savingFeedbackBySubmission, setSavingFeedbackBySubmission] = useState({});
   const [showOtherSubmissionsByStudent, setShowOtherSubmissionsByStudent] = useState({});
+  const [bulkAIRunning, setBulkAIRunning] = useState(false);
+  const [bulkAIProgress, setBulkAIProgress] = useState({ done: 0, total: 0 });
   const [myTeam, setMyTeam] = useState(null);
   const [teamEnrollmentLoading, setTeamEnrollmentLoading] = useState(false);
   const [teamAlreadyEnrolled, setTeamAlreadyEnrolled] = useState(false);
@@ -580,6 +583,117 @@ const ProjectDetailPage = () => {
       toast.error(error.response?.data?.message || 'فشل حفظ تعليق المراجع');
     } finally {
       setSavingFeedbackBySubmission((prev) => ({ ...prev, [submissionId]: false }));
+    }
+  };
+
+  const draftToSectionEvaluations = (cardDraft) => {
+    return (cardDraft?.sectionEvaluations || []).map((section) => ({
+      sectionName: section.sectionName,
+      criterionSelections: (section.criterionSelections || []).map((criterion) => ({
+        criterionName: criterion.criterionName,
+        selectedPercentage: criterion.selectedPercentage,
+        selectedDescription: criterion.selectedDescription || ''
+      }))
+    }));
+  };
+
+  const handleBulkAIEvaluateSubmittedStudents = async () => {
+    if (bulkAIRunning) return;
+
+    const candidates = (projectSubmissionsForReview || []).filter((submission) => {
+      const studentId = submission.student?._id || submission.studentId || submission.student;
+      return Boolean(studentId);
+    });
+
+    if (!candidates.length) {
+      toast.info('لا يوجد طلاب لديهم تسليمات قابلة للتقييم حالياً');
+      return;
+    }
+
+    const confirmRun = window.confirm(`سيتم تقييم ${candidates.length} طالباً تلقائياً بواسطة AI (طالب واحد كل مرة). هل تريد المتابعة؟`);
+    if (!confirmRun) return;
+
+    setBulkAIRunning(true);
+    setBulkAIProgress({ done: 0, total: candidates.length });
+
+    let successCount = 0;
+    let failedCount = 0;
+
+    for (let i = 0; i < candidates.length; i += 1) {
+      const submission = candidates[i];
+      const studentId = submission.student?._id || submission.studentId || submission.student;
+
+      try {
+        const aiRes = await api.post('/assessment/ai-evaluate-individual', {
+          projectId: id,
+          studentId,
+          submissionId: submission._id
+        });
+
+        const aiData = aiRes.data?.data;
+        if (!aiData) {
+          throw new Error('لم يتم استلام نتيجة AI صالحة');
+        }
+
+        await api.post('/assessment/evaluate-group', {
+          projectId: id,
+          studentId,
+          submissionId: aiData.basedOnSubmissionId || submission._id,
+          sectionEvaluations: draftToSectionEvaluations(aiData.groupCard),
+          feedbackSummary: aiData.feedbackSuggestion || '',
+          evaluationSource: 'ai-batch',
+          aiApproval: {
+            confidence: aiData.confidence,
+            plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
+            plagiarismLevel: aiData.plagiarism?.level,
+            rationale: aiData.rationale
+          }
+        });
+
+        await api.post('/assessment/evaluate-individual', {
+          projectId: id,
+          studentId,
+          studentRole: 'programmer',
+          submissionId: aiData.basedOnSubmissionId || submission._id,
+          sectionEvaluations: draftToSectionEvaluations(aiData.individualCard),
+          feedbackSummary: aiData.feedbackSuggestion || '',
+          evaluationSource: 'ai-batch',
+          aiApproval: {
+            confidence: aiData.confidence,
+            plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
+            plagiarismLevel: aiData.plagiarism?.level,
+            rationale: aiData.rationale
+          }
+        });
+
+        await api.put(`/progress/${submission._id}/feedback`, {
+          comments: aiData.feedbackSuggestion || '',
+          allowResubmission: false,
+          source: 'ai-batch',
+          aiMeta: {
+            confidence: aiData.confidence,
+            plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
+            plagiarismLevel: aiData.plagiarism?.level
+          },
+          skipEvaluationCheck: true
+        });
+
+        successCount += 1;
+      } catch (err) {
+        failedCount += 1;
+        console.error('Bulk AI evaluation failed for student', studentId, err);
+      } finally {
+        setBulkAIProgress({ done: i + 1, total: candidates.length });
+      }
+    }
+
+    await fetchProjectSubmissionsForReview();
+    setBulkAIRunning(false);
+
+    if (failedCount === 0) {
+      toast.success(`تم إنهاء تقييم AI لكل الطلاب بنجاح (${successCount}/${candidates.length})`);
+    } else {
+      toast.warning(`اكتمل تقييم AI. نجح ${successCount} وفشل ${failedCount} من ${candidates.length}`);
     }
   };
 
@@ -1168,12 +1282,27 @@ const ProjectDetailPage = () => {
                 variant="outlined"
                 label={`سلم ${submittedStudentsCount} من ${totalRegisteredStudents}`}
               />
+              {bulkAIRunning && (
+                <Chip
+                  color="warning"
+                  label={`AI يعمل: ${bulkAIProgress.done}/${bulkAIProgress.total}`}
+                />
+              )}
               <Button
                 variant="contained"
                 startIcon={<AssessmentIcon />}
                 onClick={() => setShowIndividualSubmissions((prev) => !prev)}
               >
                 {showIndividualSubmissions ? 'إخفاء تسليمات الطلاب' : 'عرض تسليمات الطلاب'}
+              </Button>
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={<AutoAwesomeIcon />}
+                onClick={handleBulkAIEvaluateSubmittedStudents}
+                disabled={bulkAIRunning || submittedStudentsCount === 0}
+              >
+                {bulkAIRunning ? 'جاري تقييم الطلاب...' : 'تقييم AI لكل الطلاب'}
               </Button>
             </Box>
           )}
@@ -1396,6 +1525,22 @@ const ProjectDetailPage = () => {
                                   disabled={!(submission.student?._id || submission.studentId || submission.student)}
                                 >
                                   تقييم هذا الطالب
+                                </Button>
+                              </Grid>
+                              <Grid item xs={12}>
+                                <Button
+                                  fullWidth
+                                  size="small"
+                                  variant="text"
+                                  startIcon={<AutoAwesomeIcon />}
+                                  onClick={() => {
+                                    const studentId = submission.student?._id || submission.studentId || submission.student;
+                                    if (!studentId) return;
+                                    navigate(`/evaluate/individual/${id}/${studentId}/${submission._id}?ai=1`);
+                                  }}
+                                  disabled={!(submission.student?._id || submission.studentId || submission.student)}
+                                >
+                                  مراجعة تقييم AI لهذا الطالب
                                 </Button>
                               </Grid>
                             </Grid>

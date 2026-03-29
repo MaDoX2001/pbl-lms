@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
   Paper,
@@ -23,15 +23,21 @@ import {
   Select,
   MenuItem,
   FormControl,
-  InputLabel
+  InputLabel,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Divider
 } from '@mui/material';
-import { NavigateNext as NavigateNextIcon, Lock as LockIcon, ArrowBack as ArrowBackIcon } from '@mui/icons-material';
+import { NavigateNext as NavigateNextIcon, Lock as LockIcon, ArrowBack as ArrowBackIcon, AutoAwesome as AutoAwesomeIcon } from '@mui/icons-material';
 import axios from 'axios';
 import { useAppSettings } from '../context/AppSettingsContext';
 
 const IndividualEvaluationPage = () => {
   const { projectId, studentId, submissionId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useAppSettings();
   const roleLabels = {
     system_designer: t('roleSystemDesigner'),
@@ -51,6 +57,10 @@ const IndividualEvaluationPage = () => {
   const [feedbackSummary, setFeedbackSummary] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiData, setAiData] = useState(null);
+  const [aiError, setAiError] = useState('');
 
   const isAllRolesMode = Boolean(project && !project.isTeamProject);
   const canStartEvaluation = isAllRolesMode || Boolean(studentRole);
@@ -58,6 +68,14 @@ const IndividualEvaluationPage = () => {
   useEffect(() => {
     fetchData();
   }, [projectId, studentId]);
+
+  useEffect(() => {
+    if (loading) return;
+    const params = new URLSearchParams(location.search);
+    if (params.get('ai') === '1') {
+      handleOpenAIEvaluation(true);
+    }
+  }, [loading, location.search]);
 
   const fetchData = async () => {
     try {
@@ -227,6 +245,33 @@ const IndividualEvaluationPage = () => {
     return individualScore.toFixed(2);
   };
 
+  const buildSectionEvaluations = (card, cardSelections) => {
+    const sectionEvaluations = [];
+    (card?.sections || []).forEach((section) => {
+      const criterionSelections = (section.criteria || []).map((criterion) => {
+        const key = `${section.name}_${criterion.name}`;
+        return cardSelections[key];
+      });
+
+      sectionEvaluations.push({
+        sectionName: section.name,
+        criterionSelections
+      });
+    });
+    return sectionEvaluations;
+  };
+
+  const draftToSectionEvaluations = (cardDraft) => {
+    return (cardDraft?.sectionEvaluations || []).map((section) => ({
+      sectionName: section.sectionName,
+      criterionSelections: (section.criterionSelections || []).map((criterion) => ({
+        criterionName: criterion.criterionName,
+        selectedPercentage: criterion.selectedPercentage,
+        selectedDescription: criterion.selectedDescription || ''
+      }))
+    }));
+  };
+
   const handleSubmit = async () => {
     setError('');
 
@@ -262,22 +307,6 @@ const IndividualEvaluationPage = () => {
     try {
       setSubmitting(true);
 
-      const buildSectionEvaluations = (card, cardSelections) => {
-        const sectionEvaluations = [];
-        card.sections.forEach(section => {
-          const criterionSelections = section.criteria.map(criterion => {
-            const key = `${section.name}_${criterion.name}`;
-            return cardSelections[key];
-          });
-
-          sectionEvaluations.push({
-            sectionName: section.name,
-            criterionSelections
-          });
-        });
-        return sectionEvaluations;
-      };
-
       // In individual projects, evaluate with both observation cards
       if (isAllRolesMode && groupObservationCard) {
         await axios.post('/api/assessment/evaluate-group', {
@@ -309,6 +338,151 @@ const IndividualEvaluationPage = () => {
       setError(err.response?.data?.message || t('evaluationSaveFailed'));
       setSubmitting(false);
     }
+  };
+
+  const applyCardToSelections = (cardDraft, setState) => {
+    if (!cardDraft?.sectionEvaluations?.length) return;
+    setState((prev) => {
+      const next = { ...prev };
+      cardDraft.sectionEvaluations.forEach((section) => {
+        (section.criterionSelections || []).forEach((criterion) => {
+          const key = `${section.sectionName}_${criterion.criterionName}`;
+          if (!next[key]) return;
+          next[key] = {
+            ...next[key],
+            selectedPercentage: typeof criterion.selectedPercentage === 'number' ? criterion.selectedPercentage : null,
+            selectedDescription: criterion.selectedDescription || ''
+          };
+        });
+      });
+      return next;
+    });
+  };
+
+  const handleOpenAIEvaluation = async (autoOpen = false) => {
+    setAiDialogOpen(true);
+    setAiLoading(true);
+    setAiError('');
+
+    try {
+      const res = await axios.post('/api/assessment/ai-evaluate-individual', {
+        projectId,
+        studentId,
+        submissionId
+      }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+
+      setAiData(res.data?.data || null);
+    } catch (err) {
+      const msg = err.response?.data?.message || 'فشل في توليد تقييم AI';
+      setAiError(msg);
+      if (!autoOpen) {
+        alert(msg);
+      }
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleApproveAIEvaluation = () => {
+    if (!aiData) return;
+
+    const run = async () => {
+      try {
+        setSubmitting(true);
+
+        applyCardToSelections(aiData.groupCard, setGroupSelections);
+        applyCardToSelections(aiData.individualCard, setSelections);
+        setStudentRole(aiData.studentRole || 'programmer');
+
+        if (isAllRolesMode && aiData.groupCard) {
+          await axios.post('/api/assessment/evaluate-group', {
+            projectId,
+            studentId,
+            submissionId: aiData.basedOnSubmissionId || submissionId,
+            sectionEvaluations: draftToSectionEvaluations(aiData.groupCard),
+            feedbackSummary,
+            evaluationSource: 'ai-assisted',
+            aiApproval: {
+              confidence: aiData.confidence,
+              plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
+              plagiarismLevel: aiData.plagiarism?.level,
+              rationale: aiData.rationale
+            }
+          }, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          });
+        }
+
+        await axios.post('/api/assessment/evaluate-individual', {
+          projectId,
+          studentId,
+          studentRole: 'programmer',
+          submissionId: aiData.basedOnSubmissionId || submissionId,
+          sectionEvaluations: draftToSectionEvaluations(aiData.individualCard),
+          feedbackSummary,
+          evaluationSource: 'ai-assisted',
+          aiApproval: {
+            confidence: aiData.confidence,
+            plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
+            plagiarismLevel: aiData.plagiarism?.level,
+            rationale: aiData.rationale
+          }
+        }, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+
+        alert('تم اعتماد تقييم AI تلقائيًا وحفظ بطاقات الملاحظة');
+        setAiDialogOpen(false);
+      } catch (err) {
+        const msg = err.response?.data?.message || 'فشل اعتماد تقييم AI';
+        setAiError(msg);
+        alert(msg);
+      } finally {
+        setSubmitting(false);
+      }
+    };
+
+    run();
+  };
+
+  const handleApproveAIFeedback = () => {
+    if (!aiData?.feedbackSuggestion) return;
+
+    const run = async () => {
+      try {
+        setSubmitting(true);
+        setFeedbackSummary(aiData.feedbackSuggestion);
+
+        if (submissionId) {
+          await axios.put(`/api/progress/${submissionId}/feedback`, {
+            comments: aiData.feedbackSuggestion,
+            allowResubmission: false,
+            source: 'ai-assisted',
+            aiMeta: {
+              confidence: aiData.confidence,
+              plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
+              plagiarismLevel: aiData.plagiarism?.level
+            },
+            skipEvaluationCheck: true
+          }, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          });
+        }
+
+        alert('تم اعتماد فيدباك AI وحفظه للطالب');
+        setAiDialogOpen(false);
+      } catch (err) {
+        const msg = err.response?.data?.message || 'فشل اعتماد فيدباك AI';
+        setAiError(msg);
+        alert(msg);
+      } finally {
+        setSubmitting(false);
+      }
+    };
+
+    run();
   };
 
   if (loading) {
@@ -646,6 +820,15 @@ const IndividualEvaluationPage = () => {
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
           <Button
             variant="outlined"
+            color="info"
+            startIcon={<AutoAwesomeIcon />}
+            onClick={() => handleOpenAIEvaluation(false)}
+            disabled={submitting || aiLoading}
+          >
+            تقييم AI
+          </Button>
+          <Button
+            variant="outlined"
             onClick={() => navigate(`/projects/${projectId}/submissions`)}
             disabled={submitting}
           >
@@ -662,6 +845,74 @@ const IndividualEvaluationPage = () => {
           </Button>
         </Box>
       )}
+
+      <Dialog open={aiDialogOpen} onClose={() => !aiLoading && setAiDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>مراجعة تقييم الذكاء الاصطناعي</DialogTitle>
+        <DialogContent dividers>
+          {aiLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : aiError ? (
+            <Alert severity="error">{aiError}</Alert>
+          ) : aiData ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Alert severity="info">
+                الدرجة المقترحة: {aiData.overallScore}/100
+                {typeof aiData.confidence === 'number' ? ` | ثقة AI: ${aiData.confidence}%` : ''}
+              </Alert>
+
+              <Typography variant="body2"><strong>درجة البطاقة الأولى:</strong> {aiData.groupCard?.calculatedScore ?? '-'} / 100</Typography>
+              <Typography variant="body2"><strong>درجة البطاقة الثانية:</strong> {aiData.individualCard?.calculatedScore ?? '-'} / 100</Typography>
+
+              <Divider />
+              <Typography variant="subtitle2">مبرر الدرجة</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
+                {aiData.rationale || '—'}
+              </Typography>
+
+              <Divider />
+              <Typography variant="subtitle2">فحص الانتحال البرمجي</Typography>
+              <Typography variant="body2" color="text.secondary">
+                مستوى الخطورة: {aiData.plagiarism?.level || 'غير معروف'} | نسبة التشابه: {aiData.plagiarism?.similarityPercent ?? 0}%
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
+                {aiData.plagiarism?.reason || '—'}
+              </Typography>
+
+              <Divider />
+              <Typography variant="subtitle2">فيدباك مقترح للطالب</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
+                {aiData.feedbackSuggestion || 'لا يوجد فيدباك مقترح'}
+              </Typography>
+            </Box>
+          ) : (
+            <Alert severity="warning">لا توجد نتيجة AI متاحة حالياً.</Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAiDialogOpen(false)} disabled={aiLoading}>{t('cancel')}</Button>
+          <Button onClick={() => handleOpenAIEvaluation(false)} disabled={aiLoading} variant="outlined">
+            إعادة التقييم
+          </Button>
+          <Button
+            onClick={handleApproveAIFeedback}
+            disabled={aiLoading || !aiData?.feedbackSuggestion}
+            variant="outlined"
+            color="secondary"
+          >
+            اعتماد الفيدباك
+          </Button>
+          <Button
+            onClick={handleApproveAIEvaluation}
+            disabled={aiLoading || !aiData}
+            variant="contained"
+            color="primary"
+          >
+            اعتماد التقييم
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
