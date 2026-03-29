@@ -465,8 +465,19 @@ exports.setMyProjectRole = async (req, res) => {
       });
     }
 
-    // Assign or update the role in memberRoles
+    // Lock role after first assignment for this project.
     const existing = teamProject.memberRoles.find(mr => mr.user.toString() === req.user._id.toString());
+    if (existing?.role) {
+      if (existing.role === role) {
+        return res.json({ success: true, data: teamProject, message: 'دورك مثبت بالفعل في هذا المشروع' });
+      }
+      return res.status(400).json({
+        success: false,
+        message: 'تم تثبيت دورك في هذا المشروع بالفعل ولا يمكن تغييره'
+      });
+    }
+
+    // First assignment only.
     if (existing) {
       existing.role = role;
     } else {

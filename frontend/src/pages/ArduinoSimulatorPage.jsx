@@ -258,7 +258,9 @@ function ArduinoSimulatorPage() {
 
                 <Chip
                   color={myProjectRole ? 'primary' : 'default'}
-                  label={`دوري: ${myProjectRole ? (roleLabelMap[myProjectRole] || myProjectRole) : 'غير محدد بعد'}`}
+                  label={myProjectRole
+                    ? `دوري (مثبت): ${roleLabelMap[myProjectRole] || myProjectRole}`
+                    : 'دوري: غير محدد بعد'}
                 />
                 <Chip
                   color="secondary"

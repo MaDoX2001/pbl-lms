@@ -24,7 +24,6 @@ import {
   ContentCopy as ContentCopyIcon,
   TaskAlt as TaskAltIcon,
 } from '@mui/icons-material';
-  import OpenInNewIcon from '@mui/icons-material/OpenInNew';
   import HistoryIcon from '@mui/icons-material/History';
   import EditNoteIcon from '@mui/icons-material/EditNote';
 import api from '../services/api';
@@ -164,13 +163,13 @@ const TeamDashboard = () => {
       setProjects(prev => prev.map(p =>
         p.project?._id === projectId ? { ...p, memberRoles: res.data.data.memberRoles } : p
       ));
-      setSnack({ open: true, msg: t('teamRoleSaveSuccess'), severity: 'success' });
+      setSnack({ open: true, msg: res.data?.message || t('teamRoleSaveSuccess'), severity: 'success' });
     } catch (err) {
-      const msg = err.response?.status === 409
+      const msg = err.response?.data?.message || (err.response?.status === 409
         ? t('teamRoleAlreadyTaken')
         : err.response?.status === 400
         ? t('teamRoleAlreadyUsed')
-        : t('teamRoleSaveError');
+        : t('teamRoleSaveError'));
       setSnack({ open: true, msg, severity: 'error' });
     } finally {
       setRoleLoading(prev => ({ ...prev, [projectId]: false }));
@@ -379,33 +378,39 @@ const TeamDashboard = () => {
                               label={`الدور المقترح لك الآن: ${t(ROLE_META[suggestedRole]?.labelKey)}`}
                             />
                           )}
-                          <FormControl size="small" sx={{ minWidth: 240 }} disabled={!!roleLoading[pid]}>
-                            <InputLabel id={`role-label-${pid}`}>{t('teamRoleSelectPrompt')}</InputLabel>
-                            <Select
-                              labelId={`role-label-${pid}`}
-                              value={myRole || ''}
-                              label={t('teamRoleSelectPrompt')}
-                              onChange={e => handleSetProjectRole(pid, e.target.value)}
-                            >
-                              {['system_designer', 'hardware_engineer', 'tester'].map(r => {
-                                const meta = ROLE_META[r];
-                                const taken = takenRoles.includes(r);
-                                const usedPrev = usedInPrevious.includes(r);
-                                return (
-                                  <MenuItem key={r} value={r} disabled={taken || usedPrev}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                      {meta?.icon}
-                                      <span>
-                                        {t(meta?.labelKey)}
-                                        {taken && ` — ${t('teamRoleAlreadyTaken')}`}
-                                        {!taken && usedPrev && ` — ${t('teamRoleAlreadyUsed')}`}
-                                      </span>
-                                    </Box>
-                                  </MenuItem>
-                                );
-                              })}
-                            </Select>
-                          </FormControl>
+                          {myRole ? (
+                            <Alert severity="success" sx={{ py: 0.5 }}>
+                              دورك مثبت في هذا المشروع: <strong>{t(ROLE_META[myRole]?.labelKey || 'teamRoleUnassigned')}</strong>
+                            </Alert>
+                          ) : (
+                            <FormControl size="small" sx={{ minWidth: 240 }} disabled={!!roleLoading[pid]}>
+                              <InputLabel id={`role-label-${pid}`}>{t('teamRoleSelectPrompt')}</InputLabel>
+                              <Select
+                                labelId={`role-label-${pid}`}
+                                value={myRole || ''}
+                                label={t('teamRoleSelectPrompt')}
+                                onChange={e => handleSetProjectRole(pid, e.target.value)}
+                              >
+                                {['system_designer', 'hardware_engineer', 'tester'].map(r => {
+                                  const meta = ROLE_META[r];
+                                  const taken = takenRoles.includes(r);
+                                  const usedPrev = usedInPrevious.includes(r);
+                                  return (
+                                    <MenuItem key={r} value={r} disabled={taken || usedPrev}>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        {meta?.icon}
+                                        <span>
+                                          {t(meta?.labelKey)}
+                                          {taken && ` — ${t('teamRoleAlreadyTaken')}`}
+                                          {!taken && usedPrev && ` — ${t('teamRoleAlreadyUsed')}`}
+                                        </span>
+                                      </Box>
+                                    </MenuItem>
+                                  );
+                                })}
+                              </Select>
+                            </FormControl>
+                          )}
                         </Box>
                       );
                     })()}
@@ -458,12 +463,6 @@ const TeamDashboard = () => {
                             )}
                           </Box>
                           <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
-                            <Button
-                              size="small" variant="outlined" startIcon={<OpenInNewIcon />}
-                              onClick={() => navigate(`/team-project/${enrollment.project?._id}/wokwi`)}
-                            >
-                              {t('wokwiOpenProject')}
-                            </Button>
                             <Button
                               size="small" variant="outlined" startIcon={<ContentCopyIcon />}
                               onClick={() => handleCopyWokwiLink(latest.wokwiLink)}
@@ -600,10 +599,10 @@ const TeamDashboard = () => {
                       )}
                     </Box>
                     <Button
-                      size="small" variant="outlined" startIcon={<OpenInNewIcon />}
-                      component="a" href={sub.wokwiLink} target="_blank" rel="noopener noreferrer"
+                      size="small" variant="outlined" startIcon={<ContentCopyIcon />}
+                      onClick={() => handleCopyWokwiLink(sub.wokwiLink)}
                     >
-                      {t('wokwiOpenProject')}
+                      نسخ الرابط
                     </Button>
                   </Box>
                   {idx === 0 && (
