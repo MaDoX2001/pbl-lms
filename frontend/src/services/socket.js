@@ -95,6 +95,18 @@ class SocketService {
     }
   }
 
+  onMessagesRead(callback) {
+    if (this.socket) {
+      this.socket.on('messages-read', callback);
+    }
+  }
+
+  offMessagesRead() {
+    if (this.socket) {
+      this.socket.off('messages-read');
+    }
+  }
+
   emitTyping(conversationId) {
     if (this.socket) {
       this.socket.emit('typing', conversationId);

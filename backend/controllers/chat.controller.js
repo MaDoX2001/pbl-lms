@@ -564,6 +564,12 @@ exports.markAsRead = async (req, res) => {
     conversation.unreadCount.set(req.user.id.toString(), 0);
     await conversation.save();
 
+    emitToConversationRoom(req, id, 'messages-read', {
+      conversationId: id,
+      readerId: req.user.id.toString(),
+      readAt: new Date().toISOString()
+    });
+
     res.json({
       success: true,
       message: 'تم تحديث حالة القراءة'

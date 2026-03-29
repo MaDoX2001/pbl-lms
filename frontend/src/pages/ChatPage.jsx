@@ -198,9 +198,31 @@ const ChatPage = () => {
       });
     };
 
+    const handleMessagesRead = (data) => {
+      if (!selectedConversation || data.conversationId !== selectedConversation._id) return;
+
+      setMessages((prev) => prev.map((msg) => {
+        const senderId = msg.sender?._id || msg.sender;
+        if (String(senderId) !== String(user.id)) {
+          return msg;
+        }
+
+        const hasReader = (msg.readBy || []).some((rb) => String(rb.user?._id || rb.user) === String(data.readerId));
+        if (hasReader) {
+          return msg;
+        }
+
+        return {
+          ...msg,
+          readBy: [...(msg.readBy || []), { user: data.readerId, readAt: data.readAt }]
+        };
+      }));
+    };
+
     socketService.onNewMessage(handleNewMessage);
     socketService.onMessageUpdated(handleMessageUpdated);
     socketService.onMessageDeleted(handleMessageDeleted);
+    socketService.onMessagesRead(handleMessagesRead);
     socketService.onUserTyping(handleUserTyping);
     socketService.onUserStopTyping(handleUserStopTyping);
 
@@ -208,6 +230,7 @@ const ChatPage = () => {
       socketService.offNewMessage();
       socketService.offMessageUpdated();
       socketService.offMessageDeleted();
+      socketService.offMessagesRead();
       socketService.offUserTyping();
       socketService.offUserStopTyping();
     };
@@ -1027,7 +1050,11 @@ const ChatPage = () => {
                   
                   const isSending = message.status === 'sending';
                   const isFailed = message.status === 'failed';
-                  const isOwn = message.sender._id === user.id;
+                  const senderId = message.sender?._id || message.sender;
+                  const isOwn = String(senderId) === String(user.id);
+                  const isReadByOthers = (message.readBy || []).some(
+                    (rb) => String(rb.user?._id || rb.user) !== String(user.id)
+                  );
                   const hasImage = (message.type === 'image') || message.attachment?.fileType?.startsWith('image/');
                   const hasAttachment = !!message.attachment?.url;
                   
@@ -1088,6 +1115,7 @@ const ChatPage = () => {
                           sx={{
                             maxWidth: '78%',
                             color: isOwn ? '#0b1f2a' : 'text.primary',
+                            textAlign: isOwn ? 'right' : 'left',
                             p: 1.5,
                             borderRadius: isOwn ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
                             boxShadow: 2,
@@ -1182,7 +1210,7 @@ const ChatPage = () => {
                               <ErrorOutlineIcon sx={{ fontSize: 12, color: '#d32f2f' }} />
                             )}
                             {!isSending && !isFailed && isOwn && (
-                              message.read ? (
+                              isReadByOthers ? (
                                 <DoneAllIcon sx={{ fontSize: 14, color: '#2196f3' }} />
                               ) : (
                                 <DoneIcon sx={{ fontSize: 14, opacity: 0.7 }} />
