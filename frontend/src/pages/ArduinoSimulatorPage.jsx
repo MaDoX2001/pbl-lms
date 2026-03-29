@@ -166,13 +166,7 @@ function ArduinoSimulatorPage() {
     setSnack({ open: true, msg: `تم فتح نسخة ${label} داخل المحاكي`, severity: 'info' });
   };
 
-  const openSubmitDialog = () => {
-    const autoStage = currentStageKey && stageOptions.some((s) => s.value === currentStageKey)
-      ? currentStageKey
-      : selectedStage;
-
-    setSelectedStage(autoStage || 'design');
-
+  const syncWokwiLinkFromIframe = (showSuccessMessage = false) => {
     const iframeCurrentSrc = iframeRef.current?.src || '';
     const detectedLink = /^https:\/\/wokwi\.com\/projects\//.test(iframeCurrentSrc)
       ? iframeCurrentSrc
@@ -180,7 +174,24 @@ function ArduinoSimulatorPage() {
 
     if (/^https:\/\/wokwi\.com\/projects\//.test(detectedLink)) {
       setWokwiLink(detectedLink);
+      if (showSuccessMessage) {
+        setSnack({ open: true, msg: 'تم تحديث الرابط من الصفحة الحالية', severity: 'info' });
+      }
+      return true;
     }
+
+    setSnack({ open: true, msg: 'افتح مشروع Wokwi أولاً داخل المحاكي', severity: 'warning' });
+    return false;
+  };
+
+  const openSubmitDialog = () => {
+    const autoStage = currentStageKey && stageOptions.some((s) => s.value === currentStageKey)
+      ? currentStageKey
+      : selectedStage;
+
+    setSelectedStage(autoStage || 'design');
+
+    syncWokwiLinkFromIframe(false);
 
     setOpen(true);
   };
@@ -547,6 +558,17 @@ function ArduinoSimulatorPage() {
             disabled={submitting}
             helperText={t('wokwiLinkHelper')}
           />
+
+          <Box>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => syncWokwiLinkFromIframe(true)}
+              disabled={submitting}
+            >
+              استخدم الرابط الحالي
+            </Button>
+          </Box>
 
           {/* Notes */}
           <TextField
