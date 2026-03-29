@@ -457,10 +457,10 @@ const TeamProjectPage = () => {
               <Button
                 variant="contained"
                 startIcon={<UploadIcon />}
-                onClick={() => navigate(`/team-project/${projectId}/wokwi`)}
+                onClick={() => navigate(`/arduino-simulator?projectId=${projectId}`)}
                 fullWidth
               >
-                فتح صفحة تسليم Wokwi
+                فتح صفحة المحاكي والتسليم
               </Button>
             </>
           )}
@@ -608,7 +608,7 @@ const TeamProjectPage = () => {
             </FormControl>
 
             <Alert severity="info">
-              تسليم مرحلة الموصل يتم من صفحة Wokwi المخصصة.
+              التسليم يتم من صفحة المحاكي والتسليم الموحدة.
             </Alert>
 
             <Button
@@ -616,10 +616,10 @@ const TeamProjectPage = () => {
               fullWidth
               onClick={() => {
                 setOpenUploadDialog(false);
-                navigate(`/team-project/${projectId}/wokwi`);
+                navigate(`/arduino-simulator?projectId=${projectId}`);
               }}
             >
-              فتح صفحة تسليم Wokwi
+              فتح صفحة المحاكي والتسليم
             </Button>
 
             {!!getStageLockReason(uploadForm.stageKey) && (
