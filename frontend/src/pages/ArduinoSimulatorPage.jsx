@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box, Container, Typography, Paper, Button, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, MenuItem, Select, FormControl,
@@ -45,6 +45,7 @@ function ArduinoSimulatorPage() {
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
   const [pendingProjectId, setPendingProjectId] = useState('');
   const [attachments, setAttachments] = useState([]);
+  const iframeRef = useRef(null);
 
   const roleLabelMap = {
     system_designer: 'مصمم النظام',
@@ -172,8 +173,13 @@ function ArduinoSimulatorPage() {
 
     setSelectedStage(autoStage || 'design');
 
-    if (/^https:\/\/wokwi\.com\/projects\//.test(simulatorUrl)) {
-      setWokwiLink(simulatorUrl);
+    const iframeCurrentSrc = iframeRef.current?.src || '';
+    const detectedLink = /^https:\/\/wokwi\.com\/projects\//.test(iframeCurrentSrc)
+      ? iframeCurrentSrc
+      : simulatorUrl;
+
+    if (/^https:\/\/wokwi\.com\/projects\//.test(detectedLink)) {
+      setWokwiLink(detectedLink);
     }
 
     setOpen(true);
@@ -462,8 +468,18 @@ function ArduinoSimulatorPage() {
         
         <Box sx={{ width: '100%', height: simulatorHeight, minHeight: { xs: 500, md: 620 } }}>
           <iframe
+            ref={iframeRef}
             src={simulatorUrl}
             title="Arduino Simulator"
+            onLoad={() => {
+              const currentSrc = iframeRef.current?.src || '';
+              if (
+                /^https:\/\/wokwi\.com\//.test(currentSrc)
+                && currentSrc !== simulatorUrl
+              ) {
+                setSimulatorUrl(currentSrc);
+              }
+            }}
             style={{
               width: '100%',
               height: '100%',
