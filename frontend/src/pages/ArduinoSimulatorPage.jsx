@@ -35,6 +35,7 @@ function ArduinoSimulatorPage() {
   const [loadingProgress, setLoadingProgress] = useState(false);
   const [historyByProject, setHistoryByProject] = useState({});
   const [loadingQuickLinks, setLoadingQuickLinks] = useState(false);
+  const [showQuickLinks, setShowQuickLinks] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
 
@@ -86,6 +87,20 @@ function ArduinoSimulatorPage() {
   const latestDesigner = getLatestStageSubmission('design');
   const latestWiring = getLatestStageSubmission('wiring');
   const latestTesting = getLatestStageSubmission('testing');
+  const hasAnyQuickLink = !!(
+    latestDesigner?.wokwiLink
+    || latestWiring?.wokwiLink
+    || latestTesting?.wokwiLink
+    || (teamMembers || []).some((member) => {
+      const memberUser = member.user || member;
+      const memberId = memberUser?._id || memberUser;
+      return !!getLatestProgrammingSubmissionByStudent(memberId)?.wokwiLink;
+    })
+  );
+
+  const simulatorHeight = showQuickLinks
+    ? { xs: '62vh', md: 'calc(100vh - 300px)' }
+    : { xs: '74vh', md: 'calc(100vh - 210px)' };
 
   const openWokwiLink = (link, label) => {
     if (!link) {
@@ -216,7 +231,7 @@ function ArduinoSimulatorPage() {
         </Box>
 
         {user?.role === 'student' && (
-          <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider', bgcolor: 'grey.50' }}>
+          <Box sx={{ px: 2, py: 0.75, borderBottom: 1, borderColor: 'divider', bgcolor: 'grey.50' }}>
             {projects.length === 0 ? (
               <Alert severity="warning" sx={{ py: 0.5 }}>
                 لا يوجد مشروع جماعي مسجل لفريقك حالياً.
@@ -247,13 +262,20 @@ function ArduinoSimulatorPage() {
                   color="secondary"
                   label={`مرحلة الفريق الحالية: ${currentStageKey ? (stageLabelMap[currentStageKey] || currentStageKey) : 'غير متاحة'}`}
                 />
+                <Button
+                  size="small"
+                  variant={showQuickLinks ? 'contained' : 'outlined'}
+                  onClick={() => setShowQuickLinks((prev) => !prev)}
+                >
+                  {showQuickLinks ? 'إخفاء الاختصارات' : 'إظهار الاختصارات'}
+                </Button>
                 {loadingProgress && <CircularProgress size={18} />}
               </Box>
             )}
           </Box>
         )}
 
-        {user?.role === 'student' && selectedProject && (
+        {user?.role === 'student' && selectedProject && showQuickLinks && (
           <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider', bgcolor: '#fff8e1' }}>
             <Typography variant="body2" fontWeight={700} sx={{ mb: 1 }}>
               اختصارات الوصول السريع لنسخ المشروع حسب الدور
@@ -264,6 +286,10 @@ function ArduinoSimulatorPage() {
                 <CircularProgress size={18} />
                 <Typography variant="caption" color="text.secondary">جاري تحميل الروابط...</Typography>
               </Box>
+            ) : !hasAnyQuickLink ? (
+              <Alert severity="info" sx={{ py: 0.5 }}>
+                لا توجد روابط محفوظة حالياً لهذه المرحلة.
+              </Alert>
             ) : (
               <>
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
@@ -324,7 +350,7 @@ function ArduinoSimulatorPage() {
           </Box>
         )}
         
-        <Box sx={{ width: '100%', minHeight: { xs: '70vh', md: '90vh' } }}>
+        <Box sx={{ width: '100%', height: simulatorHeight, minHeight: { xs: 500, md: 620 } }}>
           <iframe
             src="https://wokwi.com/projects/new/arduino-uno"
             title="Arduino Simulator"
