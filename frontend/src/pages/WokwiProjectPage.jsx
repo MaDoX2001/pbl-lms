@@ -13,7 +13,6 @@ import {
   Paper,
   Typography
 } from '@mui/material';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import HistoryIcon from '@mui/icons-material/History';
 import SaveIcon from '@mui/icons-material/Save';
 import api from '../services/api';
@@ -85,11 +84,6 @@ export default function WokwiProjectPage() {
     setHistoryLoading(false);
   };
 
-  const openExternal = (link) => {
-    if (!link) return;
-    window.open(link, '_blank', 'noopener,noreferrer');
-  };
-
   if (loading) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
@@ -142,15 +136,6 @@ export default function WokwiProjectPage() {
             {t('wokwiVersionHistory')}
           </Button>
 
-          <Button
-            size="small"
-            variant="contained"
-            startIcon={<OpenInNewIcon />}
-            onClick={() => openExternal(latestSubmission?.wokwiLink)}
-            disabled={!latestSubmission?.wokwiLink}
-          >
-            {t('wokwiOpenProject')}
-          </Button>
         </Box>
 
         {!latestSubmission ? (
@@ -202,16 +187,6 @@ export default function WokwiProjectPage() {
                       {sub.notes}
                     </Typography>
                   )}
-                  <Box sx={{ mt: 1 }}>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      startIcon={<OpenInNewIcon />}
-                      onClick={() => openExternal(sub.wokwiLink)}
-                    >
-                      {t('wokwiOpenProject')}
-                    </Button>
-                  </Box>
                 </Paper>
               ))}
             </Box>
