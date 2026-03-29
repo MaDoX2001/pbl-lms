@@ -7,12 +7,14 @@ import {
 import SaveIcon from '@mui/icons-material/Save';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useSelector } from 'react-redux';
+import { useLocation } from 'react-router-dom';
 import api from '../services/api';
 import { useAppSettings } from '../context/AppSettingsContext';
 
 function ArduinoSimulatorPage() {
   const { t } = useAppSettings();
   const { user } = useSelector(state => state.auth);
+  const location = useLocation();
 
   const stageOptions = [
     { value: 'design', label: 'تسليم التصميم' },
@@ -39,6 +41,7 @@ function ArduinoSimulatorPage() {
   const [showQuickLinks, setShowQuickLinks] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
+  const [pendingProjectId, setPendingProjectId] = useState('');
 
   const roleLabelMap = {
     system_designer: 'مصمم النظام',
@@ -112,6 +115,22 @@ function ArduinoSimulatorPage() {
     setSnack({ open: true, msg: `تم فتح نسخة ${label} داخل المحاكي`, severity: 'info' });
   };
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const directWokwiLink = params.get('wokwiLink');
+    const directProjectId = params.get('projectId');
+
+    if (directWokwiLink && /^https:\/\/wokwi\.com\//.test(directWokwiLink)) {
+      setSimulatorUrl(directWokwiLink);
+      setShowQuickLinks(false);
+      setSnack({ open: true, msg: 'تم فتح الرابط داخل المحاكي', severity: 'info' });
+    }
+
+    if (directProjectId) {
+      setPendingProjectId(directProjectId);
+    }
+  }, [location.search]);
+
   // Fetch team's enrolled projects for the dropdown
   useEffect(() => {
     if (user?.role === 'student') {
@@ -123,12 +142,15 @@ function ArduinoSimulatorPage() {
             const enrollments = r.data.data || [];
             setProjects(enrollments);
             if (enrollments.length > 0) {
-              setSelectedProject(enrollments[0].project?._id || enrollments[0]._id);
+              const matched = pendingProjectId
+                ? enrollments.find((e) => String(e.project?._id || e._id) === String(pendingProjectId))
+                : null;
+              setSelectedProject(matched ? (matched.project?._id || matched._id) : (enrollments[0].project?._id || enrollments[0]._id));
             }
           }).catch(() => {});
       }).catch(() => {});
     }
-  }, [user]);
+  }, [user, pendingProjectId]);
 
   useEffect(() => {
     const fetchStageProgress = async () => {

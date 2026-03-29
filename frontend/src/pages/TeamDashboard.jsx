@@ -21,7 +21,6 @@ import {
   Engineering as EngineeringIcon,
   BugReport as BugReportIcon,
   DesignServices as DesignServicesIcon,
-  ContentCopy as ContentCopyIcon,
   TaskAlt as TaskAltIcon,
 } from '@mui/icons-material';
   import HistoryIcon from '@mui/icons-material/History';
@@ -176,13 +175,14 @@ const TeamDashboard = () => {
     }
   };
 
-  const handleCopyWokwiLink = async (link) => {
-    try {
-      await navigator.clipboard.writeText(link);
-      setSnack({ open: true, msg: 'تم نسخ رابط Wokwi', severity: 'success' });
-    } catch {
-      setSnack({ open: true, msg: 'تعذر نسخ الرابط تلقائياً', severity: 'error' });
+  const handleOpenInSimulator = (link, projectId) => {
+    if (!link) {
+      setSnack({ open: true, msg: 'لا يوجد رابط Wokwi صالح لفتحه', severity: 'warning' });
+      return;
     }
+    const encodedLink = encodeURIComponent(link);
+    const encodedProject = encodeURIComponent(projectId || '');
+    navigate(`/arduino-simulator?wokwiLink=${encodedLink}&projectId=${encodedProject}`);
   };
 
   const handleAcknowledgeHandoff = async (submissionId, projectId) => {
@@ -464,10 +464,10 @@ const TeamDashboard = () => {
                           </Box>
                           <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
                             <Button
-                              size="small" variant="outlined" startIcon={<ContentCopyIcon />}
-                              onClick={() => handleCopyWokwiLink(latest.wokwiLink)}
+                              size="small" variant="outlined"
+                              onClick={() => handleOpenInSimulator(latest.wokwiLink, enrollment.project?._id)}
                             >
-                              نسخ الرابط
+                              فتح في صفحة المحاكي
                             </Button>
                             <Button
                               size="small" variant="outlined" startIcon={<HistoryIcon />}
@@ -599,10 +599,10 @@ const TeamDashboard = () => {
                       )}
                     </Box>
                     <Button
-                      size="small" variant="outlined" startIcon={<ContentCopyIcon />}
-                      onClick={() => handleCopyWokwiLink(sub.wokwiLink)}
+                      size="small" variant="outlined"
+                      onClick={() => handleOpenInSimulator(sub.wokwiLink, historyDialog.projectId)}
                     >
-                      نسخ الرابط
+                      فتح في صفحة المحاكي
                     </Button>
                   </Box>
                   {idx === 0 && (
