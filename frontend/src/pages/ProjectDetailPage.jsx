@@ -146,7 +146,7 @@ const ProjectDetailPage = () => {
           return;
         }
 
-        const enrollmentsResponse = await api.get(`/team-projects/team/${teamData._id}`);
+        const enrollmentsResponse = await api.get('/team-projects/my-team');
         const enrollments = enrollmentsResponse.data?.data || [];
         const enrolled = enrollments.some(
           (enrollment) => String(enrollment.project?._id || enrollment.project) === String(id)

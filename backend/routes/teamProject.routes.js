@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
   enrollTeam,
+  getMyTeamProjects,
   getTeamProjects,
   getProjectTeams,
   unenrollTeam
@@ -15,6 +16,9 @@ const { protect } = require('../middleware/auth.middleware');
 
 // Enroll team in project
 router.post('/enroll', protect, enrollTeam);
+
+// Get all projects for current student's team
+router.get('/my-team', protect, getMyTeamProjects);
 
 // Get all projects for a team
 router.get('/team/:teamId', protect, getTeamProjects);

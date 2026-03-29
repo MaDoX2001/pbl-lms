@@ -102,7 +102,7 @@ function ArduinoSimulatorPage() {
         const teamId = res.data.data._id;
         setTeamId(teamId);
         setTeamMembers(res.data.data?.members || []);
-          api.get(`/team-projects/team/${teamId}`).then(r => {
+          api.get('/team-projects/my-team').then(r => {
             const enrollments = r.data.data || [];
             setProjects(enrollments);
             if (enrollments.length > 0) {

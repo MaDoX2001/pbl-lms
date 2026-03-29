@@ -1,6 +1,7 @@
 const TeamProject = require('../models/TeamProject.model');
 const Team = require('../models/Team.model');
 const Project = require('../models/Project.model');
+const User = require('../models/User.model');
 
 /**
  * TeamProject Controller
@@ -75,6 +76,16 @@ exports.enrollTeam = async (req, res) => {
       enrolledBy: req.user._id
     });
 
+    // Keep project/user enrollment views consistent for all team members.
+    const memberIds = (team.members || []).map(m => (m.user?._id || m.user || m).toString());
+    await Project.findByIdAndUpdate(projectId, {
+      $addToSet: { enrolledStudents: { $each: memberIds } }
+    });
+    await User.updateMany(
+      { _id: { $in: memberIds } },
+      { $addToSet: { enrolledProjects: projectId } }
+    );
+
     await enrollment.populate('team project');
 
     res.status(201).json({
@@ -85,6 +96,49 @@ exports.enrollTeam = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'حدث خطأ في تسجيل الفريق في المشروع',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get all projects for current student's team
+// @route   GET /api/team-projects/my-team
+// @access  Student
+exports.getMyTeamProjects = async (req, res) => {
+  try {
+    if (req.user.role !== 'student') {
+      return res.status(403).json({
+        success: false,
+        message: 'هذه الواجهة مخصصة للطلاب'
+      });
+    }
+
+    const team = await Team.findOne({
+      'members.user': req.user._id,
+      isActive: true
+    });
+
+    if (!team) {
+      return res.status(404).json({
+        success: false,
+        message: 'أنت لست عضواً في أي فريق بعد'
+      });
+    }
+
+    const enrollments = await TeamProject.find({ team: team._id })
+      .populate('project')
+      .populate('enrolledBy', 'name')
+      .sort({ enrolledAt: -1 });
+
+    res.json({
+      success: true,
+      count: enrollments.length,
+      data: enrollments
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'حدث خطأ في جلب مشاريع فريقك',
       error: error.message
     });
   }
