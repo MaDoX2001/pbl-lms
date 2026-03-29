@@ -52,3 +52,4 @@ coverage/
 # Production
 /backend/dist
 /frontend/build
+backend/scripts/clear-chat-data.js
