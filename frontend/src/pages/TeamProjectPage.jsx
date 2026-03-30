@@ -616,27 +616,15 @@ const TeamProjectPage = () => {
                         <Typography variant="body2" sx={{ fontWeight: '600' }}>رابط محاكاة Wokwi</Typography>
                       </Box>
                       {submission.wokwiLink && (
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                          <Button
-                            size="small"
-                            variant="contained"
-                            color="primary"
-                            startIcon={<OpenInNewIcon />}
-                            onClick={() => openWokwiInSimulator(submission.wokwiLink)}
-                          >
-                            فتح في المحاكي
-                          </Button>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            href={submission.wokwiLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            startIcon={<OpenInNewIcon />}
-                          >
-                            فتح خارج المنصة
-                          </Button>
-                        </Box>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="primary"
+                          startIcon={<OpenInNewIcon />}
+                          onClick={() => openWokwiInSimulator(submission.wokwiLink)}
+                        >
+                          فتح في المحاكي
+                        </Button>
                       )}
                     </Box>
                   ) : (
@@ -647,7 +635,6 @@ const TeamProjectPage = () => {
                         <IconButton
                           size="small"
                           href={submission.fileUrl}
-                          target="_blank"
                           download
                         >
                           <DownloadIcon />
@@ -682,7 +669,6 @@ const TeamProjectPage = () => {
                             variant="outlined"
                             startIcon={<DownloadIcon />}
                             href={attachment.url}
-                            target="_blank"
                             download={attachment.fileName}
                           >
                             {attachment.fileName || `ملف ${attIdx + 1}`}
