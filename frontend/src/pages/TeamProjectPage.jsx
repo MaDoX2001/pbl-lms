@@ -56,6 +56,7 @@ const STAGE_META = {
 };
 
 const FILE_UPLOAD_STAGES = ['design', 'programming', 'testing', 'final_delivery'];
+const TEACHER_EVALUATED_STAGES = new Set(['programming', 'final_delivery']);
 
 const ROLE_LABEL = {
   system_designer: 'Designer Lead',
@@ -362,7 +363,11 @@ const TeamProjectPage = () => {
     }
   };
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status, stageKey) => {
+    if (status === 'pending' && !TEACHER_EVALUATED_STAGES.has(stageKey)) {
+      return 'success';
+    }
+
     switch (status) {
       case 'graded':
         return 'success';
@@ -373,7 +378,11 @@ const TeamProjectPage = () => {
     }
   };
 
-  const getStatusLabel = (status) => {
+  const getStatusLabel = (status, stageKey) => {
+    if (status === 'pending' && !TEACHER_EVALUATED_STAGES.has(stageKey)) {
+      return 'تم الاستلام';
+    }
+
     switch (status) {
       case 'graded':
         return t('graded');
@@ -557,8 +566,8 @@ const TeamProjectPage = () => {
                       )}
                     </Box>
                     <Chip
-                      label={getStatusLabel(submission.status)}
-                      color={getStatusColor(submission.status)}
+                      label={getStatusLabel(submission.status, submission.stageKey)}
+                      color={getStatusColor(submission.status, submission.stageKey)}
                     />
                   </Box>
 

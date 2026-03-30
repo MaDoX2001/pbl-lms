@@ -123,6 +123,52 @@ const canSubmitAfterFinalDelivery = async (projectId, studentId) => {
   return Boolean(retryAttempt);
 };
 
+const isTeacherReviewedVersion = (submission) => {
+  if (!submission) return false;
+  if (submission.status === 'reviewed' || submission.status === 'graded') return true;
+  if (submission.feedback || submission.feedbackAt || submission.feedbackBy) return true;
+  if (submission.score !== null && submission.score !== undefined) return true;
+  if (submission.gradedAt || submission.gradedBy) return true;
+  return false;
+};
+
+const pruneObsoleteWokwiVersions = async ({ teamId, projectId, stageKey }) => {
+  if (!teamId || !projectId || !stageKey) return;
+
+  const scoped = await TeamSubmission.find({
+    team: teamId,
+    project: projectId,
+    submissionType: 'wokwi',
+    stageKey,
+  })
+    .select('submittedBy submittedAt createdAt status feedback feedbackAt feedbackBy score gradedAt gradedBy')
+    .sort({ submittedAt: -1, createdAt: -1, _id: -1 });
+
+  if (!scoped.length) return;
+
+  const seenLatestByKey = new Set();
+  const deletableIds = [];
+
+  for (const item of scoped) {
+    const groupingKey = stageKey === 'programming'
+      ? `programming:${String(item.submittedBy || '')}`
+      : stageKey;
+
+    if (!seenLatestByKey.has(groupingKey)) {
+      seenLatestByKey.add(groupingKey);
+      continue;
+    }
+
+    if (!isTeacherReviewedVersion(item)) {
+      deletableIds.push(item._id);
+    }
+  }
+
+  if (deletableIds.length > 0) {
+    await TeamSubmission.deleteMany({ _id: { $in: deletableIds } });
+  }
+};
+
 // @desc    Submit a file for a project
 // @route   POST /api/team-submissions
 // @access  Private (team members only)
@@ -757,6 +803,12 @@ exports.deleteSubmission = async (req, res) => {
         submission.attachments = uploadedAttachments;
         await submission.save();
       }
+
+      // Retention policy:
+      // - Keep only latest version per stage.
+      // - For programming, keep latest version per student (typically 3 students).
+      // - Keep any older version that already has teacher review/feedback/grade.
+      await pruneObsoleteWokwiVersions({ teamId, projectId, stageKey });
 
       await submission.populate([
         { path: 'submittedBy', select: 'name email' },
