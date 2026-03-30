@@ -22,10 +22,8 @@ import {
   Engineering as EngineeringIcon,
   BugReport as BugReportIcon,
   DesignServices as DesignServicesIcon,
-  TaskAlt as TaskAltIcon,
 } from '@mui/icons-material';
   import HistoryIcon from '@mui/icons-material/History';
-  import EditNoteIcon from '@mui/icons-material/EditNote';
 import api from '../services/api';
 import { useAppSettings } from '../context/AppSettingsContext';
 
@@ -50,12 +48,10 @@ const TeamDashboard = () => {
   const [filesLoading, setFilesLoading] = useState(false);
   const [error, setError] = useState('');
   const [roleLoading, setRoleLoading] = useState({}); // { [projectId]: bool }
-  const [handoffLoading, setHandoffLoading] = useState({}); // { [submissionId]: bool }
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
   const [activeTab, setActiveTab] = useState(0);
   const [projectFilter, setProjectFilter] = useState('all');
     const [wokwiData, setWokwiData] = useState({});   // { [projectId]: { latest: null|obj } }
-    const [activeEditors, setActiveEditors] = useState({}); // { [projectId]: null|obj }
     const [historyDialog, setHistoryDialog] = useState({ open: false, teamId: null, projectId: null, submissions: [], loading: false });
 
   const fetchTeamData = useCallback(async () => {
@@ -110,41 +106,13 @@ const TeamDashboard = () => {
     }
   }, []);
 
-  // Fetch active editor per project
-  const fetchActiveEditors = useCallback(async (projectIds) => {
-    for (const pid of projectIds) {
-      try {
-        const res = await api.get(`/teams/project/${pid}/active-editor`);
-        setActiveEditors(prev => ({ ...prev, [pid]: res.data.data }));
-      } catch {}
-    }
-  }, []);
-
   // Load wokwi data when team + projects are ready
   useEffect(() => {
     if (team && projects.length > 0) {
       const pids = projects.map(p => p.project?._id).filter(Boolean);
       fetchWokwiData(team._id, pids);
-      fetchActiveEditors(pids);
     }
-  }, [team, projects, fetchWokwiData, fetchActiveEditors]);
-
-  // Poll active editors every 30s
-  useEffect(() => {
-    if (!team || projects.length === 0) return;
-    const pids = projects.map(p => p.project?._id).filter(Boolean);
-    const interval = setInterval(() => fetchActiveEditors(pids), 30000);
-    return () => clearInterval(interval);
-  }, [team, projects, fetchActiveEditors]);
-
-  const handleSetActiveEditor = async (projectId) => {
-    try {
-      await api.put(`/teams/project/${projectId}/active-editor`);
-      setSnack({ open: true, msg: t('wokwiImWorkingSet'), severity: 'success' });
-      const res = await api.get(`/teams/project/${projectId}/active-editor`);
-      setActiveEditors(prev => ({ ...prev, [projectId]: res.data.data }));
-    } catch {}
-  };
+  }, [team, projects, fetchWokwiData]);
 
   const openHistoryDialog = async (teamId, projectId) => {
     setHistoryDialog({ open: true, teamId, projectId, submissions: [], loading: true });
@@ -185,26 +153,6 @@ const TeamDashboard = () => {
     const encodedLink = encodeURIComponent(link);
     const encodedProject = encodeURIComponent(projectId || '');
     navigate(`/arduino-simulator?wokwiLink=${encodedLink}&projectId=${encodedProject}`);
-  };
-
-  const handleAcknowledgeHandoff = async (submissionId, projectId) => {
-    setHandoffLoading(prev => ({ ...prev, [submissionId]: true }));
-    try {
-      const res = await api.put(`/team-submissions/${submissionId}/handoff-ack`);
-      const updated = res.data?.data;
-      setWokwiData(prev => ({
-        ...prev,
-        [projectId]: {
-          ...(prev[projectId] || {}),
-          latest: updated || prev[projectId]?.latest || null,
-        }
-      }));
-      setSnack({ open: true, msg: res.data?.message || 'تم تأكيد استلام النسخة', severity: 'success' });
-    } catch (err) {
-      setSnack({ open: true, msg: err.response?.data?.message || 'تعذر تأكيد استلام النسخة', severity: 'error' });
-    } finally {
-      setHandoffLoading(prev => ({ ...prev, [submissionId]: false }));
-    }
   };
 
   if (loading) return (
@@ -441,8 +389,6 @@ const TeamDashboard = () => {
                       </Typography>
                       {(() => {
                         const latest = wokwiData[enrollment.project?._id]?.latest;
-                        const isMySubmission = String(latest?.submittedBy?._id || latest?.submittedBy?.id || latest?.submittedBy) === String(currentUserId);
-                        const hasAck = !!latest?.handoffAcceptedBy;
                         return latest ? (
                         <Box>
                           <Typography variant="body2" color="text.secondary">
@@ -454,27 +400,6 @@ const TeamDashboard = () => {
                               {latest.notes}
                             </Typography>
                           )}
-                          <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                            {!hasAck && !isMySubmission && (
-                              <Button
-                                size="small"
-                                variant="contained"
-                                startIcon={<TaskAltIcon />}
-                                disabled={!!handoffLoading[latest._id]}
-                                onClick={() => handleAcknowledgeHandoff(latest._id, enrollment.project?._id)}
-                              >
-                                استلمت النسخة
-                              </Button>
-                            )}
-                            {hasAck && (
-                              <Chip
-                                size="small"
-                                color="success"
-                                icon={<TaskAltIcon />}
-                                label={`تم الاستلام بواسطة ${latest.handoffAcceptedBy?.name || 'عضو بالفريق'}`}
-                              />
-                            )}
-                          </Box>
                           <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
                             <Button
                               size="small" variant="outlined"
@@ -496,19 +421,6 @@ const TeamDashboard = () => {
                         </Typography>
                       );
                       })()}
-                      {/* Active editor warning */}
-                      {activeEditors[enrollment.project?._id] &&
-                       String(activeEditors[enrollment.project?._id]?.user?._id || activeEditors[enrollment.project?._id]?.user?.id) !== String(currentUserId) && (
-                        <Alert severity="warning" sx={{ mt: 1, py: 0.5 }} icon={<EditNoteIcon fontSize="small" />}>
-                          <strong>{activeEditors[enrollment.project?._id]?.user?.name}</strong>{' '}{t('wokwiActiveEditor')}
-                        </Alert>
-                      )}
-                      <Button
-                        size="small" variant="text" sx={{ mt: 1 }}
-                        onClick={() => handleSetActiveEditor(enrollment.project?._id)}
-                      >
-                        {t('wokwiImWorkingNow')}
-                      </Button>
                     </Box>
                 </Card>
               </Grid>
