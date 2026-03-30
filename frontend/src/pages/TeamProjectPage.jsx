@@ -37,6 +37,7 @@ import {
   Feedback as FeedbackIcon,
   Grade as GradeIcon,
   ArrowBack as ArrowBackIcon,
+  OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../services/api';
@@ -62,6 +63,12 @@ const ROLE_LABEL = {
   system_designer: 'Designer Lead',
   hardware_engineer: 'Builder Lead',
   tester: 'Tester Lead'
+};
+
+const ROLE_LABEL_MAP = {
+  system_designer: 'مصمم النظام',
+  hardware_engineer: 'مهندس التوصيل',
+  tester: 'مختبر',
 };
 
 const DEFAULT_STAGE_ORDER = ['design', 'wiring', 'programming', 'testing', 'final_delivery'];
@@ -238,6 +245,21 @@ const TeamProjectPage = () => {
     setCompletedMilestoneIds(completedIds);
     setMilestoneProgressMap(progressMap);
   }, [user?.role, project?.isTeamProject, project?.milestones, stageProgress, submissions]);
+
+  const getSubmissionRankInStage = (targetSubmission) => {
+    if (!targetSubmission || !submissions) return null;
+    const sameStageSubmissions = submissions
+      .filter((s) => String(s.stageKey) === String(targetSubmission.stageKey))
+      .filter((s) => String(s.submittedBy?._id || s.submittedBy) === String(targetSubmission.submittedBy?._id || targetSubmission.submittedBy))
+      .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+    const index = sameStageSubmissions.findIndex((s) => String(s._id) === String(targetSubmission._id));
+    return index >= 0 ? index + 1 : null;
+  };
+
+  const openWokwiInSimulator = (wokwiLink) => {
+    if (!wokwiLink) return;
+    navigate(`/arduino-simulator?wokwiLink=${encodeURIComponent(wokwiLink)}&projectId=${projectId}`);
+  };
 
   const fetchEvaluationStatus = async (projectData, teamIdOverride = null) => {
     try {
@@ -542,23 +564,38 @@ const TeamProjectPage = () => {
           <Alert severity="info">{t('noSubmissionsYet')}</Alert>
         ) : (
           <List>
-            {submissions.map((submission, index) => (
+            {submissions.map((submission, index) => {
+              const submitterRole = teamEnrollment?.memberRoles?.find(
+                (mr) => String(mr.user?._id || mr.user) === String(submission.submittedBy?._id || submission.submittedBy)
+              )?.role;
+              const rankInStage = getSubmissionRankInStage(submission);
+              return (
               <Card key={submission._id} sx={{ mb: 2 }}>
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
                     <Box>
                       <Typography variant="h6">
-                        {t('submissionNumber', { number: submissions.length - index })}
+                        التسليم رقم {submissions.length - index}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
                         {t('uploadedBy', { name: submission.submittedBy.name })}
                       </Typography>
+                      {submitterRole && (
+                        <Typography variant="body2" color="primary" sx={{ fontWeight: 'bold' }}>
+                          الدور: {ROLE_LABEL_MAP[submitterRole] || submitterRole}
+                        </Typography>
+                      )}
                       <Typography variant="body2" color="text.secondary">
                         {t('dateWithValue', { date: new Date(submission.submittedAt).toLocaleString('ar-EG') })}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
                         المرحلة: {STAGE_META[submission.stageKey]?.label || submission.stageKey || 'غير محدد'}
                       </Typography>
+                      {rankInStage && (
+                        <Typography variant="body2" color="info.main" sx={{ fontWeight: '600' }}>
+                          محاولة #{rankInStage} من نفس الدور في هذه المرحلة
+                        </Typography>
+                      )}
                       {submission.submissionType === 'wokwi' && (
                         <Typography variant="body2" color="text.secondary">
                           نوع التسليم: رابط Wokwi
@@ -573,18 +610,33 @@ const TeamProjectPage = () => {
 
                   {/* Submission Info */}
                   {submission.submissionType === 'wokwi' ? (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                      <DescriptionIcon color="action" />
-                      <Typography variant="body2">رابط محاكاة Wokwi</Typography>
+                    <Box sx={{ mb: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <DescriptionIcon color="action" />
+                        <Typography variant="body2" sx={{ fontWeight: '600' }}>رابط محاكاة Wokwi</Typography>
+                      </Box>
                       {submission.wokwiLink && (
-                        <IconButton
-                          size="small"
-                          href={submission.wokwiLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <DownloadIcon />
-                        </IconButton>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="primary"
+                            startIcon={<OpenInNewIcon />}
+                            onClick={() => openWokwiInSimulator(submission.wokwiLink)}
+                          >
+                            فتح في المحاكي
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            href={submission.wokwiLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            startIcon={<OpenInNewIcon />}
+                          >
+                            فتح خارج المنصة
+                          </Button>
+                        </Box>
                       )}
                     </Box>
                   ) : (
@@ -604,11 +656,47 @@ const TeamProjectPage = () => {
                     </Box>
                   )}
 
+                  {/* Student notes */}
+                  {submission.notes && (
+                    <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f5f5f5', borderRadius: 1, borderLeft: '3px solid #2196f3' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                        📝 ملاحظات الطالب:
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {submission.notes}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* Attachments */}
+                  {submission.attachments && submission.attachments.length > 0 && (
+                    <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f9f9f9', borderRadius: 1 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                        📎 الملفات المرفوعة ({submission.attachments.length}):
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                        {submission.attachments.map((attachment, attIdx) => (
+                          <Button
+                            key={attIdx}
+                            size="small"
+                            variant="outlined"
+                            startIcon={<DownloadIcon />}
+                            href={attachment.url}
+                            target="_blank"
+                            download={attachment.fileName}
+                          >
+                            {attachment.fileName || `ملف ${attIdx + 1}`}
+                          </Button>
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+
                   {/* Description */}
                   {submission.description && (
                     <Box sx={{ mb: 2 }}>
                       <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                        {t('descriptionLabel')}
+                        📄 وصف التسليم:
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
                         {submission.description}
@@ -643,7 +731,8 @@ const TeamProjectPage = () => {
                   )}
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </List>
         )}
       </Paper>
