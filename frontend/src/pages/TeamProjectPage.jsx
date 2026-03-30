@@ -75,6 +75,7 @@ const TeamProjectPage = () => {
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
   const { t } = useAppSettings();
+  const currentUserId = user?._id || user?.id;
 
   const [project, setProject] = useState(null);
   const [team, setTeam] = useState(null);
@@ -236,9 +237,9 @@ const TeamProjectPage = () => {
 
   const myProjectRole = useMemo(() => {
     const roles = teamEnrollment?.memberRoles || [];
-    const mine = roles.find((r) => String(r.user?._id || r.user) === String(user?._id));
+    const mine = roles.find((r) => String(r.user?._id || r.user?.id || r.user) === String(currentUserId));
     return mine?.role || null;
-  }, [teamEnrollment, user?._id]);
+  }, [teamEnrollment, currentUserId]);
 
   const getStageLockReason = (stageKey) => {
     if (!stageKey) return 'اختر مرحلة التسليم أولاً';

@@ -41,6 +41,7 @@ const TeamDashboard = () => {
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
   const { t } = useAppSettings();
+  const currentUserId = user?._id || user?.id;
 
   const [team, setTeam] = useState(null);
   const [projects, setProjects] = useState([]);
@@ -226,7 +227,10 @@ const TeamDashboard = () => {
 
   // Helper: get my role in a specific project enrollment
   const getMyProjectRole = (enrollment) => {
-    const mr = (enrollment.memberRoles || []).find(r => r.user === user?._id || r.user?._id === user?._id || String(r.user) === String(user?._id));
+    const mr = (enrollment.memberRoles || []).find((r) => {
+      const roleUserId = r.user?._id || r.user?.id || r.user;
+      return String(roleUserId) === String(currentUserId);
+    });
     return mr?.role || null;
   };
 
@@ -352,7 +356,7 @@ const TeamDashboard = () => {
                         const roleKey = mr.role;
                         const meta = ROLE_META[roleKey];
                         const memberUser = team.members?.find(m => String(m.user?._id || m.user) === String(mr.user?._id || mr.user))?.user;
-                        const isMe = String(mr.user?._id || mr.user) === String(user?._id);
+                        const isMe = String(mr.user?._id || mr.user?.id || mr.user) === String(currentUserId);
                         return (
                           <Chip
                             key={String(mr.user?._id || mr.user)}
@@ -371,7 +375,7 @@ const TeamDashboard = () => {
                       const myRole = getMyProjectRole(enrollment);
                       const rotationOrder = ['system_designer', 'hardware_engineer', 'tester'];
                       const takenRoles = (enrollment.memberRoles || [])
-                        .filter(mr => String(mr.user?._id || mr.user) !== String(user?._id))
+                        .filter(mr => String(mr.user?._id || mr.user?.id || mr.user) !== String(currentUserId))
                         .map(mr => mr.role);
                       const usedInPrevious = getMyUsedRoles(enrollment);
                       const suggestedRole = rotationOrder.find(r => !takenRoles.includes(r) && !usedInPrevious.includes(r))
@@ -437,7 +441,7 @@ const TeamDashboard = () => {
                       </Typography>
                       {(() => {
                         const latest = wokwiData[enrollment.project?._id]?.latest;
-                        const isMySubmission = String(latest?.submittedBy?._id || latest?.submittedBy) === String(user?._id);
+                        const isMySubmission = String(latest?.submittedBy?._id || latest?.submittedBy?.id || latest?.submittedBy) === String(currentUserId);
                         const hasAck = !!latest?.handoffAcceptedBy;
                         return latest ? (
                         <Box>
@@ -494,7 +498,7 @@ const TeamDashboard = () => {
                       })()}
                       {/* Active editor warning */}
                       {activeEditors[enrollment.project?._id] &&
-                       String(activeEditors[enrollment.project?._id]?.user?._id) !== String(user?._id) && (
+                       String(activeEditors[enrollment.project?._id]?.user?._id || activeEditors[enrollment.project?._id]?.user?.id) !== String(currentUserId) && (
                         <Alert severity="warning" sx={{ mt: 1, py: 0.5 }} icon={<EditNoteIcon fontSize="small" />}>
                           <strong>{activeEditors[enrollment.project?._id]?.user?.name}</strong>{' '}{t('wokwiActiveEditor')}
                         </Alert>

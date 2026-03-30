@@ -116,15 +116,7 @@ function ArduinoSimulatorPage() {
   const myProjectRole = (() => {
     const memberRoles = selectedEnrollment?.memberRoles || [];
     const mine = memberRoles.find((mr) => String(mr.user?._id || mr.user) === String(currentUserId));
-    if (mine?.role) return mine.role;
-
-    // Fallback when project role payload is delayed: use team-level role to avoid showing false "unassigned".
-    const teamMember = (teamMembers || []).find((member) => {
-      const memberId = member?.user?._id || member?.user?.id || member?.user || member?._id || member?.id || member;
-      return String(memberId) === String(currentUserId);
-    });
-
-    return teamMember?.role || null;
+    return mine?.role || null;
   })();
 
   const allowedStageOptions = stageOptions.filter(
@@ -143,7 +135,7 @@ function ArduinoSimulatorPage() {
   const currentHistory = historyByProject[selectedProject] || [];
 
   const roleByUserId = (selectedEnrollment?.memberRoles || []).reduce((acc, mr) => {
-    const id = String(mr.user?._id || mr.user || '');
+    const id = String(mr.user?._id || mr.user?.id || mr.user || '');
     if (id) acc[id] = mr.role;
     return acc;
   }, {});
