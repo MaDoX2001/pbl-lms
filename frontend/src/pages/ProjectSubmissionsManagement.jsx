@@ -160,6 +160,45 @@ const ProjectSubmissionsManagement = () => {
     }
   };
 
+  const handleOpenDigitalEvaluation = (submission) => {
+    const teamId = submission?.team?._id;
+    const studentId = submission?.submittedBy?._id || submission?.submittedBy;
+    const stageKey = submission?.stageKey;
+
+    // Programming & final delivery are evaluated per student.
+    if ((stageKey === 'programming' || stageKey === 'final_delivery') && studentId) {
+      navigate(`/evaluate/individual/${projectId}/${studentId}/${submission._id}`);
+      return;
+    }
+
+    // Other stages use group evaluation flow.
+    if (teamId) {
+      navigate(`/evaluate/group/${projectId}/${teamId}/${submission._id}`);
+      return;
+    }
+
+    toast.error('تعذر فتح صفحة التقييم: بيانات الفريق/الطالب غير مكتملة');
+  };
+
+  const handleAllowRetryForSubmission = async (submission) => {
+    try {
+      const studentId = submission?.submittedBy?._id || submission?.submittedBy;
+      if (!studentId) {
+        toast.error('لا يمكن فتح إعادة المحاولة: معرف الطالب غير متوفر');
+        return;
+      }
+
+      await api.post('/assessment/allow-retry', {
+        projectId,
+        studentId
+      });
+
+      toast.success('تم فتح إعادة المحاولة للطالب بنجاح');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'فشل فتح إعادة المحاولة');
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'graded':
@@ -506,7 +545,7 @@ const ProjectSubmissionsManagement = () => {
                             variant="contained"
                             color="primary"
                             startIcon={<AssessmentIcon />}
-                            onClick={() => navigate(`/evaluate/${submission._id}`)}
+                            onClick={() => handleOpenDigitalEvaluation(submission)}
                             size="small"
                           >
                             {t('digitalEvaluation')}
@@ -518,6 +557,13 @@ const ProjectSubmissionsManagement = () => {
                             size="small"
                           >
                             {submission.score !== null ? t('editScore') : t('addScore')}
+                          </Button>
+                          <Button
+                            variant="text"
+                            onClick={() => handleAllowRetryForSubmission(submission)}
+                            size="small"
+                          >
+                            فتح إعادة المحاولة
                           </Button>
                         </Box>
                       </Box>

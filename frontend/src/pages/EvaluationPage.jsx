@@ -50,8 +50,34 @@ const EvaluationPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      
-      // Fetch submission details
+
+      // Legacy route compatibility:
+      // If this id belongs to a team submission, redirect to the right new evaluation page.
+      try {
+        const teamSubRes = await api.get(`/team-submissions/${submissionId}`);
+        const teamSubmission = teamSubRes?.data?.data;
+
+        if (teamSubmission?._id) {
+          const projectId = teamSubmission?.project?._id || teamSubmission?.project;
+          const teamId = teamSubmission?.team?._id || teamSubmission?.team;
+          const studentId = teamSubmission?.submittedBy?._id || teamSubmission?.submittedBy;
+          const stageKey = teamSubmission?.stageKey;
+
+          if ((stageKey === 'programming' || stageKey === 'final_delivery') && projectId && studentId) {
+            navigate(`/evaluate/individual/${projectId}/${studentId}/${submissionId}`, { replace: true });
+            return;
+          }
+
+          if (projectId && teamId) {
+            navigate(`/evaluate/group/${projectId}/${teamId}/${submissionId}`, { replace: true });
+            return;
+          }
+        }
+      } catch (_) {
+        // Ignore and continue to legacy flow below.
+      }
+
+      // Fetch submission details (legacy individual submission flow)
       const subRes = await api.get(`/submission/${submissionId}`);
       setSubmission(subRes.data.data);
 

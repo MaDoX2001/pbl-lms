@@ -597,16 +597,40 @@ const ProjectDetailPage = () => {
     }));
   };
 
+  const hasUsableSubmissionPayload = (submission) => {
+    if (!submission) return false;
+    if (submission.submittedAt) return true;
+    if (submission.submissionUrl) return true;
+    if (submission.codeSubmission) return true;
+    if (submission.notes) return true;
+    if (Array.isArray(submission.submissionFiles) && submission.submissionFiles.length > 0) return true;
+    return false;
+  };
+
+  const ensureAIEvaluationReadiness = async () => {
+    await Promise.all([
+      api.get(`/assessment/observation-card/${id}/group`),
+      api.get(`/assessment/observation-card/${id}/individual_oral`)
+    ]);
+  };
+
   const handleBulkAIEvaluateSubmittedStudents = async () => {
     if (bulkAIRunning) return;
 
     const candidates = (projectSubmissionsForReview || []).filter((submission) => {
       const studentId = submission.student?._id || submission.studentId || submission.student;
-      return Boolean(studentId);
+      return Boolean(studentId) && hasUsableSubmissionPayload(submission);
     });
 
     if (!candidates.length) {
       toast.info('لا يوجد طلاب لديهم تسليمات قابلة للتقييم حالياً');
+      return;
+    }
+
+    try {
+      await ensureAIEvaluationReadiness();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'تعذر تشغيل تقييم AI: تأكد من وجود بطاقات الملاحظة (جماعي + فردي/شفهي) للمشروع');
       return;
     }
 
@@ -682,6 +706,15 @@ const ProjectDetailPage = () => {
       } catch (err) {
         failedCount += 1;
         console.error('Bulk AI evaluation failed for student', studentId, err);
+
+        const status = err?.response?.status;
+        const message = err?.response?.data?.message || '';
+        // Stop flooding requests when the project is not AI-ready or endpoint isn't available.
+        if (status === 404 || status === 405 || status === 501) {
+          toast.error(message || 'تم إيقاف التقييم الجماعي: خدمة تقييم AI غير متاحة حالياً أو المسار غير موجود');
+          setBulkAIProgress({ done: i + 1, total: candidates.length });
+          break;
+        }
       } finally {
         setBulkAIProgress({ done: i + 1, total: candidates.length });
       }

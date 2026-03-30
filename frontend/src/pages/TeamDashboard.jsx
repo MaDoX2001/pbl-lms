@@ -508,9 +508,26 @@ const TeamDashboard = () => {
           ) : historyDialog.submissions.length === 0 ? (
             <Alert severity="info">{t('wokwiNoSubmissions')}</Alert>
           ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {historyDialog.submissions.map((sub, idx) => (
-                <Paper key={sub._id} variant="outlined" sx={{ p: 2 }}>
+            (() => {
+              const latestByStage = [];
+              const archivedReviewed = [];
+              const seenKeys = new Set();
+
+              historyDialog.submissions.forEach((sub) => {
+                const submitterId = String(sub.submittedBy?._id || sub.submittedBy?.id || sub.submittedBy || '');
+                const stageKey = String(sub.stageKey || 'wiring');
+                const groupingKey = stageKey === 'programming' ? `programming:${submitterId}` : stageKey;
+
+                if (!seenKeys.has(groupingKey)) {
+                  seenKeys.add(groupingKey);
+                  latestByStage.push(sub);
+                } else {
+                  archivedReviewed.push(sub);
+                }
+              });
+
+              const renderSubmissionCard = (sub, options = {}) => (
+                <Paper key={sub._id} variant="outlined" sx={{ p: 2, opacity: options.archived ? 0.92 : 1 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1 }}>
                     <Box>
                       <Typography variant="body2" fontWeight={600}>{sub.submittedBy?.name}</Typography>
@@ -530,12 +547,32 @@ const TeamDashboard = () => {
                       فتح في صفحة المحاكي
                     </Button>
                   </Box>
-                  {idx === 0 && (
+                  {options.latest && (
                     <Chip label={t('wokwiLatestVersion')} size="small" color="success" sx={{ mt: 1 }} />
                   )}
+                  {options.archived && (
+                    <Chip label="نسخة قديمة محفوظة (تقييم/مراجعة معلم)" size="small" color="warning" sx={{ mt: 1 }} />
+                  )}
                 </Paper>
-              ))}
-            </Box>
+              );
+
+              return (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <Typography variant="subtitle2" fontWeight={700}>أحدث النسخ حسب المرحلة</Typography>
+                  {latestByStage.map((sub) => renderSubmissionCard(sub, { latest: true }))}
+
+                  {archivedReviewed.length > 0 && (
+                    <>
+                      <Divider sx={{ my: 0.5 }} />
+                      <Typography variant="subtitle2" fontWeight={700} color="warning.main">
+                        نسخ قديمة محفوظة
+                      </Typography>
+                      {archivedReviewed.map((sub) => renderSubmissionCard(sub, { archived: true }))}
+                    </>
+                  )}
+                </Box>
+              );
+            })()
           )}
         </DialogContent>
         <DialogActions>

@@ -169,6 +169,14 @@ const pruneObsoleteWokwiVersions = async ({ teamId, projectId, stageKey }) => {
   }
 };
 
+const pruneAllProjectWokwiVersions = async ({ teamId, projectId }) => {
+  if (!teamId || !projectId) return;
+
+  for (const stageKey of STAGE_ORDER) {
+    await pruneObsoleteWokwiVersions({ teamId, projectId, stageKey });
+  }
+};
+
 // @desc    Submit a file for a project
 // @route   POST /api/team-submissions
 // @access  Private (team members only)
@@ -806,8 +814,8 @@ exports.deleteSubmission = async (req, res) => {
 
       // Retention policy:
       // - Keep only latest version per stage.
-      // - For programming, keep latest version per student (typically 3 students).
-      // - Keep any older version that already has teacher review/feedback/grade.
+      // - For programming, keep latest version per student.
+      // - Delete any older versions in the same stage scope.
       await pruneObsoleteWokwiVersions({ teamId, projectId, stageKey });
 
       await submission.populate([
@@ -846,6 +854,9 @@ exports.deleteSubmission = async (req, res) => {
           return res.status(403).json({ success: false, message: 'غير مصرح لك' });
         }
       }
+
+      // Cleanup legacy duplicates so history stays concise.
+      await pruneAllProjectWokwiVersions({ teamId, projectId });
 
       const submissions = await TeamSubmission.find({
         team: teamId,

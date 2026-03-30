@@ -85,10 +85,14 @@ const IndividualEvaluationPage = () => {
       const projectRes = await axios.get(`/api/projects/${projectId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
-      setProject(projectRes.data.data);
+      const projectData = projectRes?.data?.data;
+      if (!projectData) {
+        throw new Error('بيانات المشروع غير متاحة');
+      }
+      setProject(projectData);
 
       // If team project, check Phase 1 completion
-      if (projectRes.data.data.isTeamProject) {
+      if (projectData.isTeamProject) {
         // Fetch student to get team
         const studentRes = await axios.get(`/api/users/${studentId}`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -142,7 +146,7 @@ const IndividualEvaluationPage = () => {
       setSelections(initialSelections);
 
       // For individual projects, evaluate by both cards (group + individual)
-      if (!projectRes.data.data.isTeamProject) {
+      if (!projectData.isTeamProject) {
         const groupCardRes = await axios.get(`/api/assessment/observation-card/${projectId}/group`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
@@ -166,7 +170,7 @@ const IndividualEvaluationPage = () => {
       setLoading(false);
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.message || t('evaluationLoadFailed'));
+      setError(err.response?.data?.message || err.message || t('evaluationLoadFailed'));
       setLoading(false);
     }
   };
@@ -365,6 +369,10 @@ const IndividualEvaluationPage = () => {
     setAiError('');
 
     try {
+      if (!projectId || !studentId) {
+        throw new Error('بيانات التقييم غير مكتملة');
+      }
+
       const res = await axios.post('/api/assessment/ai-evaluate-individual', {
         projectId,
         studentId,
