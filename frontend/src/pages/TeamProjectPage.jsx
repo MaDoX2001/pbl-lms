@@ -63,6 +63,47 @@ const ROLE_LABEL = {
   tester: 'Tester Lead'
 };
 
+const DEFAULT_STAGE_ORDER = ['design', 'wiring', 'programming', 'testing', 'final_delivery'];
+
+const deriveTeamMilestoneState = (milestones = [], stageProgress = null, submissions = []) => {
+  if (!Array.isArray(milestones) || milestones.length === 0) {
+    return { completedIds: new Set(), progressMap: {} };
+  }
+
+  const completed = stageProgress?.completed || {};
+  const latestByStage = (submissions || []).reduce((acc, sub) => {
+    const key = sub?.stageKey;
+    if (!key || !sub?.submittedAt) return acc;
+    const ts = new Date(sub.submittedAt).getTime();
+    if (!Number.isFinite(ts)) return acc;
+    if (!acc[key] || ts > acc[key].ts) {
+      acc[key] = { ts, date: sub.submittedAt };
+    }
+    return acc;
+  }, {});
+
+  const ordered = [...milestones].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const completedIds = new Set();
+  const progressMap = {};
+
+  ordered.forEach((ms, idx) => {
+    const explicitStageKey = ms?.stageKey;
+    const fallbackStageKey = DEFAULT_STAGE_ORDER[idx] || null;
+    const stageKey = explicitStageKey || fallbackStageKey;
+    const done = stageKey ? !!completed[stageKey] : false;
+    if (done) {
+      const id = String(ms._id);
+      completedIds.add(id);
+      progressMap[id] = {
+        completed: true,
+        completedAt: latestByStage[stageKey]?.date || null,
+      };
+    }
+  });
+
+  return { completedIds, progressMap };
+};
+
 /**
  * TeamProjectPage Component
  * 
@@ -149,8 +190,8 @@ const TeamProjectPage = () => {
         }
       }
 
-      // Load student milestone progress (for timeline states and completion dates)
-      if (user?.role === 'student') {
+      // For individual projects only: use student progress endpoint for timeline states.
+      if (user?.role === 'student' && !projectData?.isTeamProject) {
         try {
           const progressRes = await api.get(`/progress/${projectId}`);
           const items = progressRes.data?.data?.milestoneProgress || [];
@@ -183,6 +224,19 @@ const TeamProjectPage = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (user?.role !== 'student') return;
+    if (!project?.isTeamProject) return;
+
+    const { completedIds, progressMap } = deriveTeamMilestoneState(
+      project?.milestones || [],
+      stageProgress,
+      submissions
+    );
+    setCompletedMilestoneIds(completedIds);
+    setMilestoneProgressMap(progressMap);
+  }, [user?.role, project?.isTeamProject, project?.milestones, stageProgress, submissions]);
 
   const fetchEvaluationStatus = async (projectData, teamIdOverride = null) => {
     try {

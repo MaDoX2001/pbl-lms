@@ -85,7 +85,7 @@ function ArduinoSimulatorPage() {
 
   const getProjectRefId = (enrollment) => {
     if (!enrollment) return '';
-    return enrollment.project?._id || enrollment.project || enrollment._id;
+    return enrollment.project?._id || enrollment.project?.id || enrollment.project || '';
   };
 
   const deriveProgressFromHistory = (history = [], members = []) => {
@@ -109,13 +109,26 @@ function ArduinoSimulatorPage() {
         .map((id) => String(id))
     );
 
+    const hasFinal = byStage.final_delivery.length > 0;
+    const hasTesting = byStage.testing.length > 0;
+    const hasProgramming = byStage.programming.length > 0;
+    const hasWiring = byStage.wiring.length > 0;
+    const hasDesign = byStage.design.length > 0;
+
+    // Respect stage order inference to avoid false regressions when history is truncated.
+    const completedDesign = hasDesign || hasWiring || hasProgramming || hasTesting || hasFinal;
+    const completedWiring = hasWiring || hasProgramming || hasTesting || hasFinal;
+    const completedProgramming = (memberIds.length > 0 && memberIds.every((id) => programmingSubmitters.has(id))) || hasTesting || hasFinal;
+    const completedTesting = hasTesting || hasFinal;
+    const completedFinalDelivery = hasFinal;
+
     return {
       completed: {
-        design: byStage.design.length > 0,
-        wiring: byStage.wiring.length > 0,
-        programming: memberIds.length > 0 && memberIds.every((id) => programmingSubmitters.has(id)),
-        testing: byStage.testing.length > 0,
-        final_delivery: byStage.final_delivery.length > 0,
+        design: completedDesign,
+        wiring: completedWiring,
+        programming: completedProgramming,
+        testing: completedTesting,
+        final_delivery: completedFinalDelivery,
       },
       programmingSubmittedCount: programmingSubmitters.size,
       programmingRequiredCount: memberIds.length,
@@ -301,7 +314,8 @@ function ArduinoSimulatorPage() {
         setTeamId(teamId);
         setTeamMembers(res.data.data?.members || []);
           api.get('/team-projects/my-team').then(r => {
-            const enrollments = r.data.data || [];
+            const rawEnrollments = r.data.data || [];
+            const enrollments = rawEnrollments.filter((e) => !!getProjectRefId(e));
             setProjects(enrollments);
             if (enrollments.length > 0) {
               const matched = pendingProjectId
