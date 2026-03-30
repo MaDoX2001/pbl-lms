@@ -44,9 +44,19 @@ function ArduinoSimulatorPage() {
   const [quickLinkStage, setQuickLinkStage] = useState('design');
   const [submitting, setSubmitting] = useState(false);
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' });
+  const [lastKnownProjectLink, setLastKnownProjectLink] = useState('');
   const [pendingProjectId, setPendingProjectId] = useState('');
   const [attachments, setAttachments] = useState([]);
   const iframeRef = useRef(null);
+
+  const isValidWokwiProjectLink = (url) => /^https:\/\/wokwi\.com\/projects\/[a-zA-Z0-9_-]+/.test(String(url || ''));
+
+  const rememberProjectLink = (url) => {
+    const normalized = String(url || '').trim();
+    if (!isValidWokwiProjectLink(normalized)) return false;
+    setLastKnownProjectLink(normalized);
+    return true;
+  };
 
   const roleLabelMap = {
     system_designer: 'مصمم النظام',
@@ -167,18 +177,30 @@ function ArduinoSimulatorPage() {
       setSnack({ open: true, msg: `لا يوجد رابط محفوظ لـ ${label}`, severity: 'warning' });
       return;
     }
-    setSimulatorUrl(link);
+    const normalized = String(link).trim();
+    setSimulatorUrl(normalized);
+    rememberProjectLink(normalized);
     setSnack({ open: true, msg: `تم فتح نسخة ${label} داخل المحاكي`, severity: 'info' });
   };
 
   const syncWokwiLinkFromIframe = (showSuccessMessage = false) => {
-    const iframeCurrentSrc = iframeRef.current?.src || '';
-    const detectedLink = /^https:\/\/wokwi\.com\/projects\//.test(iframeCurrentSrc)
-      ? iframeCurrentSrc
-      : simulatorUrl;
+    const iframeCurrentSrc = String(iframeRef.current?.src || '').trim();
+    const simulatorCandidate = String(simulatorUrl || '').trim();
+    const manualCandidate = String(wokwiLink || '').trim();
+    const memoryCandidate = String(lastKnownProjectLink || '').trim();
 
-    if (/^https:\/\/wokwi\.com\/projects\//.test(detectedLink)) {
+    const candidates = [
+      isValidWokwiProjectLink(iframeCurrentSrc) ? { link: iframeCurrentSrc, score: 4 } : null,
+      isValidWokwiProjectLink(simulatorCandidate) ? { link: simulatorCandidate, score: 3 } : null,
+      isValidWokwiProjectLink(manualCandidate) ? { link: manualCandidate, score: 2 } : null,
+      isValidWokwiProjectLink(memoryCandidate) ? { link: memoryCandidate, score: 1 } : null,
+    ].filter(Boolean);
+
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => b.score - a.score);
+      const detectedLink = candidates[0].link;
       setWokwiLink(detectedLink);
+      rememberProjectLink(detectedLink);
       if (showSuccessMessage) {
         setSnack({ open: true, msg: 'تم تحديث الرابط من الصفحة الحالية', severity: 'info' });
       }
@@ -197,7 +219,10 @@ function ArduinoSimulatorPage() {
     const fallbackStage = allowedStageOptions[0]?.value || 'programming';
     setSelectedStage(autoStage || fallbackStage);
 
-    syncWokwiLinkFromIframe(false);
+    // Do not auto-overwrite with a potentially stale value; user can sync manually.
+    if (isValidWokwiProjectLink(lastKnownProjectLink)) {
+      setWokwiLink(lastKnownProjectLink);
+    }
 
     setOpen(true);
   };
@@ -235,6 +260,7 @@ function ArduinoSimulatorPage() {
 
     if (directWokwiLink && /^https:\/\/wokwi\.com\//.test(directWokwiLink)) {
       setSimulatorUrl(directWokwiLink);
+      rememberProjectLink(directWokwiLink);
       setShowQuickLinks(false);
       setSnack({ open: true, msg: 'تم فتح الرابط داخل المحاكي', severity: 'info' });
     }
@@ -243,6 +269,29 @@ function ArduinoSimulatorPage() {
       setPendingProjectId(directProjectId);
     }
   }, [location.search]);
+
+  useEffect(() => {
+    const normalized = String(simulatorUrl || '').trim();
+    if (isValidWokwiProjectLink(normalized)) {
+      rememberProjectLink(normalized);
+    }
+  }, [simulatorUrl]);
+
+  useEffect(() => {
+    const normalized = String(wokwiLink || '').trim();
+    if (isValidWokwiProjectLink(normalized)) {
+      rememberProjectLink(normalized);
+    }
+  }, [wokwiLink]);
+
+  useEffect(() => {
+    setWokwiLink('');
+    setNotes('');
+    setAttachments([]);
+    if (isValidWokwiProjectLink(lastKnownProjectLink)) {
+      setWokwiLink(lastKnownProjectLink);
+    }
+  }, [selectedProject]);
 
   // Fetch team's enrolled projects for the dropdown
   useEffect(() => {
@@ -509,6 +558,7 @@ function ArduinoSimulatorPage() {
               ) {
                 setSimulatorUrl(currentSrc);
               }
+              rememberProjectLink(currentSrc);
             }}
             style={{
               width: '100%',
