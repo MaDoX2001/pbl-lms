@@ -16,6 +16,7 @@ function ArduinoSimulatorPage() {
   const { t } = useAppSettings();
   const { user } = useSelector(state => state.auth);
   const location = useLocation();
+  const currentUserId = user?._id || user?.id;
 
   const stageOptions = [
     { value: 'design', label: 'تسليم التصميم', requiredRole: 'system_designer' },
@@ -114,8 +115,16 @@ function ArduinoSimulatorPage() {
   const selectedEnrollment = projects.find((e) => String(getProjectRefId(e)) === String(selectedProject));
   const myProjectRole = (() => {
     const memberRoles = selectedEnrollment?.memberRoles || [];
-    const mine = memberRoles.find((mr) => String(mr.user?._id || mr.user) === String(user?._id));
-    return mine?.role || null;
+    const mine = memberRoles.find((mr) => String(mr.user?._id || mr.user) === String(currentUserId));
+    if (mine?.role) return mine.role;
+
+    // Fallback when project role payload is delayed: use team-level role to avoid showing false "unassigned".
+    const teamMember = (teamMembers || []).find((member) => {
+      const memberId = member?.user?._id || member?.user?.id || member?.user || member?._id || member?.id || member;
+      return String(memberId) === String(currentUserId);
+    });
+
+    return teamMember?.role || null;
   })();
 
   const allowedStageOptions = stageOptions.filter(
