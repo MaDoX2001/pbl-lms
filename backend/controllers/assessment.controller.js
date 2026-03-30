@@ -7,6 +7,7 @@ const Submission = require('../models/Submission.model');
 const Progress = require('../models/Progress.model');
 const Project = require('../models/Project.model');
 const Team = require('../models/Team.model');
+const TeamSubmission = require('../models/TeamSubmission.model');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const geminiClient = process.env.GEMINI_API_KEY
@@ -1624,9 +1625,10 @@ exports.getAllFinalEvaluations = async (req, res) => {
 // @desc    Allow retry for a student
 // @route   POST /api/assessment/allow-retry
 // @access  Private (Teacher/Admin)
+// Body: { studentId, projectId } OR { teamId, projectId }
 exports.allowRetry = async (req, res) => {
   try {
-    const { studentId, projectId } = req.body;
+    const { studentId, projectId, teamId } = req.body;
 
     const project = await Project.findById(projectId).select('instructor');
     if (!project) {
@@ -1643,19 +1645,72 @@ exports.allowRetry = async (req, res) => {
       });
     }
 
-    // Mark retry allowed on both evaluations
-    await EvaluationAttempt.updateMany(
-      {
-        project: projectId,
-        student: studentId,
-        isLatestAttempt: true
-      },
-      { retryAllowed: true }
-    );
+    // Team-wide retry: Allow retry for all team members
+    if (teamId) {
+      const team = await Team.findById(teamId);
+      if (!team) {
+        return res.status(404).json({
+          success: false,
+          message: 'الفريق غير موجود'
+        });
+      }
 
-    res.json({
-      success: true,
-      message: 'تم السماح بإعادة المحاولة'
+      const memberIds = team.members.map(m => m.user);
+
+      // Reset all evaluation attempts for team members
+      await EvaluationAttempt.updateMany(
+        {
+          project: projectId,
+          student: { $in: memberIds },
+          isLatestAttempt: true
+        },
+        { retryAllowed: true }
+      );
+
+      // Reset all team submissions to 'pending' for all stages
+      await TeamSubmission.updateMany(
+        {
+          team: teamId,
+          project: projectId
+        },
+        { 
+          status: 'pending',
+          feedback: null,
+          feedbackBy: null,
+          feedbackAt: null,
+          score: null,
+          gradedBy: null,
+          gradedAt: null
+        }
+      );
+
+      return res.json({
+        success: true,
+        message: 'تم فتح إعادة المحاولة للفريق في جميع المراحل'
+      });
+    }
+
+    // Single student retry: Allow retry for specific student
+    if (studentId) {
+      // Mark retry allowed on both evaluations
+      await EvaluationAttempt.updateMany(
+        {
+          project: projectId,
+          student: studentId,
+          isLatestAttempt: true
+        },
+        { retryAllowed: true }
+      );
+
+      return res.json({
+        success: true,
+        message: 'تم السماح بإعادة المحاولة'
+      });
+    }
+
+    return res.status(400).json({
+      success: false,
+      message: 'يجب تحديد الفريق أو الطالب'
     });
   } catch (error) {
     res.status(500).json({

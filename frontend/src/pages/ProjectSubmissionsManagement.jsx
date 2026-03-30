@@ -63,6 +63,10 @@ const ProjectSubmissionsManagement = () => {
     submission: null,
     score: ''
   });
+  const [teamRetryDialog, setTeamRetryDialog] = useState({
+    open: false,
+    team: null
+  });
 
   useEffect(() => {
     fetchData();
@@ -196,6 +200,34 @@ const ProjectSubmissionsManagement = () => {
       toast.success('تم فتح إعادة المحاولة للطالب بنجاح');
     } catch (err) {
       toast.error(err.response?.data?.message || 'فشل فتح إعادة المحاولة');
+    }
+  };
+
+  const handleOpenTeamRetryDialog = (team) => {
+    setTeamRetryDialog({
+      open: true,
+      team
+    });
+  };
+
+  const handleConfirmTeamRetry = async () => {
+    try {
+      const teamId = teamRetryDialog.team?._id;
+      if (!teamId) {
+        toast.error('معرف الفريق غير متوفر');
+        return;
+      }
+
+      await api.post('/assessment/allow-retry', {
+        projectId,
+        teamId
+      });
+
+      toast.success('تم فتح إعادة المحاولة للفريق في جميع المراحل بنجاح');
+      setTeamRetryDialog({ open: false, team: null });
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'فشل فتح إعادة المحاولة للفريق');
     }
   };
 
@@ -360,6 +392,17 @@ const ProjectSubmissionsManagement = () => {
                 <Typography variant="h6">{team.name}</Typography>
                 <Chip label={t('teamSubmissionsCount', { count: teamSubmissions.length })} size="small" />
                 <Box sx={{ flex: 1 }} />
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpenTeamRetryDialog(team);
+                  }}
+                  sx={{ mr: 1 }}
+                >
+                  فتح إعادة المحاولة للفريق كله
+                </Button>
                 <Typography variant="body2" color="text.secondary">
                   {t('membersWithValue', { members: getTeamMemberNames(team).join(', ') || 'غير متاح' })}
                 </Typography>
@@ -620,6 +663,33 @@ const ProjectSubmissionsManagement = () => {
           </Button>
           <Button onClick={handleSubmitGrade} variant="contained">
             {t('save')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Team Retry Confirmation Dialog */}
+      <Dialog open={teamRetryDialog.open} onClose={() => setTeamRetryDialog({ open: false, team: null })} maxWidth="sm" fullWidth>
+        <DialogTitle>تأكيد فتح إعادة المحاولة للفريق</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            هل تريد فتح إعادة المحاولة لفريق <strong>{teamRetryDialog.team?.name}</strong> في جميع المراحل؟
+          </Alert>
+          <Typography variant="body2" color="text.secondary">
+            • سيتم إعادة تعيين جميع التقييمات للفريق
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            • سيتم حذف جميع التقييمات والدرجات للمراحل المختلفة
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            • يمكن للفريق إعادة تقديم التسليمات من جديد
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTeamRetryDialog({ open: false, team: null })}>
+            {t('cancel')}
+          </Button>
+          <Button onClick={handleConfirmTeamRetry} variant="contained" color="error">
+            تأكيد فتح إعادة المحاولة
           </Button>
         </DialogActions>
       </Dialog>
