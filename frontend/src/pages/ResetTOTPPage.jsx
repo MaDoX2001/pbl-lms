@@ -88,7 +88,7 @@ function ResetTOTPPage() {
       toast.success('تم إعادة تعيين المصادقة الثنائية');
       
       setTimeout(() => {
-        navigate('/2fa-setup');
+        navigate('/login', { state: { message: 'تم إعادة تعيين المصادقة الثنائية. يرجى تسجيل الدخول مجدداً' } });
       }, 2000);
     } catch (err) {
       setError(err.response?.data?.message || 'فشل إعادة تعيين المصادقة الثنائية');

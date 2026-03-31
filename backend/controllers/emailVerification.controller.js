@@ -304,6 +304,14 @@ exports.resetTOTP = catchAsyncErrors(async (req, res, next) => {
   user.totpResetOTPExpires = undefined;
   await user.save();
 
+  // Also disable OTP record in OTP collection
+  const OTP = require('../models/OTP.model');
+  await OTP.findOneAndUpdate(
+    { userId: user._id },
+    { isEnabled: false },
+    { new: true }
+  );
+
   res.status(200).json({
     success: true,
     message: 'تم إعادة تعيين المصادقة الثنائية بنجاح. يرجى إعادة تعيين الرمز من الإعدادات'
