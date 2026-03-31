@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -16,6 +16,7 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  MenuItem,
   Divider,
   IconButton,
   Accordion,
@@ -67,6 +68,10 @@ const ProjectSubmissionsManagement = () => {
     open: false,
     team: null
   });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [stageFilter, setStageFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('latest');
 
   useEffect(() => {
     fetchData();
@@ -257,18 +262,75 @@ const ProjectSubmissionsManagement = () => {
       .filter(Boolean);
   };
 
-  // Group submissions by team
-  const submissionsByTeam = submissions.reduce((acc, submission) => {
-    const teamId = submission.team._id;
-    if (!acc[teamId]) {
-      acc[teamId] = {
-        team: submission.team,
-        submissions: []
-      };
-    }
-    acc[teamId].submissions.push(submission);
-    return acc;
-  }, {});
+  const summary = useMemo(() => {
+    const total = submissions.length;
+    const pending = submissions.filter((s) => s.status === 'pending').length;
+    const reviewed = submissions.filter((s) => s.status === 'reviewed').length;
+    const graded = submissions.filter((s) => s.status === 'graded').length;
+    const teams = new Set(submissions.map((s) => s?.team?._id).filter(Boolean)).size;
+
+    return { total, pending, reviewed, graded, teams };
+  }, [submissions]);
+
+  const filteredAndSortedSubmissions = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    const filtered = submissions.filter((submission) => {
+      if (stageFilter !== 'all' && submission.stageKey !== stageFilter) {
+        return false;
+      }
+
+      if (statusFilter !== 'all' && submission.status !== statusFilter) {
+        return false;
+      }
+
+      if (!query) return true;
+
+      const teamName = submission?.team?.name || '';
+      const studentName = submission?.submittedBy?.name || '';
+      const fileName = submission?.fileName || '';
+      const description = submission?.description || '';
+      const notes = submission?.notes || '';
+
+      const haystack = `${teamName} ${studentName} ${fileName} ${description} ${notes}`.toLowerCase();
+      return haystack.includes(query);
+    });
+
+    const sorted = [...filtered].sort((a, b) => {
+      if (sortBy === 'oldest') {
+        return new Date(a.submittedAt) - new Date(b.submittedAt);
+      }
+
+      if (sortBy === 'score_desc') {
+        return (Number(b.score) || -1) - (Number(a.score) || -1);
+      }
+
+      if (sortBy === 'score_asc') {
+        return (Number(a.score) || 101) - (Number(b.score) || 101);
+      }
+
+      return new Date(b.submittedAt) - new Date(a.submittedAt);
+    });
+
+    return sorted;
+  }, [submissions, searchQuery, stageFilter, statusFilter, sortBy]);
+
+  const submissionsByTeam = useMemo(() => {
+    return filteredAndSortedSubmissions.reduce((acc, submission) => {
+      const teamId = submission?.team?._id;
+      if (!teamId) return acc;
+
+      if (!acc[teamId]) {
+        acc[teamId] = {
+          team: submission.team,
+          submissions: []
+        };
+      }
+
+      acc[teamId].submissions.push(submission);
+      return acc;
+    }, {});
+  }, [filteredAndSortedSubmissions]);
 
   if (loading) {
     return (
@@ -297,13 +359,99 @@ const ProjectSubmissionsManagement = () => {
       </Button>
 
       {/* Project Header */}
-      <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h4" gutterBottom>
+      <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
+        <Typography variant="h5" sx={{ mb: 1 }}>
           {project.title}
         </Typography>
-        <Typography variant="body1" color="text.secondary">
-          {t('totalSubmissionsWithCount', { count: submissions.length })}
-        </Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+          <Chip label={`إجمالي التسليمات: ${summary.total}`} color="primary" size="small" />
+          <Chip label={`فرق: ${summary.teams}`} size="small" variant="outlined" />
+          <Chip label={`قيد الانتظار: ${summary.pending}`} color="warning" size="small" variant="outlined" />
+          <Chip label={`مراجع: ${summary.reviewed}`} color="info" size="small" variant="outlined" />
+          <Chip label={`مقَيَّم: ${summary.graded}`} color="success" size="small" variant="outlined" />
+        </Box>
+      </Paper>
+
+      {/* Compact Filters */}
+      <Paper
+        elevation={1}
+        sx={{
+          p: 1.5,
+          mb: 2,
+          position: 'sticky',
+          top: 8,
+          zIndex: 2,
+          border: '1px solid',
+          borderColor: 'divider'
+        }}
+      >
+        <Box
+          sx={{
+            display: 'grid',
+            gap: 1,
+            gridTemplateColumns: { xs: '1fr', md: '1.8fr 1fr 1fr 1fr auto' }
+          }}
+        >
+          <TextField
+            size="small"
+            label="بحث (فريق/طالب/محتوى)"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+
+          <TextField
+            size="small"
+            select
+            label="المرحلة"
+            value={stageFilter}
+            onChange={(e) => setStageFilter(e.target.value)}
+          >
+            <MenuItem value="all">كل المراحل</MenuItem>
+            <MenuItem value="design">التصميم</MenuItem>
+            <MenuItem value="wiring">الموصل</MenuItem>
+            <MenuItem value="programming">البرمجة</MenuItem>
+            <MenuItem value="testing">المختبر</MenuItem>
+            <MenuItem value="final_delivery">النهائي</MenuItem>
+          </TextField>
+
+          <TextField
+            size="small"
+            select
+            label="الحالة"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <MenuItem value="all">كل الحالات</MenuItem>
+            <MenuItem value="pending">قيد الانتظار</MenuItem>
+            <MenuItem value="reviewed">مراجع</MenuItem>
+            <MenuItem value="graded">مقَيَّم</MenuItem>
+          </TextField>
+
+          <TextField
+            size="small"
+            select
+            label="الترتيب"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+          >
+            <MenuItem value="latest">الأحدث أولاً</MenuItem>
+            <MenuItem value="oldest">الأقدم أولاً</MenuItem>
+            <MenuItem value="score_desc">الدرجة: الأعلى</MenuItem>
+            <MenuItem value="score_asc">الدرجة: الأقل</MenuItem>
+          </TextField>
+
+          <Button
+            variant="text"
+            onClick={() => {
+              setSearchQuery('');
+              setStageFilter('all');
+              setStatusFilter('all');
+              setSortBy('latest');
+            }}
+          >
+            مسح الفلاتر
+          </Button>
+        </Box>
       </Paper>
 
       {/* Stage Tracking Board */}
@@ -363,14 +511,16 @@ const ProjectSubmissionsManagement = () => {
       </Paper>
 
       {/* Submissions by Team */}
-      {Object.keys(submissionsByTeam).length === 0 ? (
+      {submissions.length === 0 ? (
         <Alert severity="info">{t('noSubmissionsUploadedYet')}</Alert>
+      ) : Object.keys(submissionsByTeam).length === 0 ? (
+        <Alert severity="info">لا توجد نتائج مطابقة للفلاتر الحالية.</Alert>
       ) : (
         Object.values(submissionsByTeam).map(({ team, submissions: teamSubmissions }) => (
-          <Accordion key={team._id} sx={{ mb: 2 }}>
+          <Accordion key={team._id} sx={{ mb: 1.5 }}>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
-                <Typography variant="h6">{team.name}</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', flexWrap: 'wrap' }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{team.name}</Typography>
                 <Chip label={t('teamSubmissionsCount', { count: teamSubmissions.length })} size="small" />
                 <Box sx={{ flex: 1 }} />
                 <Button
@@ -384,7 +534,7 @@ const ProjectSubmissionsManagement = () => {
                 >
                   فتح إعادة المحاولة للفريق كله
                 </Button>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="caption" color="text.secondary">
                   {t('membersWithValue', { members: getTeamMemberNames(team).join(', ') || 'غير متاح' })}
                 </Typography>
               </Box>
@@ -397,19 +547,19 @@ const ProjectSubmissionsManagement = () => {
                   const isLastSubmission = index === 0;
                   
                   return (
-                    <Card 
+                    <Card
                       key={submission._id} 
                       sx={{ 
-                        mb: 2,
+                        mb: 1,
                         border: isLastSubmission ? '2px solid #1976d2' : 'none',
                         bgcolor: isLastSubmission ? '#e3f2fd' : 'transparent'
                       }}
                     >
-                      <CardContent>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
+                      <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 1.2, gap: 1, flexWrap: 'wrap' }}>
                           <Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                              <Typography variant="h6">
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 0.6, flexWrap: 'wrap' }}>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                                 {t('submissionNumber', { number: teamSubmissions.length - index })}
                               </Typography>
                               <Chip
@@ -433,11 +583,11 @@ const ProjectSubmissionsManagement = () => {
                                 />
                               )}
                             </Box>
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="caption" color="text.secondary">
                               {t('uploadedByLabel')}{' '}
                               <Typography
                                 component="span"
-                                variant="body2"
+                                variant="caption"
                                 sx={{
                                   color: 'primary.main',
                                   cursor: 'pointer',
@@ -449,39 +599,40 @@ const ProjectSubmissionsManagement = () => {
                                 {submission.submittedBy.name}
                               </Typography>
                             </Typography>
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="caption" color="text.secondary">
                               {t('dateWithValue', { date: new Date(submission.submittedAt).toLocaleString('ar-EG') })}
                             </Typography>
                           </Box>
                           <Chip
                             label={getStatusLabel(submission.status)}
                             color={getStatusColor(submission.status)}
+                            size="small"
                           />
                         </Box>
 
                       {/* Submission Link / File */}
                       {submission.submissionType === 'wokwi' ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.2, flexWrap: 'wrap' }}>
                           <DescriptionIcon color="action" />
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 600 }}>
                             رابط المحاكي (Wokwi)
                           </Typography>
                           <Button
                             size="small"
-                            variant="contained"
+                            variant="outlined"
                             startIcon={<OpenInNewIcon />}
                             href={submission.wokwiLink}
                             target="_blank"
                             rel="noopener noreferrer"
-                            sx={{ ml: 1 }}
+                            sx={{ ml: 1, px: 1 }}
                           >
                             فتح المحاكي للتقييم
                           </Button>
                         </Box>
                       ) : (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.2 }}>
                           <DescriptionIcon color="action" />
-                          <Typography variant="body2">{submission.fileName}</Typography>
+                          <Typography variant="caption">{submission.fileName}</Typography>
                           <IconButton
                             size="small"
                             href={submission.fileUrl}
@@ -495,37 +646,37 @@ const ProjectSubmissionsManagement = () => {
 
                       {/* Description */}
                       {submission.description && (
-                        <Box sx={{ mb: 2 }}>
-                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                        <Box sx={{ mb: 1 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
                             {t('descriptionLabel')}
                           </Typography>
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                             {submission.description}
                           </Typography>
                         </Box>
                       )}
 
                       {submission.notes && (
-                        <Box sx={{ mb: 2 }}>
-                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                        <Box sx={{ mb: 1 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
                             ملاحظات الطالب
                           </Typography>
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                             {submission.notes}
                           </Typography>
                         </Box>
                       )}
 
-                      <Divider sx={{ my: 2 }} />
+                      <Divider sx={{ my: 1 }} />
 
                       {/* Feedback Section */}
-                      <Box sx={{ mb: 2 }}>
+                      <Box sx={{ mb: 1 }}>
                         {submission.feedback ? (
-                          <Alert severity="info" icon={<FeedbackIcon />}>
-                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                          <Alert severity="info" icon={<FeedbackIcon />} sx={{ py: 0.2 }}>
+                            <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
                               {t('teacherFeedbackLabel')}
                             </Typography>
-                            <Typography variant="body2">
+                            <Typography variant="caption" sx={{ display: 'block' }}>
                               {submission.feedback}
                             </Typography>
                             {submission.feedbackBy && (
@@ -541,7 +692,7 @@ const ProjectSubmissionsManagement = () => {
                           variant="outlined"
                           startIcon={<FeedbackIcon />}
                           onClick={() => handleOpenFeedbackDialog(submission)}
-                          sx={{ mt: 1 }}
+                          sx={{ mt: 0.8 }}
                           size="small"
                         >
                           {submission.feedback ? t('editFeedback') : t('addFeedback')}
@@ -551,8 +702,8 @@ const ProjectSubmissionsManagement = () => {
                       {/* Grade Section */}
                       <Box>
                         {submission.score !== null ? (
-                          <Alert severity="success" icon={<GradeIcon />}>
-                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                          <Alert severity="success" icon={<GradeIcon />} sx={{ py: 0.2 }}>
+                            <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
                               {t('scoreOutOf100', { score: submission.score })}
                             </Typography>
                             {submission.gradedBy && (
@@ -564,7 +715,7 @@ const ProjectSubmissionsManagement = () => {
                         ) : (
                           <Alert severity="warning">{t('notEvaluatedYet')}</Alert>
                         )}
-                        <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                        <Box sx={{ display: 'flex', gap: 1, mt: 0.8, flexWrap: 'wrap' }}>
                           <Button
                             variant="contained"
                             color="primary"
@@ -649,13 +800,13 @@ const ProjectSubmissionsManagement = () => {
             هل تريد فتح إعادة المحاولة لفريق <strong>{teamRetryDialog.team?.name}</strong> في جميع المراحل؟
           </Alert>
           <Typography variant="body2" color="text.secondary">
-            • سيتم إعادة تعيين جميع التقييمات للفريق
+            • سيتم فتح إعادة المحاولة لكل أعضاء الفريق
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            • سيتم حذف جميع التقييمات والدرجات للمراحل المختلفة
+            • سيتم إعادة فتح مرحلة التسليم النهائي للفريق
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            • يمكن للفريق إعادة تقديم التسليمات من جديد
+            • لن يتم حذف التسليمات السابقة للمراحل الأخرى
           </Typography>
         </DialogContent>
         <DialogActions>
