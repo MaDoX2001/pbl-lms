@@ -184,25 +184,6 @@ const ProjectSubmissionsManagement = () => {
     toast.error('تعذر فتح صفحة التقييم: بيانات الفريق/الطالب غير مكتملة');
   };
 
-  const handleAllowRetryForSubmission = async (submission) => {
-    try {
-      const studentId = submission?.submittedBy?._id || submission?.submittedBy;
-      if (!studentId) {
-        toast.error('لا يمكن فتح إعادة المحاولة: معرف الطالب غير متوفر');
-        return;
-      }
-
-      await api.post('/assessment/allow-retry', {
-        projectId,
-        studentId
-      });
-
-      toast.success('تم فتح إعادة المحاولة للطالب بنجاح');
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'فشل فتح إعادة المحاولة');
-    }
-  };
-
   const handleOpenTeamRetryDialog = (team) => {
     setTeamRetryDialog({
       open: true,
@@ -600,13 +581,6 @@ const ProjectSubmissionsManagement = () => {
                             size="small"
                           >
                             {submission.score !== null ? t('editScore') : t('addScore')}
-                          </Button>
-                          <Button
-                            variant="text"
-                            onClick={() => handleAllowRetryForSubmission(submission)}
-                            size="small"
-                          >
-                            فتح إعادة المحاولة
                           </Button>
                         </Box>
                       </Box>
