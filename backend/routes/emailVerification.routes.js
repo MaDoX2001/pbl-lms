@@ -4,7 +4,9 @@ const {
   sendEmailVerificationOTP,
   verifyEmail,
   requestPasswordReset,
-  resetPassword
+  resetPassword,
+  requestTOTPReset,
+  resetTOTP
 } = require('../controllers/emailVerification.controller');
 const { authLimiter, resetPasswordLimiter } = require('../middleware/rateLimiter');
 
@@ -15,5 +17,9 @@ router.post('/verify-email', authLimiter, verifyEmail);
 // Password Reset
 router.post('/forgot-password', resetPasswordLimiter, requestPasswordReset);
 router.post('/reset-password', resetPasswordLimiter, resetPassword);
+
+// TOTP Reset
+router.post('/request-totp-reset', resetPasswordLimiter, requestTOTPReset);
+router.post('/reset-totp', resetPasswordLimiter, resetTOTP);
 
 module.exports = router;

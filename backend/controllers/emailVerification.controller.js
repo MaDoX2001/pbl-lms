@@ -209,3 +209,103 @@ exports.resetPassword = catchAsyncErrors(async (req, res, next) => {
     message: 'تم إعادة تعيين كلمة المرور بنجاح'
   });
 });
+
+// Request TOTP Reset
+exports.requestTOTPReset = catchAsyncErrors(async (req, res, next) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return next(new AppError('البريد الإلكتروني مطلوب', 400));
+  }
+
+  const user = await User.findOne({ email });
+  if (!user) {
+    // Don't reveal if user exists
+    return res.status(200).json({
+      success: true,
+      message: 'إذا كان البريد الإلكتروني موجوداً وله تحقق ثنائي مفعل، سيتم إرسال رمز إعادة التعيين'
+    });
+  }
+
+  if (!user.twoFactorEnabled) {
+    // Don't reveal if 2FA is not enabled
+    return res.status(200).json({
+      success: true,
+      message: 'إذا كان البريد الإلكتروني موجوداً وله تحقق ثنائي مفعل، سيتم إرسال رمز إعادة التعيين'
+    });
+  }
+
+  // Generate OTP
+  const otp = generateOTP();
+  user.totpResetOTP = otp;
+  user.totpResetOTPExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+  await user.save();
+
+  // Send email using Brevo API
+  const htmlContent = `
+    <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>مرحباً ${user.name}</h2>
+      <p>تلقينا طلباً لإعادة تعيين رمز المصادقة الثنائية الخاص بحسابك.</p>
+      <p>رمز إعادة التعيين الخاص بك هو:</p>
+      <div style="background: #f4f4f4; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; margin: 20px 0;">
+        ${otp}
+      </div>
+      <p>هذا الرمز صالح لمدة 10 دقائق فقط.</p>
+      <p>بعد إدخالك للرمز، ستتمكن من إنشاء رمز مصادقة ثنائية جديد باستخدام تطبيق المصادقة الخاص بك.</p>
+      <p>إذا لم تطلب إعادة تعيين المصادقة الثنائية، يرجى تجاهل هذه الرسالة.</p>
+      <hr>
+      <p style="color: #666; font-size: 12px;">منصة التعلم بالمشروعات © 2026</p>
+    </div>
+  `;
+
+  await sendBrevoEmail(email, 'إعادة تعيين المصادقة الثنائية - PBL-LMS', htmlContent);
+
+  res.status(200).json({
+    success: true,
+    message: 'إذا كان البريد الإلكتروني موجوداً وله تحقق ثنائي مفعل، سيتم إرسال رمز إعادة التعيين'
+  });
+});
+
+// Verify TOTP Reset OTP and Reset TOTP
+exports.resetTOTP = catchAsyncErrors(async (req, res, next) => {
+  const { email, otp } = req.body;
+
+  if (!email || !otp) {
+    return next(new AppError('البريد الإلكتروني ورمز التعيين مطلوبان', 400));
+  }
+
+  if (otp.length !== 6) {
+    return next(new AppError('الرمز يجب أن يكون 6 أرقام', 400));
+  }
+
+  const user = await User.findOne({ email }).select('+totpResetOTP +totpResetOTPExpires');
+  if (!user) {
+    return next(new AppError('بيانات غير صحيحة', 400));
+  }
+
+  if (!user.twoFactorEnabled) {
+    return next(new AppError('المصادقة الثنائية غير مفعلة على هذا الحساب', 400));
+  }
+
+  if (!user.totpResetOTP || user.totpResetOTP !== otp) {
+    return next(new AppError('رمز إعادة التعيين غير صحيح', 400));
+  }
+
+  if (Date.now() > user.totpResetOTPExpires) {
+    return next(new AppError('رمز إعادة التعيين منتهي الصلاحية', 400));
+  }
+
+  // Reset TOTP - disable 2FA and clear secret
+  user.twoFactorSecret = undefined;
+  user.twoFactorEnabled = false;
+  user.twoFactorVerified = false;
+  user.twoFactorSetupRequired = true;
+  user.totpResetOTP = undefined;
+  user.totpResetOTPExpires = undefined;
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: 'تم إعادة تعيين المصادقة الثنائية بنجاح. يرجى إعادة تعيين الرمز من الإعدادات'
+  });
+});

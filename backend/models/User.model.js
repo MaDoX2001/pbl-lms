@@ -121,6 +121,14 @@ const userSchema = new mongoose.Schema({
     type: Date,
     select: false
   },
+  totpResetOTP: {
+    type: String,
+    select: false
+  },
+  totpResetOTPExpires: {
+    type: Date,
+    select: false
+  },
   preAssessmentStatus: {
     type: String,
     enum: ['not_started', 'completed'],

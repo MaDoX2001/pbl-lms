@@ -27,6 +27,7 @@ const TwoFactorSetupPage = lazy(() => import('./pages/TwoFactorSetupPage'));
 const TwoFactorAuthPage = lazy(() => import('./pages/TwoFactorAuthPage'));
 const EmailVerificationPage = lazy(() => import('./pages/EmailVerificationPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetTOTPPage = lazy(() => import('./pages/ResetTOTPPage'));
 const ChatPage = lazy(() => import('./pages/ChatPage'));
 const LiveLecturesPage = lazy(() => import('./pages/LiveLecturesPage'));
 const TeamDashboard = lazy(() => import('./pages/TeamDashboard'));
@@ -111,6 +112,7 @@ function App() {
               <Route path="/signup" element={!isAuthenticated ? <PublicRegisterPage /> : <Navigate to="/dashboard" />} />
               <Route path="/verify-email" element={<EmailVerificationPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-totp" element={<ResetTOTPPage />} />
               <Route path="/projects" element={
                 <PrivateRoute>
                   <ProjectsPage />
