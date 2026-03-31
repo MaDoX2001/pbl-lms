@@ -1,4 +1,5 @@
 const User = require('../models/User.model');
+const OTP = require('../models/OTP.model');
 const axios = require('axios');
 const { catchAsyncErrors, AppError } = require('../middleware/errorHandler');
 
@@ -315,5 +316,50 @@ exports.resetTOTP = catchAsyncErrors(async (req, res, next) => {
   res.status(200).json({
     success: true,
     message: 'تم إعادة تعيين المصادقة الثنائية بنجاح. يرجى إعادة تعيين الرمز من الإعدادات'
+  });
+});
+
+// Admin repair for legacy TOTP reset states created before cleanup fix
+exports.adminRepairTOTPState = catchAsyncErrors(async (req, res, next) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return next(new AppError('البريد الإلكتروني مطلوب', 400));
+  }
+
+  const user = await User.findOne({ email }).select('+twoFactorSecret');
+  if (!user) {
+    return next(new AppError('المستخدم غير موجود', 404));
+  }
+
+  user.twoFactorSecret = undefined;
+  user.twoFactorEnabled = false;
+  user.twoFactorVerified = false;
+  user.twoFactorSetupRequired = true;
+  user.totpResetOTP = undefined;
+  user.totpResetOTPExpires = undefined;
+  await user.save();
+
+  await OTP.findOneAndUpdate(
+    { userId: user._id },
+    {
+      isEnabled: false,
+      secret: null,
+      qrCode: null,
+      backupCodes: [],
+      failedAttempts: 0,
+      lockoutUntil: null
+    },
+    { new: true }
+  );
+
+  res.status(200).json({
+    success: true,
+    message: 'تم إصلاح حالة المصادقة الثنائية بنجاح',
+    data: {
+      email: user.email,
+      twoFactorEnabled: user.twoFactorEnabled,
+      twoFactorSetupRequired: user.twoFactorSetupRequired
+    }
   });
 });

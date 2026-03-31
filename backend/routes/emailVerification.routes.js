@@ -1,12 +1,14 @@
 const express = require('express');
 const router = express.Router();
+const { protect, authorize } = require('../middleware/auth.middleware');
 const {
   sendEmailVerificationOTP,
   verifyEmail,
   requestPasswordReset,
   resetPassword,
   requestTOTPReset,
-  resetTOTP
+  resetTOTP,
+  adminRepairTOTPState
 } = require('../controllers/emailVerification.controller');
 const { authLimiter, resetPasswordLimiter } = require('../middleware/rateLimiter');
 
@@ -21,5 +23,8 @@ router.post('/reset-password', resetPasswordLimiter, resetPassword);
 // TOTP Reset
 router.post('/request-totp-reset', resetPasswordLimiter, requestTOTPReset);
 router.post('/reset-totp', resetPasswordLimiter, resetTOTP);
+
+// Admin repair (legacy cases before OTP cleanup fix)
+router.post('/admin/repair-totp-state', protect, authorize('admin'), adminRepairTOTPState);
 
 module.exports = router;
