@@ -117,10 +117,6 @@ const LoginPage = () => {
             <Link component={RouterLink} to="/forgot-password" underline="hover" variant="body2">
               {t('forgotPassword')}
             </Link>
-            <Typography variant="body2" sx={{ my: 1 }}>•</Typography>
-            <Link component={RouterLink} to="/reset-totp" underline="hover" variant="body2">
-              إعادة تعيين المصادقة الثنائية
-            </Link>
           </Box>
           
           <Button
