@@ -1,4 +1,4 @@
-﻿param(
+param(
     [Parameter(Mandatory=$true)]
     [string]$Token,
 
@@ -81,7 +81,7 @@ function New-IndividualCriterion {
     }
 }
 
-function Contains-Any {
+function Test-TextContains {
     param(
         [string]$Text,
         [string[]]$Needles
@@ -178,16 +178,16 @@ function Get-GroupQualityCriteria {
         "تحقيق المشروع للوظيفة المطلوبة كما هو موصوف في المهمة."
     )
 
-    if (Contains-Any -Text $blob -Needles @('ultrasonic','مسافة','distance')) {
+    if (Test-TextContains -Text $blob -Needles @('ultrasonic','مسافة','distance')) {
         $criteria += "دقة استجابة النظام لتغير المسافة ضمن الحدود المتوقعة."
     }
-    if (Contains-Any -Text $blob -Needles @('حركة','pir')) {
+    if (Test-TextContains -Text $blob -Needles @('حركة','pir')) {
         $criteria += "دقة استجابة النظام لحالات وجود الحركة وعدم وجودها."
     }
-    if (Contains-Any -Text $blob -Needles @('إضاءة','ldr','light')) {
+    if (Test-TextContains -Text $blob -Needles @('إضاءة','ldr','light')) {
         $criteria += "ثبات أداء النظام في بيئات إضاءة مختلفة."
     }
-    if (Contains-Any -Text $blob -Needles @('حرارة','رطوبة','dht','humidity','temperature')) {
+    if (Test-TextContains -Text $blob -Needles @('حرارة','رطوبة','dht','humidity','temperature')) {
         $criteria += "وضوح عرض القياسات واستقرار النتائج على واجهة المشروع."
     }
 
@@ -214,16 +214,16 @@ function Get-IndividualSkillCriteriaForProject {
         "أن يوظف القيم المقروءة داخل منطق تحكم برمجي."
     )
 
-    if (Contains-Any -Text $blob -Needles @('التمهيدي')) {
+    if (Test-TextContains -Text $blob -Needles @('التمهيدي')) {
         # Intro project keeps foundation only.
         return ($selected | Select-Object -Unique)
     }
 
-    if (Contains-Any -Text $blob -Needles @('مدخل المستخدم','button','زر')) {
+    if (Test-TextContains -Text $blob -Needles @('مدخل المستخدم','button','زر')) {
         $selected += $catalog.Button
     }
 
-    if (Contains-Any -Text $blob -Needles @('التحكم الذكي في الإضاءة','ldr','إضاءة','light')) {
+    if (Test-TextContains -Text $blob -Needles @('التحكم الذكي في الإضاءة','ldr','إضاءة','light')) {
         $selected += @(
             "أن يقرأ قيمة تماثلية باستخدام analogRead.",
             "أن ينشيء مخرج تماثلي باستخدام analogWrite ضمن النطاق 0–255."
@@ -232,17 +232,17 @@ function Get-IndividualSkillCriteriaForProject {
         $selected += $catalog.LEDPWM
     }
 
-    if (Contains-Any -Text $blob -Needles @('كشف الحركة','pir','الحركة')) {
+    if (Test-TextContains -Text $blob -Needles @('كشف الحركة','pir','الحركة')) {
         $selected += $catalog.PIR
         $selected += $catalog.Buzzer
     }
 
-    if (Contains-Any -Text $blob -Needles @('المسافة','ultrasonic','distance','trigger','echo')) {
+    if (Test-TextContains -Text $blob -Needles @('المسافة','ultrasonic','distance','trigger','echo')) {
         $selected += $catalog.Ultrasonic
         $selected += $catalog.Buzzer
     }
 
-    if (Contains-Any -Text $blob -Needles @('الحرارة','الرطوبة','dht','humidity','temperature')) {
+    if (Test-TextContains -Text $blob -Needles @('الحرارة','الرطوبة','dht','humidity','temperature')) {
         $selected += $catalog.DHT11
         $selected += $catalog.LCD
     }
@@ -250,7 +250,7 @@ function Get-IndividualSkillCriteriaForProject {
     return ($selected | Select-Object -Unique)
 }
 
-function Build-GroupSections {
+function New-GroupSections {
     param($Project)
 
     $groupCriteria = Get-GroupQualityCriteria -Project $Project
@@ -277,7 +277,7 @@ function Build-GroupSections {
     )
 }
 
-function Build-IndividualSections {
+function New-IndividualSections {
     param($Project)
 
     $skills = @(Get-IndividualSkillCriteriaForProject -Project $Project)
@@ -309,7 +309,7 @@ function Build-IndividualSections {
     )
 }
 
-function Upsert-ObservationCard {
+function Set-ObservationCard {
     param(
         [string]$ProjectId,
         [string]$Phase,
@@ -405,14 +405,14 @@ foreach ($project in $projects) {
     Write-Host "`n--- Project: $projectTitle ($projectId) [$visibility] ---" -ForegroundColor Magenta
 
     $individualSkills = Get-IndividualSkillCriteriaForProject -Project $project
-    $groupSections = Build-GroupSections -Project $project
-    $individualSections = Build-IndividualSections -Project $project
+    $groupSections = New-GroupSections -Project $project
+    $individualSections = New-IndividualSections -Project $project
 
     Write-Host "Selected individual programming skills:" -ForegroundColor DarkCyan
     $individualSkills | ForEach-Object { Write-Host " - $_" -ForegroundColor DarkCyan }
 
-    Upsert-ObservationCard -ProjectId $projectId -Phase "group" -Sections $groupSections
-    Upsert-ObservationCard -ProjectId $projectId -Phase "individual_oral" -Sections $individualSections
+    Set-ObservationCard -ProjectId $projectId -Phase "group" -Sections $groupSections
+    Set-ObservationCard -ProjectId $projectId -Phase "individual_oral" -Sections $individualSections
 
     $updatedCount += 1
 }
