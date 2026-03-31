@@ -1071,6 +1071,30 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       }
     });
   } catch (error) {
+    const rawMessage = String(error?.message || '');
+    const lowered = rawMessage.toLowerCase();
+    const isQuotaOrRateLimited =
+      lowered.includes('429')
+      || lowered.includes('quota')
+      || lowered.includes('rate limit')
+      || lowered.includes('too many requests');
+
+    if (isQuotaOrRateLimited) {
+      const retryMatch = rawMessage.match(/retry in\s+([\d.]+)s/i);
+      const retryAfterSeconds = retryMatch ? Math.ceil(Number(retryMatch[1])) : null;
+
+      if (retryAfterSeconds && Number.isFinite(retryAfterSeconds)) {
+        res.set('Retry-After', String(retryAfterSeconds));
+      }
+
+      return res.status(429).json({
+        success: false,
+        message: 'خدمة تقييم AI وصلت للحد الأقصى مؤقتاً. حاول مرة أخرى بعد قليل.',
+        retryAfterSeconds,
+        error: rawMessage
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: 'حدث خطأ أثناء توليد تقييم AI',

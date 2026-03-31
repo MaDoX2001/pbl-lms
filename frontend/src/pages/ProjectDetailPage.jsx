@@ -617,6 +617,11 @@ const ProjectDetailPage = () => {
   const handleBulkAIEvaluateSubmittedStudents = async () => {
     if (bulkAIRunning) return;
 
+    if (project?.isTeamProject) {
+      toast.info('تقييم AI التلقائي متاح حالياً للمشاريع الفردية فقط. للمشاريع الفريقية استخدم التقييم اليدوي حالياً.');
+      return;
+    }
+
     const candidates = (projectSubmissionsForReview || []).filter((submission) => {
       const studentId = submission.student?._id || submission.studentId || submission.student;
       return Boolean(studentId) && hasUsableSubmissionPayload(submission);
@@ -630,7 +635,7 @@ const ProjectDetailPage = () => {
     try {
       await ensureAIEvaluationReadiness();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'تعذر تشغيل تقييم AI: تأكد من وجود بطاقات الملاحظة (جماعي + فردي/شفهي) للمشروع');
+      toast.error(err.response?.data?.message || 'تعذر تشغيل تقييم AI: تأكد من وجود بطاقات الملاحظة (تقييم المشروع ككل + تقييم فردي/شفهي) للمشروع');
       return;
     }
 
@@ -709,8 +714,23 @@ const ProjectDetailPage = () => {
 
         const status = err?.response?.status;
         const message = err?.response?.data?.message || '';
+        const errorDetails = String(err?.response?.data?.error || '');
+        const text = `${message} ${errorDetails}`.toLowerCase();
+        const isQuotaOrServiceLimit =
+          status === 429
+          || text.includes('quota')
+          || text.includes('too many requests')
+          || text.includes('rate limit')
+          || text.includes('gemini');
+
+        if (isQuotaOrServiceLimit) {
+          toast.error(message || 'تم إيقاف التقييم: خدمة AI وصلت للحد الأقصى مؤقتاً. حاول مرة أخرى بعد قليل.');
+          setBulkAIProgress({ done: i + 1, total: candidates.length });
+          break;
+        }
+
         // Stop flooding requests when the project is not AI-ready or endpoint isn't available.
-        if (status === 404 || status === 405 || status === 501) {
+        if (status === 400 || status === 404 || status === 405 || status === 500 || status === 501 || status === 503) {
           toast.error(message || 'تم إيقاف التقييم الجماعي: خدمة تقييم AI غير متاحة حالياً أو المسار غير موجود');
           setBulkAIProgress({ done: i + 1, total: candidates.length });
           break;

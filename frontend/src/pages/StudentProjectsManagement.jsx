@@ -177,13 +177,8 @@ const StudentProjectsManagement = () => {
   const handlePhase2Evaluation = async (projectId, studentId, submissionId) => {
     // Check required observation cards before navigation
     try {
+      await api.get(`/assessment/observation-card/${projectId}/group`);
       await api.get(`/assessment/observation-card/${projectId}/individual_oral`);
-
-      const projectRes = await api.get(`/projects/${projectId}`);
-      const isTeamProject = Boolean(projectRes.data?.data?.isTeamProject);
-      if (!isTeamProject) {
-        await api.get(`/assessment/observation-card/${projectId}/group`);
-      }
 
       navigate(`/evaluate/individual/${projectId}/${studentId}/${submissionId}`);
     } catch (err) {
