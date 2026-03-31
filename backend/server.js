@@ -205,7 +205,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle typing indicator
+    // Handle typing indicator (for real-time UI feedback)
   socket.on('typing', (conversationId) => {
     socket.to(`conversation-${conversationId}`).emit('user-typing', {
       userId: socket.userId,
