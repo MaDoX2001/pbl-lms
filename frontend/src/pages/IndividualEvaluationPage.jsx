@@ -31,7 +31,7 @@ import {
   Divider
 } from '@mui/material';
 import { NavigateNext as NavigateNextIcon, Lock as LockIcon, ArrowBack as ArrowBackIcon, AutoAwesome as AutoAwesomeIcon } from '@mui/icons-material';
-import axios from 'axios';
+import api from '../services/api';
 import { useAppSettings } from '../context/AppSettingsContext';
 
 const IndividualEvaluationPage = () => {
@@ -82,9 +82,7 @@ const IndividualEvaluationPage = () => {
       setLoading(true);
 
       // Fetch project details
-      const projectRes = await axios.get(`/api/projects/${projectId}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+      const projectRes = await api.get(`/projects/${projectId}`);
       const projectData = projectRes?.data?.data;
       if (!projectData) {
         throw new Error('بيانات المشروع غير متاحة');
@@ -94,40 +92,30 @@ const IndividualEvaluationPage = () => {
       // If team project, check Phase 1 completion
       if (projectData.isTeamProject) {
         // Fetch student to get team
-        const studentRes = await axios.get(`/api/users/${studentId}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
+        const studentRes = await api.get(`/users/${studentId}`);
         setStudent(studentRes.data.data);
 
         // Find team
-        const teamsRes = await axios.get(`/api/teams/project/${projectId}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
+        const teamsRes = await api.get(`/teams/project/${projectId}`);
         const studentTeam = teamsRes.data.data.find(team =>
           team.members.some(m => m._id === studentId || m === studentId)
         );
 
         if (studentTeam) {
           // Check Phase 1 status
-          const statusRes = await axios.get(`/api/assessment/group-status/${projectId}/${studentTeam._id}`, {
-            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-          });
+          const statusRes = await api.get(`/assessment/group-status/${projectId}/${studentTeam._id}`);
           setPhase1Status(statusRes.data.data);
         }
       } else {
         // Individual project - no Phase 1 check needed
-        const studentRes = await axios.get(`/api/users/${studentId}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
+        const studentRes = await api.get(`/users/${studentId}`);
         setStudent(studentRes.data.data);
         setPhase1Status({ phase1Complete: true }); // Skip Phase 1 for individual projects
         setStudentRole('programmer'); // Stored role is required by schema, but all criteria are enforced for individual projects
       }
       
       // Fetch phase 2 observation card
-      const cardRes = await axios.get(`/api/assessment/observation-card/${projectId}/individual_oral`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+      const cardRes = await api.get(`/assessment/observation-card/${projectId}/individual_oral`);
       setObservationCard(cardRes.data.data);
 
       // Initialize selections
@@ -147,9 +135,7 @@ const IndividualEvaluationPage = () => {
 
       // For individual projects, evaluate by both cards (group + individual)
       if (!projectData.isTeamProject) {
-        const groupCardRes = await axios.get(`/api/assessment/observation-card/${projectId}/group`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
+        const groupCardRes = await api.get(`/assessment/observation-card/${projectId}/group`);
         setGroupObservationCard(groupCardRes.data.data);
 
         const initialGroupSelections = {};
@@ -313,26 +299,22 @@ const IndividualEvaluationPage = () => {
 
       // In individual projects, evaluate with both observation cards
       if (isAllRolesMode && groupObservationCard) {
-        await axios.post('/api/assessment/evaluate-group', {
+        await api.post('/assessment/evaluate-group', {
           projectId,
           studentId,
           submissionId,
           sectionEvaluations: buildSectionEvaluations(groupObservationCard, groupSelections),
           feedbackSummary
-        }, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       }
 
-      await axios.post('/api/assessment/evaluate-individual', {
+      await api.post('/assessment/evaluate-individual', {
         projectId,
         studentId,
         studentRole: studentRole || 'programmer',
         submissionId,
         sectionEvaluations: buildSectionEvaluations(observationCard, selections),
         feedbackSummary
-      }, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
 
       alert(t('individualEvaluationSavedSuccess'));
@@ -373,12 +355,10 @@ const IndividualEvaluationPage = () => {
         throw new Error('بيانات التقييم غير مكتملة');
       }
 
-      const res = await axios.post('/api/assessment/ai-evaluate-individual', {
+      const res = await api.post('/assessment/ai-evaluate-individual', {
         projectId,
         studentId,
         submissionId
-      }, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
 
       setAiData(res.data?.data || null);
@@ -405,7 +385,7 @@ const IndividualEvaluationPage = () => {
         setStudentRole(aiData.studentRole || 'programmer');
 
         if (isAllRolesMode && aiData.groupCard) {
-          await axios.post('/api/assessment/evaluate-group', {
+          await api.post('/assessment/evaluate-group', {
             projectId,
             studentId,
             submissionId: aiData.basedOnSubmissionId || submissionId,
@@ -418,12 +398,10 @@ const IndividualEvaluationPage = () => {
               plagiarismLevel: aiData.plagiarism?.level,
               rationale: aiData.rationale
             }
-          }, {
-            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
           });
         }
 
-        await axios.post('/api/assessment/evaluate-individual', {
+        await api.post('/assessment/evaluate-individual', {
           projectId,
           studentId,
           studentRole: 'programmer',
@@ -437,8 +415,6 @@ const IndividualEvaluationPage = () => {
             plagiarismLevel: aiData.plagiarism?.level,
             rationale: aiData.rationale
           }
-        }, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
 
         alert('تم اعتماد تقييم AI تلقائيًا وحفظ بطاقات الملاحظة');
@@ -464,7 +440,7 @@ const IndividualEvaluationPage = () => {
         setFeedbackSummary(aiData.feedbackSuggestion);
 
         if (submissionId) {
-          await axios.put(`/api/progress/${submissionId}/feedback`, {
+          await api.put(`/progress/${submissionId}/feedback`, {
             comments: aiData.feedbackSuggestion,
             allowResubmission: false,
             source: 'ai-assisted',
@@ -474,8 +450,6 @@ const IndividualEvaluationPage = () => {
               plagiarismLevel: aiData.plagiarism?.level
             },
             skipEvaluationCheck: true
-          }, {
-            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
           });
         }
 

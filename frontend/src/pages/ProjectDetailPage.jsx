@@ -102,6 +102,7 @@ const ProjectDetailPage = () => {
   const [showOtherSubmissionsByStudent, setShowOtherSubmissionsByStudent] = useState({});
   const [bulkAIRunning, setBulkAIRunning] = useState(false);
   const [bulkAIProgress, setBulkAIProgress] = useState({ done: 0, total: 0 });
+  const [singleAIRunningBySubmission, setSingleAIRunningBySubmission] = useState({});
   const [myTeam, setMyTeam] = useState(null);
   const [teamEnrollmentLoading, setTeamEnrollmentLoading] = useState(false);
   const [teamAlreadyEnrolled, setTeamAlreadyEnrolled] = useState(false);
@@ -614,6 +615,85 @@ const ProjectDetailPage = () => {
     ]);
   };
 
+  const runAIEvaluationForSubmission = async (submission) => {
+    const studentId = submission.student?._id || submission.studentId || submission.student;
+    if (!studentId) {
+      throw new Error('تعذر تحديد الطالب للتقييم');
+    }
+
+    const aiRes = await api.post('/assessment/ai-evaluate-individual', {
+      projectId: id,
+      studentId,
+      submissionId: submission._id
+    });
+
+    const aiData = aiRes.data?.data;
+    if (!aiData) {
+      throw new Error('لم يتم استلام نتيجة AI صالحة');
+    }
+
+    await api.post('/assessment/evaluate-group', {
+      projectId: id,
+      studentId,
+      submissionId: aiData.basedOnSubmissionId || submission._id,
+      sectionEvaluations: draftToSectionEvaluations(aiData.groupCard),
+      feedbackSummary: aiData.feedbackSuggestion || '',
+      evaluationSource: 'ai-single',
+      aiApproval: {
+        confidence: aiData.confidence,
+        plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
+        plagiarismLevel: aiData.plagiarism?.level,
+        rationale: aiData.rationale
+      }
+    });
+
+    await api.post('/assessment/evaluate-individual', {
+      projectId: id,
+      studentId,
+      studentRole: 'programmer',
+      submissionId: aiData.basedOnSubmissionId || submission._id,
+      sectionEvaluations: draftToSectionEvaluations(aiData.individualCard),
+      feedbackSummary: aiData.feedbackSuggestion || '',
+      evaluationSource: 'ai-single',
+      aiApproval: {
+        confidence: aiData.confidence,
+        plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
+        plagiarismLevel: aiData.plagiarism?.level,
+        rationale: aiData.rationale
+      }
+    });
+
+    await api.put(`/progress/${submission._id}/feedback`, {
+      comments: aiData.feedbackSuggestion || '',
+      allowResubmission: false,
+      source: 'ai-single',
+      aiMeta: {
+        confidence: aiData.confidence,
+        plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
+        plagiarismLevel: aiData.plagiarism?.level
+      },
+      skipEvaluationCheck: true
+    });
+  };
+
+  const handleSingleAIEvaluateStudent = async (submission) => {
+    if (!submission?._id) return;
+
+    try {
+      setSingleAIRunningBySubmission((prev) => ({ ...prev, [submission._id]: true }));
+      await ensureAIEvaluationReadiness();
+      await runAIEvaluationForSubmission(submission);
+      toast.success('تمت إعادة تقييم AI لهذا الطالب بنجاح');
+      await fetchProjectSubmissionsForReview();
+    } catch (err) {
+      const message = err?.response?.data?.message || err?.message || 'فشل إعادة تقييم AI لهذا الطالب';
+      toast.error(message);
+      console.error('Single AI evaluation failed for student', submission.student?._id || submission.studentId || submission.student, err);
+    } finally {
+      setSingleAIRunningBySubmission((prev) => ({ ...prev, [submission._id]: false }));
+    }
+  };
+
   const handleBulkAIEvaluateSubmittedStudents = async () => {
     if (bulkAIRunning) return;
 
@@ -653,59 +733,7 @@ const ProjectDetailPage = () => {
       const studentId = submission.student?._id || submission.studentId || submission.student;
 
       try {
-        const aiRes = await api.post('/assessment/ai-evaluate-individual', {
-          projectId: id,
-          studentId,
-          submissionId: submission._id
-        });
-
-        const aiData = aiRes.data?.data;
-        if (!aiData) {
-          throw new Error('لم يتم استلام نتيجة AI صالحة');
-        }
-
-        await api.post('/assessment/evaluate-group', {
-          projectId: id,
-          studentId,
-          submissionId: aiData.basedOnSubmissionId || submission._id,
-          sectionEvaluations: draftToSectionEvaluations(aiData.groupCard),
-          feedbackSummary: aiData.feedbackSuggestion || '',
-          evaluationSource: 'ai-batch',
-          aiApproval: {
-            confidence: aiData.confidence,
-            plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
-            plagiarismLevel: aiData.plagiarism?.level,
-            rationale: aiData.rationale
-          }
-        });
-
-        await api.post('/assessment/evaluate-individual', {
-          projectId: id,
-          studentId,
-          studentRole: 'programmer',
-          submissionId: aiData.basedOnSubmissionId || submission._id,
-          sectionEvaluations: draftToSectionEvaluations(aiData.individualCard),
-          feedbackSummary: aiData.feedbackSuggestion || '',
-          evaluationSource: 'ai-batch',
-          aiApproval: {
-            confidence: aiData.confidence,
-            plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
-            plagiarismLevel: aiData.plagiarism?.level,
-            rationale: aiData.rationale
-          }
-        });
-
-        await api.put(`/progress/${submission._id}/feedback`, {
-          comments: aiData.feedbackSuggestion || '',
-          allowResubmission: false,
-          source: 'ai-batch',
-          aiMeta: {
-            confidence: aiData.confidence,
-            plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
-            plagiarismLevel: aiData.plagiarism?.level
-          },
-          skipEvaluationCheck: true
-        });
+        await runAIEvaluationForSubmission(submission);
 
         successCount += 1;
       } catch (err) {
@@ -730,7 +758,7 @@ const ProjectDetailPage = () => {
         }
 
         // Stop flooding requests when the project is not AI-ready or endpoint isn't available.
-        if (status === 400 || status === 404 || status === 405 || status === 500 || status === 501 || status === 503) {
+        if (status === 400 || status === 404 || status === 405 || status === 500 || status === 501 || status === 502 || status === 503) {
           toast.error(message || 'تم إيقاف التقييم الجماعي: خدمة تقييم AI غير متاحة حالياً أو المسار غير موجود');
           setBulkAIProgress({ done: i + 1, total: candidates.length });
           break;
@@ -1594,6 +1622,19 @@ const ProjectDetailPage = () => {
                                   disabled={!(submission.student?._id || submission.studentId || submission.student)}
                                 >
                                   مراجعة تقييم AI لهذا الطالب
+                                </Button>
+                              </Grid>
+                              <Grid item xs={12}>
+                                <Button
+                                  fullWidth
+                                  size="small"
+                                  variant="outlined"
+                                  color="secondary"
+                                  startIcon={<AutoAwesomeIcon />}
+                                  onClick={() => handleSingleAIEvaluateStudent(submission)}
+                                  disabled={Boolean(singleAIRunningBySubmission[submission._id]) || bulkAIRunning || !(submission.student?._id || submission.studentId || submission.student)}
+                                >
+                                  {singleAIRunningBySubmission[submission._id] ? 'جارٍ إعادة تقييم AI...' : 'إعادة تقييم AI لهذا الطالب'}
                                 </Button>
                               </Grid>
                             </Grid>
