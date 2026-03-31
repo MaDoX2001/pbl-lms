@@ -9,6 +9,7 @@ const Project = require('../models/Project.model');
 const Team = require('../models/Team.model');
 const TeamProject = require('../models/TeamProject.model');
 const TeamSubmission = require('../models/TeamSubmission.model');
+const mongoose = require('mongoose');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const geminiClient = process.env.GEMINI_API_KEY
@@ -814,6 +815,27 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'projectId و studentId مطلوبان'
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(projectId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'projectId غير صالح'
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(studentId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'studentId غير صالح'
+      });
+    }
+
+    if (submissionId && !mongoose.Types.ObjectId.isValid(submissionId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'submissionId غير صالح'
       });
     }
 
