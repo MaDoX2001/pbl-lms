@@ -15,7 +15,7 @@ const geminiClient = process.env.GEMINI_API_KEY
   ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
   : null;
 
-const AI_EVAL_MODELS = (process.env.AI_MODELS || 'gemini-2.0-flash')
+const AI_EVAL_MODELS = (process.env.AI_MODELS || 'gemini-2.5-flash,gemini-1.5-flash')
   .split(',')
   .map((m) => m.trim())
   .filter(Boolean);
@@ -1073,11 +1073,23 @@ exports.generateAIEvaluationDraft = async (req, res) => {
   } catch (error) {
     const rawMessage = String(error?.message || '');
     const lowered = rawMessage.toLowerCase();
+    const isModelUnavailable =
+      (lowered.includes('404') && lowered.includes('model'))
+      || lowered.includes('no longer available')
+      || lowered.includes('models/');
     const isQuotaOrRateLimited =
       lowered.includes('429')
       || lowered.includes('quota')
       || lowered.includes('rate limit')
       || lowered.includes('too many requests');
+
+    if (isModelUnavailable) {
+      return res.status(503).json({
+        success: false,
+        message: 'نموذج تقييم AI الحالي غير متاح. تم تحديث الإعدادات، حاول مرة أخرى خلال دقائق بعد اكتمال النشر.',
+        error: rawMessage
+      });
+    }
 
     if (isQuotaOrRateLimited) {
       const retryMatch = rawMessage.match(/retry in\s+([\d.]+)s/i);
