@@ -65,7 +65,7 @@ const evaluationAttemptSchema = new mongoose.Schema({
       },
       selectedPercentage: {
         type: Number,
-        enum: [0, 20, 40, 60, 80, 100]
+        enum: [0, 50, 100]
       },
       selectedDescription: {
         type: String

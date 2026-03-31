@@ -44,6 +44,12 @@ $projectData = @{
     projectOrder = 1  # For level progression (1-6)
 }
 
+$standardOptions = @(
+    @{ percentage = 0; description = "لم يؤد المعيار." },
+    @{ percentage = 50; description = "أدى المعيار مع أخطاء واضحة." },
+    @{ percentage = 100; description = "أدى المعيار بشكل صحيح تماما." }
+)
+
 # Individual/Oral Observation Card (required for all projects)
 $individualCard = @{
     phase = "individual_oral"
@@ -54,13 +60,13 @@ $individualCard = @{
             criteria = @(
                 @{ 
                     name = "المعيار الأول"
-                    description = "وصف المعيار"
-                    maxScore = 25 
+                    applicableRoles = @("all")
+                    options = $standardOptions
                 },
                 @{ 
                     name = "المعيار الثاني"
-                    description = "وصف المعيار"
-                    maxScore = 25 
+                    applicableRoles = @("all")
+                    options = $standardOptions
                 }
             )
         },
@@ -70,8 +76,8 @@ $individualCard = @{
             criteria = @(
                 @{ 
                     name = "المعيار الثالث"
-                    description = "وصف المعيار"
-                    maxScore = 50 
+                    applicableRoles = @("all")
+                    options = $standardOptions
                 }
             )
         }
@@ -88,13 +94,13 @@ $groupCard = @{
             criteria = @(
                 @{ 
                     name = "التعاون"
-                    description = "مدى تعاون أعضاء الفريق"
-                    maxScore = 50 
+                    applicableRoles = @("all")
+                    options = $standardOptions
                 },
                 @{ 
                     name = "تقسيم المهام"
-                    description = "كفاءة توزيع المهام"
-                    maxScore = 50 
+                    applicableRoles = @("all")
+                    options = $standardOptions
                 }
             )
         }

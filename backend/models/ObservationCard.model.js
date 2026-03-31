@@ -45,7 +45,7 @@ const observationCardSchema = new mongoose.Schema({
         percentage: {
           type: Number,
           required: true,
-          enum: [0, 20, 40, 60, 80, 100]
+          enum: [0, 50, 100]
         },
         description: {
           type: String,

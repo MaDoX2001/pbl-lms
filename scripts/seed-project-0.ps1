@@ -6,6 +6,12 @@ $projectId = "698e4343d287e2bd028d9465"
 
 Write-Host "Creating observation card for Project 0..." -ForegroundColor Cyan
 
+$standardOptions = @(
+  @{ percentage = 0; description = "لم يؤد المعيار." },
+  @{ percentage = 50; description = "أدى المعيار مع أخطاء واضحة." },
+  @{ percentage = 100; description = "أدى المعيار بشكل صحيح تماما." }
+)
+
 $individualCard = @{
   projectId = $projectId
   phase = "individual_oral"
@@ -16,13 +22,13 @@ $individualCard = @{
       criteria = @(
         @{
           name = "إنشاء الحساب وتسجيل الدخول"
-          description = "نجاح الطالب في إنشاء حساب والدخول للمنصة"
-          maxScore = 20
+          applicableRoles = @("all")
+          options = $standardOptions
         },
         @{
           name = "التنقل داخل المنصة"
-          description = "قدرة الطالب على التنقل بين أقسام المنصة وفتح المحاكاة"
-          maxScore = 20
+          applicableRoles = @("all")
+          options = $standardOptions
         }
       )
     },
@@ -32,13 +38,13 @@ $individualCard = @{
       criteria = @(
         @{
           name = "اختيار لوحة Arduino"
-          description = "اختيار اللوحة الصحيحة داخل المحاكاة"
-          maxScore = 20
+          applicableRoles = @("all")
+          options = $standardOptions
         },
         @{
           name = "التحكم في LED الداخلي"
-          description = "كتابة برنامج صحيح لتشغيل وإيقاف LED الداخلي"
-          maxScore = 40
+          applicableRoles = @("all")
+          options = $standardOptions
         }
       )
     }

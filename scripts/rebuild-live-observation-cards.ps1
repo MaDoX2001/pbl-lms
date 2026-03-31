@@ -39,12 +39,9 @@ function Get-GroupScaleOptions {
     param([string]$CriterionName)
 
     return @(
-        @{ percentage = 0;   description = "الأداء في '$CriterionName' غير متحقق، والمنتج لا يحقق المتطلب الأساسي." },
-        @{ percentage = 20;  description = "الأداء في '$CriterionName' ضعيف جدًا، مع مشكلات واضحة تعوق جودة المشروع." },
-        @{ percentage = 40;  description = "الأداء في '$CriterionName' مقبول جزئيًا، لكن توجد نواقص جوهرية تحتاج تحسين." },
-        @{ percentage = 60;  description = "الأداء في '$CriterionName' متوسط ومقبول، مع ملاحظات يمكن معالجتها." },
-        @{ percentage = 80;  description = "الأداء في '$CriterionName' جيد جدًا، والمشروع يعمل بجودة واضحة." },
-        @{ percentage = 100; description = "الأداء في '$CriterionName' متقن بالكامل، والجودة ممتازة ومستقرة." }
+        @{ percentage = 0;   description = "لم يؤد الفريق معيار '$CriterionName'." },
+        @{ percentage = 50;  description = "أدى الفريق معيار '$CriterionName' ولكن مع أخطاء واضحة." },
+        @{ percentage = 100; description = "أدى الفريق معيار '$CriterionName' بشكل صحيح تماما." }
     )
 }
 
@@ -53,11 +50,8 @@ function Get-IndividualScaleOptions {
 
     return @(
         @{ percentage = 0;   description = "لم يطبق الطالب مهارة '$CriterionName'." },
-        @{ percentage = 20;  description = "تطبيق محدود جدًا لمهارة '$CriterionName' مع أخطاء أساسية." },
-        @{ percentage = 40;  description = "تطبيق جزئي لمهارة '$CriterionName' ويحتاج دعمًا واضحًا." },
-        @{ percentage = 60;  description = "تطبيق مقبول لمهارة '$CriterionName' مع بعض الأخطاء." },
-        @{ percentage = 80;  description = "تطبيق جيد لمهارة '$CriterionName' مع دقة جيدة." },
-        @{ percentage = 100; description = "تطبيق متقن وكامل لمهارة '$CriterionName' دون أخطاء مؤثرة." }
+        @{ percentage = 50;  description = "طبق الطالب مهارة '$CriterionName' لكن مع أخطاء واضحة." },
+        @{ percentage = 100; description = "طبق الطالب مهارة '$CriterionName' بشكل صحيح تماما." }
     )
 }
 

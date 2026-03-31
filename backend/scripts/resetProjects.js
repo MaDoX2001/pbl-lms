@@ -45,13 +45,21 @@ const individualCard = {
       criteria: [
         {
           name: 'إنشاء الحساب وتسجيل الدخول',
-          description: 'نجاح الطالب في إنشاء حساب والدخول للمنصة',
-          maxScore: 20
+          applicableRoles: ['all'],
+          options: [
+            { percentage: 0, description: 'لم يؤد المعيار.' },
+            { percentage: 50, description: 'أدى المعيار مع أخطاء واضحة.' },
+            { percentage: 100, description: 'أدى المعيار بشكل صحيح تماما.' }
+          ]
         },
         {
           name: 'التنقل داخل المنصة',
-          description: 'قدرة الطالب على التنقل بين أقسام المنصة وفتح المحاكاة',
-          maxScore: 20
+          applicableRoles: ['all'],
+          options: [
+            { percentage: 0, description: 'لم يؤد المعيار.' },
+            { percentage: 50, description: 'أدى المعيار مع أخطاء واضحة.' },
+            { percentage: 100, description: 'أدى المعيار بشكل صحيح تماما.' }
+          ]
         }
       ]
     },
@@ -61,13 +69,21 @@ const individualCard = {
       criteria: [
         {
           name: 'اختيار لوحة Arduino',
-          description: 'اختيار اللوحة الصحيحة داخل المحاكاة',
-          maxScore: 20
+          applicableRoles: ['all'],
+          options: [
+            { percentage: 0, description: 'لم يؤد المعيار.' },
+            { percentage: 50, description: 'أدى المعيار مع أخطاء واضحة.' },
+            { percentage: 100, description: 'أدى المعيار بشكل صحيح تماما.' }
+          ]
         },
         {
           name: 'التحكم في LED الداخلي',
-          description: 'كتابة برنامج صحيح لتشغيل وإيقاف LED الداخلي',
-          maxScore: 40
+          applicableRoles: ['all'],
+          options: [
+            { percentage: 0, description: 'لم يؤد المعيار.' },
+            { percentage: 50, description: 'أدى المعيار مع أخطاء واضحة.' },
+            { percentage: 100, description: 'أدى المعيار بشكل صحيح تماما.' }
+          ]
         }
       ]
     }

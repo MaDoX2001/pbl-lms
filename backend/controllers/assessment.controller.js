@@ -27,6 +27,37 @@ const extractWokwiLink = (text) => {
   return match ? match[0] : null;
 };
 
+const STANDARD_OBSERVATION_PERCENTAGES = [0, 50, 100];
+
+const getStandardOptionDescription = (criterionName, percentage) => {
+  if (percentage === 0) {
+    return `لم يؤد الطالب معيار "${criterionName}".`;
+  }
+  if (percentage === 50) {
+    return `أدى الطالب معيار "${criterionName}" مع وجود أخطاء واضحة.`;
+  }
+  return `أدى الطالب معيار "${criterionName}" بشكل صحيح تماما.`;
+};
+
+const normalizeSectionsToUnifiedScale = (sections = []) => {
+  return (Array.isArray(sections) ? sections : []).map((section) => ({
+    ...section,
+    criteria: (section.criteria || []).map((criterion) => ({
+      ...criterion,
+      options: STANDARD_OBSERVATION_PERCENTAGES.map((percentage) => {
+        const existingOption = (criterion.options || []).find(
+          (option) => Number(option?.percentage) === percentage
+        );
+
+        return {
+          percentage,
+          description: (existingOption?.description || '').trim() || getStandardOptionDescription(criterion.name, percentage)
+        };
+      })
+    }))
+  }));
+};
+
 const safeJsonParse = (rawText) => {
   if (!rawText) return null;
   const text = String(rawText).trim();
@@ -189,6 +220,7 @@ const callGeminiForAssessment = async (prompt) => {
 exports.createOrUpdateObservationCard = async (req, res) => {
   try {
     const { projectId, phase, sections } = req.body;
+    const normalizedSections = normalizeSectionsToUnifiedScale(sections);
 
     // Validate phase
     if (!['group', 'individual_oral'].includes(phase)) {
@@ -221,13 +253,13 @@ exports.createOrUpdateObservationCard = async (req, res) => {
     });
 
     if (observationCard) {
-      observationCard.sections = sections;
+      observationCard.sections = normalizedSections;
       await observationCard.save();
     } else {
       observationCard = await ObservationCard.create({
         project: projectId,
         phase,
-        sections,
+        sections: normalizedSections,
         createdBy: req.user.id
       });
     }
@@ -253,6 +285,7 @@ exports.updateObservationCard = async (req, res) => {
   try {
     const { cardId } = req.params;
     const { sections } = req.body;
+    const normalizedSections = normalizeSectionsToUnifiedScale(sections);
 
     const observationCard = await ObservationCard.findById(cardId).populate('project', 'instructor');
     if (!observationCard) {
@@ -270,7 +303,7 @@ exports.updateObservationCard = async (req, res) => {
       });
     }
 
-    observationCard.sections = sections;
+    observationCard.sections = normalizedSections;
     await observationCard.save();
 
     res.json({
@@ -921,8 +954,12 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         fileType: submissionRecord.fileType || '',
         fileUrl: submissionRecord.fileUrl || '',
         comments: submissionRecord.comments || '',
+        reportText: submissionRecord.comments || '',
         codeSubmission: '',
         notes: '',
+        submissionFiles: submissionRecord.fileUrl
+          ? [{ filename: submissionRecord.fileName || 'submission-file', url: submissionRecord.fileUrl }]
+          : [],
         submittedAt: submissionRecord.submittedAt
       }
       : {
@@ -933,13 +970,17 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         fileType: '',
         fileUrl: submissionRecord.submissionUrl || submissionRecord.submissionFiles?.[submissionRecord.submissionFiles.length - 1]?.url || '',
         comments: submissionRecord.notes || '',
+        reportText: submissionRecord.notes || '',
         codeSubmission: submissionRecord.codeSubmission || '',
         notes: submissionRecord.notes || '',
+        submissionFiles: submissionRecord.submissionFiles || [],
         submittedAt: submissionRecord.submittedAt || submissionRecord.updatedAt
       };
 
-    const wokwiLink = extractWokwiLink(submissionView.comments)
-      || extractWokwiLink(submissionView.fileUrl)
+    const wokwiLink = extractWokwiLink(submissionView.fileUrl)
+      || extractWokwiLink(submissionView.reportText)
+      || extractWokwiLink(submissionView.comments)
+      || extractWokwiLink(submissionView.notes)
       || extractWokwiLink(submissionView.codeSubmission)
       || null;
 
@@ -988,6 +1029,8 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       strictRules: [
         'Return JSON only without markdown fences.',
         'For every criterion in both cards, choose only one allowed percentage from allowedPercentages.',
+        'Evaluation priority must be: 1) Wokwi link evidence, 2) student report text, 3) submitted code/files/other artifacts.',
+        'If Wokwi link is missing, inaccessible, or insufficient, fallback to report text first before using other artifacts.',
         'Keep rationale concise and actionable for teacher review.',
         'Include feedbackSuggestion for the student in Arabic.'
       ],
@@ -1005,12 +1048,19 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       submission: {
         id: submissionView.id,
         source: submissionSource,
+        evidencePriority: [
+          'wokwiLink',
+          'reportText',
+          'otherArtifacts'
+        ],
         fileTitle: submissionView.fileTitle,
         fileName: submissionView.fileName,
         fileType: submissionView.fileType,
         fileUrl: submissionView.fileUrl,
+        reportText: submissionView.reportText,
         comments: submissionView.comments,
         codeSubmission: submissionView.codeSubmission,
+        submissionFiles: submissionView.submissionFiles,
         submittedAt: submissionView.submittedAt,
         wokwiLink: wokwiLink || ''
       },

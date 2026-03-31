@@ -19,8 +19,11 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useAppSettings } from '../context/AppSettingsContext';
 
-const PERCENTAGE_OPTIONS = [0, 20, 40, 60, 80, 100];
-
+const createDefaultOptions = () => ([
+  { percentage: 0, description: 'لم يؤد المعيار.' },
+  { percentage: 50, description: 'أدى المعيار مع أخطاء واضحة.' },
+  { percentage: 100, description: 'أدى المعيار بشكل صحيح تماما.' }
+]);
 const PHASE_NAMES = {
   group: 'groupPhase',
   individual_oral: 'individualOralPhase'
@@ -34,7 +37,7 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
     criteria: [{
       name: '',
       applicableRoles: ['all'],
-      options: PERCENTAGE_OPTIONS.map(p => ({ percentage: p, description: '' }))
+      options: createDefaultOptions()
     }]
   }]);
 
@@ -67,7 +70,7 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
       criteria: [{
         name: '',
         applicableRoles: ['all'],
-        options: PERCENTAGE_OPTIONS.map(p => ({ percentage: p, description: '' }))
+        options: createDefaultOptions()
       }]
     }]);
   };
@@ -88,7 +91,7 @@ const ObservationCardBuilder = ({ projectId, phase, isTeamProject, initialData, 
     newSections[sectionIndex].criteria.push({
       name: '',
       applicableRoles: ['all'],
-      options: PERCENTAGE_OPTIONS.map(p => ({ percentage: p, description: '' }))
+      options: createDefaultOptions()
     });
     setSections(newSections);
   };
