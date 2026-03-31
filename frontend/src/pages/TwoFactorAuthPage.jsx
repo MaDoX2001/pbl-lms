@@ -9,14 +9,15 @@ import {
   Button,
   Alert,
   CircularProgress,
-  Paper
+  Paper,
+  Link
 } from '@mui/material';
 import {
   SecurityOutlined,
   CheckCircleOutline,
   PhoneAndroidOutlined
 } from '@mui/icons-material';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import api from '../services/api';
 import { toast } from 'react-toastify';
@@ -164,6 +165,12 @@ const TwoFactorAuthPage = () => {
               >
                 {t('backToLogin')}
               </Button>
+              
+              <Box sx={{ mt: 3, textAlign: 'center' }}>
+                <Link component={RouterLink} to="/reset-totp" underline="hover" variant="body2">
+                  إعادة تعيين المصادقة الثنائية
+                </Link>
+              </Box>
             </form>
 
             {/* Info Section */}
