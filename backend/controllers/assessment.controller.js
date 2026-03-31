@@ -7,6 +7,7 @@ const Submission = require('../models/Submission.model');
 const Progress = require('../models/Progress.model');
 const Project = require('../models/Project.model');
 const Team = require('../models/Team.model');
+const TeamProject = require('../models/TeamProject.model');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const geminiClient = process.env.GEMINI_API_KEY
@@ -1666,6 +1667,15 @@ exports.allowRetry = async (req, res) => {
         message: 'لا يوجد أعضاء في الفريق'
       });
     }
+
+    // Set retryAllowed in TeamProject enrollment
+    await TeamProject.updateOne(
+      {
+        team: teamId,
+        project: projectId
+      },
+      { retryAllowed: true }
+    );
 
     // Allow new attempts for all team members without deleting or resetting existing submissions.
     await EvaluationAttempt.updateMany(

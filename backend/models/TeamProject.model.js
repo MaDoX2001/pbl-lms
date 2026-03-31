@@ -50,6 +50,12 @@ const teamProjectSchema = new mongoose.Schema({
   activeEditor: {
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     activeSince: { type: Date, default: null }
+  },
+
+  // Retry allowed by teacher for this team on this project
+  retryAllowed: {
+    type: Boolean,
+    default: false
   }
 
 }, { timestamps: true });

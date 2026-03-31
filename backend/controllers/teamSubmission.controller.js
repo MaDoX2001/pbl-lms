@@ -112,7 +112,18 @@ const enforceStagePermissions = ({ stageKey, enrollment, userId, completed }) =>
   return { allowed: true };
 };
 
-const canSubmitAfterFinalDelivery = async (projectId, studentId) => {
+const canSubmitAfterFinalDelivery = async (projectId, studentId, teamId) => {
+  // If team ID provided, check TeamProject retryAllowed flag
+  if (teamId) {
+    const teamProject = await TeamProject.findOne({
+      team: teamId,
+      project: projectId,
+      retryAllowed: true
+    }).select('_id');
+    return Boolean(teamProject);
+  }
+
+  // Fallback: check EvaluationAttempt for individual submissions
   const retryAttempt = await EvaluationAttempt.findOne({
     project: projectId,
     student: studentId,
@@ -279,7 +290,7 @@ exports.createSubmission = async (req, res) => {
 
     // Once final delivery exists, students can only submit again when teacher/admin explicitly allows retry.
     if (stageProgress.completed.final_delivery) {
-      const retryAllowed = await canSubmitAfterFinalDelivery(projectId, req.user._id);
+      const retryAllowed = await canSubmitAfterFinalDelivery(projectId, req.user._id, teamId);
       if (!retryAllowed) {
         return res.status(403).json({
           success: false,
@@ -770,7 +781,7 @@ exports.deleteSubmission = async (req, res) => {
 
       // Once final delivery exists, students can only submit again when teacher/admin explicitly allows retry.
       if (stageProgress.completed.final_delivery) {
-        const retryAllowed = await canSubmitAfterFinalDelivery(projectId, req.user._id);
+        const retryAllowed = await canSubmitAfterFinalDelivery(projectId, req.user._id, teamId);
         if (!retryAllowed) {
           return res.status(403).json({
             success: false,
