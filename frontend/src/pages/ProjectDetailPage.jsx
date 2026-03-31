@@ -608,6 +608,8 @@ const ProjectDetailPage = () => {
     return false;
   };
 
+  const isValidObjectId = (value) => /^[a-f\d]{24}$/i.test(String(value || '').trim());
+
   const ensureAIEvaluationReadiness = async () => {
     await Promise.all([
       api.get(`/assessment/observation-card/${id}/group`),
@@ -619,6 +621,9 @@ const ProjectDetailPage = () => {
     const studentId = submission.student?._id || submission.studentId || submission.student;
     if (!studentId) {
       throw new Error('تعذر تحديد الطالب للتقييم');
+    }
+    if (!isValidObjectId(studentId)) {
+      throw new Error('معرف الطالب غير صالح لهذا التسليم');
     }
 
     const aiRes = await api.post('/assessment/ai-evaluate-individual', {
@@ -704,7 +709,7 @@ const ProjectDetailPage = () => {
 
     const candidates = (projectSubmissionsForReview || []).filter((submission) => {
       const studentId = submission.student?._id || submission.studentId || submission.student;
-      return Boolean(studentId) && hasUsableSubmissionPayload(submission);
+      return Boolean(studentId) && isValidObjectId(studentId) && hasUsableSubmissionPayload(submission);
     });
 
     if (!candidates.length) {
