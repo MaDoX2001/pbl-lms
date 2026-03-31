@@ -8,6 +8,7 @@ const Progress = require('../models/Progress.model');
 const Project = require('../models/Project.model');
 const Team = require('../models/Team.model');
 const TeamProject = require('../models/TeamProject.model');
+const TeamSubmission = require('../models/TeamSubmission.model');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const geminiClient = process.env.GEMINI_API_KEY
@@ -1668,6 +1669,13 @@ exports.allowRetry = async (req, res) => {
       });
     }
 
+    // Delete final_delivery submissions to reset the team back to incomplete final delivery stage
+    await TeamSubmission.deleteMany({
+      team: teamId,
+      project: projectId,
+      stageKey: 'final_delivery'
+    });
+
     // Set retryAllowed in TeamProject enrollment
     await TeamProject.updateOne(
       {
@@ -1689,7 +1697,7 @@ exports.allowRetry = async (req, res) => {
 
     return res.json({
       success: true,
-      message: 'تم فتح إعادة المحاولة للفريق بالكامل بدون حذف أي تسليم سابق'
+      message: 'تم فتح إعادة المحاولة للفريق - تم حذف التسليم النهائي ليسلموا مرة أخرى'
     });
   } catch (error) {
     res.status(500).json({
