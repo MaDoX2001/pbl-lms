@@ -28,6 +28,10 @@ import {
   Description as DescriptionIcon,
   Assessment as AssessmentIcon,
   AutoAwesome as AutoAwesomeIcon,
+  Architecture as ArchitectureIcon,
+  Memory as MemoryIcon,
+  Science as ScienceIcon,
+  Verified as VerifiedIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../services/api';
@@ -47,6 +51,7 @@ const ProjectSubmissionsManagement = () => {
 
   const [project, setProject] = useState(null);
   const [submissions, setSubmissions] = useState([]);
+  const [projectEnrollments, setProjectEnrollments] = useState([]);
   const [stageBoard, setStageBoard] = useState([]);
   const [stageLoading, setStageLoading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -94,6 +99,7 @@ const ProjectSubmissionsManagement = () => {
           if (cached?.ts && Date.now() - cached.ts < 45000) {
             setProject(cached.project || null);
             setSubmissions(cached.submissions || []);
+            setProjectEnrollments(cached.enrollments || []);
             setStageBoard(cached.stageBoard || []);
             setStageLoading(false);
             setLoading(false);
@@ -116,6 +122,7 @@ const ProjectSubmissionsManagement = () => {
       setStageLoading(true);
       const teamsResponse = await api.get(`/team-projects/project/${projectId}`);
       const enrollments = teamsResponse.data.data || [];
+      setProjectEnrollments(enrollments);
 
       const progressRows = await Promise.all(
         enrollments.map(async (enrollment) => {
@@ -139,6 +146,7 @@ const ProjectSubmissionsManagement = () => {
         ts: Date.now(),
         project: projectData,
         submissions: submissionsData,
+        enrollments,
         stageBoard: progressRows
       }));
 
@@ -494,6 +502,56 @@ const ProjectSubmissionsManagement = () => {
       .sort((a, b) => String(a).localeCompare(String(b), 'ar', { sensitivity: 'base' }));
   };
 
+  const enrollmentByTeamId = useMemo(() => {
+    return (projectEnrollments || []).reduce((acc, enrollment) => {
+      const teamId = String(enrollment?.team?._id || enrollment?.team || '');
+      if (!teamId) return acc;
+      acc[teamId] = enrollment;
+      return acc;
+    }, {});
+  }, [projectEnrollments]);
+
+  const roleMeta = {
+    system_designer: {
+      label: 'مصمم النظام',
+      icon: ArchitectureIcon,
+      color: 'info'
+    },
+    hardware_engineer: {
+      label: 'مسؤول التوصيل',
+      icon: MemoryIcon,
+      color: 'warning'
+    },
+    tester: {
+      label: 'مختبر',
+      icon: ScienceIcon,
+      color: 'success'
+    }
+  };
+
+  const getTeamMembersWithRoles = (team) => {
+    const teamId = String(team?._id || '');
+    const enrollment = enrollmentByTeamId[teamId];
+    const memberRoles = enrollment?.memberRoles || [];
+
+    return (team?.members || [])
+      .map((member) => {
+        const userId = String(member?.user?._id || member?._id || member?.user || '');
+        const name = member?.user?.name || member?.name || 'طالب';
+        const role = memberRoles.find((mr) => String(mr?.user) === userId)?.role || null;
+        return { userId, name, role };
+      })
+      .filter((m) => Boolean(m.userId))
+      .sort((a, b) => String(a.name).localeCompare(String(b.name), 'ar', { sensitivity: 'base' }));
+  };
+
+  const getFinalSubmitterNames = (team) => {
+    const members = getTeamMembersWithRoles(team);
+    return members
+      .filter((m) => m.role === 'tester')
+      .map((m) => m.name);
+  };
+
   const getTeamSubmissionButtons = (teamSubmissions = [], team = {}) => {
     // استخرج قائمة أعضاء الفريق
     const members = [...(team?.members || [])].sort((a, b) => {
@@ -746,9 +804,29 @@ const ProjectSubmissionsManagement = () => {
                     </Button>
                   </Box>
 
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1.2 }}>
-                    {t('membersWithValue', { members: getTeamMemberNames(team).join(', ') || 'غير متاح' })}
-                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 0.8 }}>
+                    {getTeamMembersWithRoles(team).map((member) => {
+                      const meta = roleMeta[member.role] || null;
+                      const RoleIcon = meta?.icon;
+                      return (
+                        <Chip
+                          key={member.userId}
+                          size="small"
+                          variant="outlined"
+                          color={meta?.color || 'default'}
+                          icon={RoleIcon ? <RoleIcon fontSize="small" /> : undefined}
+                          label={meta ? `${member.name} - ${meta.label}` : member.name}
+                        />
+                      );
+                    })}
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.2, flexWrap: 'wrap' }}>
+                    <VerifiedIcon color="success" fontSize="small" />
+                    <Typography variant="body2" color="text.secondary">
+                      المسموح لهم بتسليم النهائي: {getFinalSubmitterNames(team).join('، ') || 'غير محدد'}
+                    </Typography>
+                  </Box>
 
                   <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 1.2 }}>
                     {stageChips.map((s) => (
