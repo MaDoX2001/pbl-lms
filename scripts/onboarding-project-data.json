@@ -1,33 +1,188 @@
-{
-  "name": "Onboarding Project – Arduino Built-in LED",
-  "shortDescription": "التعرف على المنصة الرقمية وبيئة المحاكاة وتنفيذ أول تجربة برمجية للتحكم في تشغيل وإيقاف الـ LED الداخلي بلوحة Arduino Uno.",
-  "description": "يهدف المشروع التمهيدي إلى تهيئة الطلاب للتعامل مع المنصة الرقمية التعليمية وبيئة المحاكاة ولوحة Arduino. يركز على بناء الجاهزية التقنية والمعرفية من خلال مهام بسيطة منخفضة التعقيد. ينفذ الطالب برنامجًا أساسيًا للتحكم في الـ LED الداخلي دون الدخول في منطق برمجي متقدم.",
-  "difficulty": "beginner",
-  "projectLevel": "beginner",
-  "estimatedHours": 4,
-  "points": 0,
-  "isTeamProject": false,
-  "deadline": "2026-02-28T23:59:00Z",
-  "objectives": [
-    "أن يتمكن الطلاب من تشغيل وإيقاف الـ LED الداخلي المدمج بلوحة Arduino Uno باستخدام برنامج بسيط داخل بيئة المحاكاة بنسبة صحة لا تقل عن 85%.",
-    "أن يتمكن الطلاب من التعرف على واجهة المنصة الرقمية والتنقل بين أقسامها الأساسية دون أخطاء.",
-    "أن يتمكن الطلاب من كتابة برنامج بسيط يستخدم الأمر digitalWrite للتحكم في مخرج داخلي بنسبة صحة لا تقل عن 85%."
-  ],
-  "scenarioSteps": [
-    "الدخول إلى المنصة الرقمية التعليمية.",
-    "تسجيل الدخول باستخدام الحساب الشخصي.",
-    "فتح بيئة المحاكاة.",
-    "اختيار لوحة Arduino Uno.",
-    "التعرف على الـ LED الداخلي المدمج باللوحة.",
-    "كتابة برنامج بسيط للتحكم في LED.",
-    "تشغيل البرنامج داخل المحاكاة.",
-    "التحقق من تشغيل وإيقاف LED بنجاح."
-  ],
-  "educationalStrategies": [
-    "التعلم القائم على المشروعات (PBL)",
-    "التعلم الذاتي الموجّه"
-  ],
-  "reportNote": "يقدم الطالب تقريرًا فرديًا مختصرًا يشمل:\n- نبذة عن المنصة\n- خطوات الدخول\n- تعريف Arduino\n- شرح LED الداخلي\n- صورة من المحاكاة",
-  "showObjectivesToStudents": true,
-  "status": "published"
+﻿{
+    "abcdModel":  {
+                      "audience":  "طلاب المرحلة الأولى الذين يبدأون تعلم البرمجة والإلكترونيات.",
+                      "behavior":  "تشغيل وإيقاف LED داخلي باستخدام برنامج Arduino بسيط.",
+                      "condition":  "داخل بيئة محاكاة على المنصة الرقمية باستخدام لوحة Arduino Uno الافتراضية.",
+                      "degree":  "بنسبة أداء لا تقل عن 85% من الحالات الاختبارية."
+                  },
+    "rating":  {
+                   "average":  0,
+                   "count":  0
+               },
+    "_id":  "69932e6dd287e2bd028d9969",
+    "title":  "المشروع التمهيدي",
+    "description":  "أنت طالب مستجد في منصة رقمية لتعلم برمجة الأنظمة الذكية.\nقبل البدء في المشروعات الأساسية، يُطلب منك التعرف على المنصة الرقمية وبيئة المحاكاة، وفهم فكرة التحكم في المخرجات باستخدام لوحة Arduino",
+    "shortDescription":  "التعرف على المنصة الرقمية وبيئة المحاكاة وتنفيذ أول تجربة برمجية.",
+    "difficulty":  "beginner",
+    "category":  "web",
+    "technologies":  [
+
+                     ],
+    "objectives":  [
+                       "أن يحلل المتعلم مشكلة المشروع وسياقها الواقعي، ويحدد متطلبات الحل ومعايير النجاح قبل التنفيذ.",
+                       "أن يطوّر المتعلم منتجًا وظيفيًا يحقق معايير بطاقة الملاحظة الجماعية، وبالأخص: جودة التصميم والتنفيذ الهندسي للمشروع، جودة المنتج النهائي وكفاءة التشغيل، جودة الاختبار والتوثيق وتحقيق الهدف.",
+                       "أن يبرهن المتعلم على إتقان مهارات البرمجة الفردية وفق بطاقة الملاحظة الفردية، وبالأخص: مهارات بناء هيكل البرنامج، مهارات الأوامر البرمجية الأساسية، مهارات البرمجة التخصصية حسب المشروع.",
+                       "أن يدير المتعلم تعلمه ذاتيًا عبر دورة PBL الكاملة (تحليل المشكلة، التخطيط، التنفيذ، التحقق، والتحسين المستمر).",
+                       "أن يوثق المتعلم جميع الأدلة (المحاكاة، الكود، الملفات/الصور، التقرير) ويستثمر التغذية الراجعة في تحسين الإصدار التالي."
+                   ],
+    "showObjectives":  true,
+    "estimatedDuration":  4,
+    "deadline":  "2026-04-01T11:59:00.000Z",
+    "learningScenario":  "يقوم الطالب بتنفيذ مهام عملية محددة على منصة تعليمية رقمية تدمج محاكاة Arduino. المهام تتضمن: الدخول للمنصة، تسجيل الدخول، فتح بيئة المحاكاة، اختيار لوحة Arduino Uno، التعرف على الـمكونات الداخلية، كتابة برنامج للتحكم فيها، وتشغيل البرنامج للتحقق من صحة التنفيذ.",
+    "teachingStrategy":  "التعلم القائم على المشروعات (PBL)، التعلم الذاتي الموجّه",
+    "finalReportNote":  "يقدم الطالب تقريرًا فرديًا مختصرًا يشمل: نبذة عن المنصة، خطوات الدخول، تعريف Arduino، شرح المكونات الداخلية والتجربة البرمجية، صورة من المحاكاة.",
+    "points":  100,
+    "starterCode":  "",
+    "prerequisites":  [
+
+                      ],
+    "coverImage":  "https://pub-7ea5b585b3344a94ac45fd2128d8d2fe.r2.dev/pbl-lms/project-covers/Smart_Robotics_Missions_8_page-0001.jpg",
+    "instructor":  {
+                       "_id":  "6976d3283f597ebed6ec1713",
+                       "name":  "TA / Aisha Elmahdy",
+                       "avatar":  "https://pub-7ea5b585b3344a94ac45fd2128d8d2fe.r2.dev/pbl-lms/avatars/6976d3283f597ebed6ec1713/avatar-1772547014519.jpeg"
+                   },
+    "enrolledStudents":  [
+                             "69c59bb2755bfdc8af81111d",
+                             "69c59a37755bfdc8af811091",
+                             "69c2f6d36e71de533c4321c2",
+                             "69c65fe75fffdc1f0881a501",
+                             "69c5ae7f846c93ecfbf9a19b",
+                             "69c599fe755bfdc8af81106c",
+                             "69c59efb846c93ecfbf9a0fb",
+                             "69c5e96b5fffdc1f08819a26",
+                             "69c6610d5fffdc1f0881a558",
+                             "69c59dd8846c93ecfbf9a0ca",
+                             "69c59cfd846c93ecfbf9a0b3",
+                             "69c59de9846c93ecfbf9a0d0",
+                             "69c59a7e755bfdc8af8110a8",
+                             "69c600195fffdc1f08819f9b",
+                             "69c67a65525094159dd5c2d6",
+                             "69c5f1a95fffdc1f08819d94",
+                             "69c6957f06980dd2dc8487fb",
+                             "69c59c64846c93ecfbf9a07c",
+                             "69c59a82755bfdc8af8110ad",
+                             "69c657f05fffdc1f0881a38a",
+                             "69c5cac4846c93ecfbf9a4f9",
+                             "69c680ca06980dd2dc847fab",
+                             "69c5a13d846c93ecfbf9a152",
+                             "69c59b4d755bfdc8af8110ff",
+                             "69c59cbb846c93ecfbf9a097",
+                             "69c6908906980dd2dc848580",
+                             "69c59afe755bfdc8af8110da",
+                             "69c59f3f846c93ecfbf9a112",
+                             "69c59dfc846c93ecfbf9a0d5",
+                             "69c6d1c106980dd2dc84a5f8",
+                             "69c59ac8755bfdc8af8110c8",
+                             "69c59a17755bfdc8af81107e",
+                             "69c6b05f06980dd2dc849664",
+                             "69c5d395846c93ecfbf9a809",
+                             "69c623665fffdc1f0881a169",
+                             "69c6e4d506980dd2dc84ad0d",
+                             "69c5a55a846c93ecfbf9a179",
+                             "69c71d31c9f8879e647cea66",
+                             "69c651d75fffdc1f0881a23d",
+                             "69c7186fc9f8879e647ce708",
+                             "69c6a38c06980dd2dc848e93",
+                             "69c7d5c9c9f8879e647d1e3d",
+                             "69c59a31755bfdc8af811089",
+                             "69c2e6d4cfb64ee7e78211da",
+                             "69c59f35846c93ecfbf9a108",
+                             "69cc2edc05ad48a096a4000e"
+                         ],
+    "completedBy":  [
+
+                    ],
+    "isPublished":  true,
+    "tags":  [
+
+             ],
+    "hasObservationCard":  true,
+    "badgeEnabled":  true,
+    "projectLevel":  "beginner",
+    "projectOrder":  1,
+    "isTeamProject":  false,
+    "skills":  [
+
+               ],
+    "milestones":  [
+                       {
+                           "stageKey":  "design",
+                           "title":  "تسليم التصميم (Designer Lead)",
+                           "description":  "وصف فكرة النظام، تحديد المدخلات والمخرجات، ورسم مخطط مبدئي للدائرة.",
+                           "dueDate":  null,
+                           "order":  1,
+                           "tasks":  [
+
+                                     ],
+                           "points":  0,
+                           "_id":  "69cc65223b0476f49724b481"
+                       },
+                       {
+                           "stageKey":  "wiring",
+                           "title":  "تسليم الموصل (Builder Lead)",
+                           "description":  "تنفيذ التوصيلات على Wokwi والتأكد من صحة التوصيل وتقديم رابط المحاكاة.",
+                           "dueDate":  null,
+                           "order":  2,
+                           "tasks":  [
+
+                                     ],
+                           "points":  0,
+                           "_id":  "69cc65223b0476f49724b482"
+                       },
+                       {
+                           "stageKey":  "programming",
+                           "title":  "تسليم الكود (Programmer - إلزامي لكل طالب)",
+                           "description":  "كل طالب في الفريق يسلّم نسخة كود خاصة به لتطبيق منطق النظام.",
+                           "dueDate":  null,
+                           "order":  3,
+                           "tasks":  [
+
+                                     ],
+                           "points":  0,
+                           "_id":  "69cc65223b0476f49724b483"
+                       },
+                       {
+                           "stageKey":  "testing",
+                           "title":  "تسليم المختبر (Tester Lead)",
+                           "description":  "اختبار النظام في حالات مختلفة وتوثيق النتائج والأخطاء والتحسينات.",
+                           "dueDate":  null,
+                           "order":  4,
+                           "tasks":  [
+
+                                     ],
+                           "points":  0,
+                           "_id":  "69cc65223b0476f49724b484"
+                       },
+                       {
+                           "stageKey":  "final_delivery",
+                           "title":  "التسليم النهائي (Final Delivery)",
+                           "description":  "تسليم النسخة النهائية بعد استلام الفيدباك ومعالجة الملاحظات.",
+                           "dueDate":  null,
+                           "order":  5,
+                           "tasks":  [
+
+                                     ],
+                           "points":  0,
+                           "_id":  "69cc65223b0476f49724b485"
+                       }
+                   ],
+    "resources":  [
+
+                  ],
+    "courseMaterials":  [
+
+                        ],
+    "assignments":  [
+
+                    ],
+    "createdAt":  "2026-02-16T14:49:17.098Z",
+    "updatedAt":  "2026-04-01T13:40:10.634Z",
+    "__v":  48,
+    "components":  [
+                       "Arduino Uno"
+                   ],
+    "showComponents":  true,
+    "coverImageId":  "pbl-lms/project-covers/Smart_Robotics_Missions_8_page-0001.jpg",
+    "enrolledTeamsCount":  0
 }
