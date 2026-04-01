@@ -92,15 +92,36 @@ const IndividualEvaluationPage = () => {
 
       // If team project, check Phase 1 completion
       if (projectData.isTeamProject) {
-        // Fetch student to get team
-        const studentRes = await api.get(`/users/${studentId}`);
-        setStudent(studentRes.data.data);
+        // Find student + team from project enrollments to avoid hard dependency on /users/:id.
+        const enrollmentsRes = await api.get(`/team-projects/project/${projectId}`);
+        const enrollments = enrollmentsRes?.data?.data || [];
 
-        // Find team
-        const teamsRes = await api.get(`/teams/project/${projectId}`);
-        const studentTeam = teamsRes.data.data.find(team =>
-          team.members.some(m => m._id === studentId || m === studentId)
-        );
+        let studentTeam = null;
+        let studentEntry = null;
+
+        for (const enrollment of enrollments) {
+          const team = enrollment?.team;
+          const members = team?.members || [];
+          const hit = members.find((m) => {
+            const uid = String(m?.user?._id || m?.user || m?._id || m || '');
+            return uid === String(studentId);
+          });
+          if (hit) {
+            studentTeam = team;
+            studentEntry = hit;
+            break;
+          }
+        }
+
+        if (!studentTeam || !studentEntry) {
+          throw new Error('الطالب غير موجود ضمن فرق هذا المشروع أو الرابط غير صحيح');
+        }
+
+        setStudent({
+          _id: String(studentEntry?.user?._id || studentEntry?.user || studentId),
+          name: studentEntry?.user?.name || 'طالب',
+          email: studentEntry?.user?.email || ''
+        });
 
         if (studentTeam) {
           // Check Phase 1 status
