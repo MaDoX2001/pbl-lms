@@ -28,6 +28,7 @@ import {
   Description as DescriptionIcon,
   Assessment as AssessmentIcon,
   AutoAwesome as AutoAwesomeIcon,
+  Replay as ReplayIcon,
   Architecture as ArchitectureIcon,
   Memory as MemoryIcon,
   Science as ScienceIcon,
@@ -81,6 +82,8 @@ const ProjectSubmissionsManagement = () => {
   const [bulkAIRunning, setBulkAIRunning] = useState(false);
   const [teamAIRunningById, setTeamAIRunningById] = useState({});
   const [bulkAIProgress, setBulkAIProgress] = useState({ done: 0, total: 0 });
+  const [bulkRetryRunning, setBulkRetryRunning] = useState(false);
+  const [bulkRetryProgress, setBulkRetryProgress] = useState({ done: 0, total: 0 });
   const [teamSearchTerm, setTeamSearchTerm] = useState('');
   const [finalDeliveryFilter, setFinalDeliveryFilter] = useState('all');
 
@@ -281,6 +284,21 @@ const ProjectSubmissionsManagement = () => {
     return [...items].sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0];
   };
 
+  const allProjectTeams = useMemo(() => {
+    const seen = new Set();
+
+    return (projectEnrollments || [])
+      .map((enrollment) => enrollment?.team)
+      .filter(Boolean)
+      .filter((team) => {
+        const teamId = String(team?._id || '');
+        if (!teamId || seen.has(teamId)) return false;
+        seen.add(teamId);
+        return true;
+      })
+      .sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || ''), 'ar', { sensitivity: 'base' }));
+  }, [projectEnrollments]);
+
   const hasFinalDeliverySubmission = (teamSubmissions = []) => {
     return teamSubmissions.some((submission) => submission.stageKey === 'final_delivery');
   };
@@ -463,9 +481,43 @@ const ProjectSubmissionsManagement = () => {
     return { successCount, failedCount, totalStudents };
   };
 
+  const runRetryForTeams = async (teams) => {
+    if (!teams.length) return { successCount: 0, failedCount: 0, totalTeams: 0 };
+
+    setBulkRetryProgress({ done: 0, total: teams.length });
+
+    let successCount = 0;
+    let failedCount = 0;
+
+    for (let i = 0; i < teams.length; i += 1) {
+      const team = teams[i];
+      const teamId = String(team?._id || '');
+
+      try {
+        if (!teamId) {
+          throw new Error('معرف الفريق غير متوفر');
+        }
+
+        await api.post('/assessment/allow-retry', {
+          projectId,
+          teamId
+        });
+
+        successCount += 1;
+      } catch (err) {
+        failedCount += 1;
+        console.error('Team retry failed', team, err);
+      } finally {
+        setBulkRetryProgress({ done: i + 1, total: teams.length });
+      }
+    }
+
+    return { successCount, failedCount, totalTeams: teams.length };
+  };
+
   const runAIEvaluationForTeam = async (team) => {
     const teamId = String(team?._id || '');
-    if (!teamId || bulkAIRunning || teamAIRunningById[teamId]) return;
+    if (!teamId || bulkAIRunning || bulkRetryRunning || teamAIRunningById[teamId]) return;
 
     const confirmRun = window.confirm(`سيتم تقييم ${team.name} بالكامل في طلب AI واحد (التقييم الجماعي + كل الطلاب). المتابعة؟`);
     if (!confirmRun) return;
@@ -486,7 +538,7 @@ const ProjectSubmissionsManagement = () => {
   };
 
   const runBulkAIEvaluationForTeams = async () => {
-    if (bulkAIRunning) return;
+    if (bulkAIRunning || bulkRetryRunning) return;
 
     const readyTeamIds = Array.from(new Set(buildTeamAICandidates().map((candidate) => String(candidate.teamId))));
     const teams = readyTeamIds
@@ -510,6 +562,33 @@ const ProjectSubmissionsManagement = () => {
       toast.success(`تم إنهاء تقييم AI لكل الطلاب بنجاح (${successCount}/${totalStudents})`);
     } else {
       toast.warning(`اكتمل تقييم AI. نجح ${successCount} وفشل ${failedCount} من ${totalStudents}`);
+    }
+  };
+
+  const runBulkRetryForTeams = async () => {
+    if (bulkRetryRunning || bulkAIRunning) return;
+
+    const teams = allProjectTeams.length ? allProjectTeams : Object.values(submissionsByTeam).map(({ team }) => team).filter(Boolean);
+    if (!teams.length) {
+      toast.info('لا توجد فرق متاحة لفتح إعادة المحاولة.');
+      return;
+    }
+
+    const confirmRun = window.confirm(`سيتم فتح إعادة المحاولة لكل الفرق في هذا المشروع (${teams.length} فريقًا). المتابعة؟`);
+    if (!confirmRun) return;
+
+    setBulkRetryRunning(true);
+    try {
+      const { successCount, failedCount, totalTeams } = await runRetryForTeams(teams);
+      await fetchData(true);
+
+      if (failedCount === 0) {
+        toast.success(`تم فتح إعادة المحاولة لكل الفرق بنجاح (${successCount}/${totalTeams})`);
+      } else {
+        toast.warning(`تم فتح إعادة المحاولة جزئيًا. نجح ${successCount} وفشل ${failedCount} من ${totalTeams}`);
+      }
+    } finally {
+      setBulkRetryRunning(false);
     }
   };
 
@@ -756,12 +835,27 @@ const ProjectSubmissionsManagement = () => {
                 label={`AI يعمل: ${bulkAIProgress.done}/${bulkAIProgress.total}`}
               />
             )}
+            {bulkRetryRunning && (
+              <Chip
+                color="error"
+                label={`إعادة المحاولة: ${bulkRetryProgress.done}/${bulkRetryProgress.total}`}
+              />
+            )}
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<ReplayIcon />}
+              onClick={runBulkRetryForTeams}
+              disabled={bulkRetryRunning || bulkAIRunning}
+            >
+              {bulkRetryRunning ? 'جاري فتح إعادة المحاولة...' : 'فتح إعادة المحاولة لكل الطلاب والفرق'}
+            </Button>
             <Button
               variant="outlined"
               color="secondary"
               startIcon={<AutoAwesomeIcon />}
               onClick={runBulkAIEvaluationForTeams}
-              disabled={bulkAIRunning}
+              disabled={bulkAIRunning || bulkRetryRunning}
             >
               {bulkAIRunning ? 'جاري تقييم الطلاب...' : 'تقييم AI لكل الطلاب'}
             </Button>
@@ -860,6 +954,7 @@ const ProjectSubmissionsManagement = () => {
                       variant="outlined"
                       size="small"
                       onClick={() => handleOpenTeamRetryDialog(team)}
+                      disabled={bulkRetryRunning || bulkAIRunning}
                     >
                       فتح إعادة المحاولة للفريق
                     </Button>
