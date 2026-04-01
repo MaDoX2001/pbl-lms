@@ -367,7 +367,7 @@ const ProjectSubmissionsManagement = () => {
           teamId,
           submissionId: aiData.basedOnGroupSubmissionId,
           sectionEvaluations: draftToSectionEvaluations(aiData.groupCard),
-          feedbackSummary: aiData.teamFeedbackSuggestion || '',
+          feedbackSummary: aiData.groupFeedbackSuggestion || aiData.teamFeedbackSuggestion || '',
           evaluationSource: 'ai-batch',
           aiApproval: {
             confidence: aiData.confidence,
@@ -392,7 +392,7 @@ const ProjectSubmissionsManagement = () => {
             studentRole: studentCard.studentRole || 'programmer',
             submissionId: studentCard.submissionId,
             sectionEvaluations: draftToSectionEvaluations(studentCard.individualCard),
-            feedbackSummary: studentCard.feedbackSuggestion || aiData.teamFeedbackSuggestion || '',
+            feedbackSummary: studentCard.feedbackSuggestion || '',
             evaluationSource: 'ai-batch',
             aiApproval: {
               confidence: aiData.confidence,

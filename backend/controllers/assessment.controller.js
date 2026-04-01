@@ -1884,6 +1884,9 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
         'Evaluation priority must be: 1) Wokwi link evidence, 2) report/notes text, 3) files/images/attachments/code text.',
         'All generated textual fields MUST be in Arabic only (rationale, teamFeedbackSuggestion, and per-student feedbackSuggestion).',
         'teamFeedbackSuggestion and per-student feedbackSuggestion MUST be written in clear Egyptian Arabic (لهجة مصرية بسيطة ومهنية).',
+        'group/team feedback MUST be specific to the team and not generic.',
+        'Each student feedbackSuggestion MUST be non-empty, specific to that student, and different from other students feedbackSuggestion.',
+        'Do NOT repeat the same feedback text for all students.',
         'Keep rationale concise and actionable for teacher review.'
       ],
       teacherGoal: 'Produce one consistent evaluation response that the platform can use to fill all cards and compute final scores accurately.',
@@ -1939,6 +1942,7 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
           }
         ],
         rationale: 'string',
+        groupFeedbackSuggestion: 'string',
         teamFeedbackSuggestion: 'string',
         confidence: 0
       }
@@ -1966,6 +1970,17 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
       ? parsed.perStudentRecommendations
       : [];
 
+    const normalizeArabicText = (text) => String(text || '').replace(/\s+/g, ' ').trim();
+
+    const buildStudentFallbackFeedback = (studentName, score) => {
+      const safeScore = Number.isFinite(Number(score)) ? Number(score).toFixed(2) : null;
+      return safeScore
+        ? `يا ${studentName}، شغلك في البرمجة جيد، ودرجتك الحالية ${safeScore}. حاول تزود توضيح الخطوات في الكود وتكتب ملاحظات أقوى عن حالات الاختبار علشان النتيجة تبقى أفضل في المحاولة الجاية.`
+        : `يا ${studentName}، شغلك كويس كبداية. حاول تكتب الكود بشكل أوضح، وتضيف ملاحظات عن سبب كل خطوة، وتراجع حالات الاختبار قبل التسليم الجاي.`;
+    };
+
+    const seenFeedback = new Set();
+
     const individualCards = teamProgrammingArtifacts.map((item) => {
       const hit = perStudentRecommendations.find((rec) => {
         const byId = String(rec?.studentId || '') === String(item.student.id);
@@ -1983,6 +1998,17 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
 
       const overallScore = Number((((groupDraft.calculatedScore + individualDraft.calculatedScore) / 2)).toFixed(2));
 
+      let feedbackSuggestion = normalizeArabicText(hit?.feedbackSuggestion || '');
+      if (!feedbackSuggestion) {
+        feedbackSuggestion = buildStudentFallbackFeedback(item.student.name, individualDraft.calculatedScore);
+      }
+
+      const dedupeKey = feedbackSuggestion.toLowerCase();
+      if (seenFeedback.has(dedupeKey)) {
+        feedbackSuggestion = buildStudentFallbackFeedback(item.student.name, individualDraft.calculatedScore);
+      }
+      seenFeedback.add(feedbackSuggestion.toLowerCase());
+
       return {
         studentId: item.student.id,
         studentName: item.student.name,
@@ -1990,9 +2016,11 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
         submissionId: String(item.evidence.id),
         individualCard: individualDraft,
         overallScore,
-        feedbackSuggestion: hit?.feedbackSuggestion || parsed.teamFeedbackSuggestion || ''
+        feedbackSuggestion
       };
     });
+
+    const groupFeedbackSuggestion = normalizeArabicText(parsed.groupFeedbackSuggestion || parsed.teamFeedbackSuggestion || '');
 
     return res.json({
       success: true,
@@ -2006,6 +2034,7 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
         groupCard: groupDraft,
         individualCards,
         rationale: parsed.rationale || 'لم يتم توفير مبرر مفصل من AI.',
+        groupFeedbackSuggestion,
         teamFeedbackSuggestion: parsed.teamFeedbackSuggestion || '',
         confidence: Number(parsed.confidence || 0),
         plagiarism: {
