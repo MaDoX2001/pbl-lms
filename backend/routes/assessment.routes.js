@@ -17,6 +17,7 @@ const {
   getFinalEvaluation,
   getAllFinalEvaluations,
   allowRetry,
+  getRetryArchives,
   getStudentAttempts,
   getStudentLevel,
   getStudentBadges,
@@ -59,6 +60,7 @@ router.get('/final-all/:projectId', protect, authorize('teacher', 'admin'), getA
 // RETRY MANAGEMENT ROUTES
 // ============================================================================
 router.post('/allow-retry', protect, authorize('teacher', 'admin'), allowRetry);
+router.get('/retry-archives/:projectId', protect, authorize('teacher', 'admin'), getRetryArchives);
 router.get('/attempts/:projectId/:studentId', protect, getStudentAttempts);
 router.get('/evaluation/:submissionId', protect, getEvaluation);
 

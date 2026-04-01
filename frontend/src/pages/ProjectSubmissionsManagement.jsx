@@ -574,7 +574,7 @@ const ProjectSubmissionsManagement = () => {
       return;
     }
 
-    const confirmRun = window.confirm(`سيتم فتح إعادة المحاولة لكل الفرق في هذا المشروع (${teams.length} فريقًا). المتابعة؟`);
+    const confirmRun = window.confirm(`سيتم فتح إعادة المحاولة لكل الفرق في هذا المشروع (${teams.length} فريقًا) مع حفظ سجل كامل قبل الفتح. المتابعة؟`);
     if (!confirmRun) return;
 
     setBulkRetryRunning(true);
@@ -1311,16 +1311,16 @@ const ProjectSubmissionsManagement = () => {
         <DialogTitle>تأكيد فتح إعادة المحاولة للفريق</DialogTitle>
         <DialogContent>
           <Alert severity="warning" sx={{ mb: 2 }}>
-            هل تريد فتح إعادة المحاولة لفريق <strong>{teamRetryDialog.team?.name}</strong> في جميع المراحل؟
+            هل تريد فتح إعادة المحاولة لفريق <strong>{teamRetryDialog.team?.name}</strong> في جميع المراحل مع حفظ سجل كامل قبل الفتح؟
           </Alert>
           <Typography variant="body2" color="text.secondary">
-            • سيتم إعادة تعيين جميع التقييمات للفريق
+            • سيتم حفظ آخر تسليم لكل مرحلة ولكل دور في سجل أرشيفي
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            • سيتم حذف جميع التقييمات والدرجات للمراحل المختلفة
+            • سيتم حفظ بطاقات الملاحظة وآخر التقييمات والـ feedback كما هي
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            • يمكن للفريق إعادة تقديم التسليمات من جديد
+            • يمكن للفريق إعادة تقديم التسليمات من جديد بعد الفتح
           </Typography>
         </DialogContent>
         <DialogActions>

@@ -9,6 +9,7 @@ const Project = require('../models/Project.model');
 const Team = require('../models/Team.model');
 const TeamProject = require('../models/TeamProject.model');
 const TeamSubmission = require('../models/TeamSubmission.model');
+const AssessmentRetryArchive = require('../models/AssessmentRetryArchive.model');
 const mongoose = require('mongoose');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
@@ -232,6 +233,320 @@ const buildStoredAIApproval = (aiApproval, userId) => {
     evidenceCount: Number(aiApproval.evidenceCount || evidenceSubmissionIds.length || 0),
     evidenceSubmissionIds,
     evidenceSummary: aiApproval.evidenceSummary || ''
+  };
+};
+
+const RETRY_ARCHIVE_PHASES = ['group', 'individual_oral', 'role_designer', 'role_hardware', 'role_tester', 'role_programming'];
+
+const serializeUserRef = (user) => {
+  if (!user) return null;
+  return {
+    _id: user._id || user,
+    name: user.name || '',
+    email: user.email || ''
+  };
+};
+
+const serializeObservationCardSnapshot = (card) => {
+  if (!card) return null;
+  return {
+    _id: card._id,
+    project: card.project,
+    phase: card.phase,
+    sections: card.sections || [],
+    createdBy: serializeUserRef(card.createdBy),
+    createdAt: card.createdAt,
+    updatedAt: card.updatedAt
+  };
+};
+
+const serializeTeamSubmissionSnapshot = (submission) => {
+  if (!submission) return null;
+  return {
+    _id: submission._id,
+    team: submission.team,
+    project: submission.project,
+    stageKey: submission.stageKey,
+    submissionType: submission.submissionType,
+    fileUrl: submission.fileUrl || '',
+    fileName: submission.fileName || '',
+    description: submission.description || '',
+    wokwiLink: submission.wokwiLink || '',
+    attachments: submission.attachments || [],
+    notes: submission.notes || '',
+    handoffAcceptedBy: serializeUserRef(submission.handoffAcceptedBy),
+    handoffAcceptedAt: submission.handoffAcceptedAt || null,
+    submittedBy: serializeUserRef(submission.submittedBy),
+    submittedAt: submission.submittedAt,
+    feedback: submission.feedback || '',
+    feedbackBy: serializeUserRef(submission.feedbackBy),
+    feedbackAt: submission.feedbackAt || null,
+    score: submission.score,
+    gradedBy: serializeUserRef(submission.gradedBy),
+    gradedAt: submission.gradedAt || null,
+    status: submission.status,
+    createdAt: submission.createdAt,
+    updatedAt: submission.updatedAt
+  };
+};
+
+const serializeEvaluationAttemptSnapshot = (attempt) => {
+  if (!attempt) return null;
+  return {
+    _id: attempt._id,
+    project: attempt.project,
+    phase: attempt.phase,
+    team: attempt.team || null,
+    student: serializeUserRef(attempt.student),
+    studentRole: attempt.studentRole || null,
+    submission: attempt.submission || null,
+    observationCard: serializeObservationCardSnapshot(attempt.observationCard),
+    evaluator: serializeUserRef(attempt.evaluator),
+    attemptNumber: attempt.attemptNumber,
+    sectionEvaluations: attempt.sectionEvaluations || [],
+    calculatedScore: attempt.calculatedScore,
+    feedbackSummary: attempt.feedbackSummary || '',
+    evaluationSource: attempt.evaluationSource || 'manual',
+    aiApproval: attempt.aiApproval || null,
+    retryAllowed: Boolean(attempt.retryAllowed),
+    isLatestAttempt: Boolean(attempt.isLatestAttempt),
+    createdAt: attempt.createdAt,
+    updatedAt: attempt.updatedAt
+  };
+};
+
+const serializeFinalEvaluationSnapshot = (finalEvaluation) => {
+  if (!finalEvaluation) return null;
+  return {
+    _id: finalEvaluation._id,
+    project: finalEvaluation.project,
+    student: serializeUserRef(finalEvaluation.student),
+    team: finalEvaluation.team || null,
+    groupEvaluation: finalEvaluation.groupEvaluation || null,
+    individualEvaluation: finalEvaluation.individualEvaluation || null,
+    roleEvaluation: finalEvaluation.roleEvaluation || null,
+    programmingEvaluation: finalEvaluation.programmingEvaluation || null,
+    groupScore: finalEvaluation.groupScore,
+    individualScore: finalEvaluation.individualScore,
+    roleScore: finalEvaluation.roleScore,
+    programmingScore: finalEvaluation.programmingScore,
+    finalScore: finalEvaluation.finalScore,
+    finalPercentage: finalEvaluation.finalPercentage,
+    status: finalEvaluation.status,
+    verbalGrade: finalEvaluation.verbalGrade,
+    isLatest: Boolean(finalEvaluation.isLatest),
+    attemptNumber: finalEvaluation.attemptNumber,
+    createdAt: finalEvaluation.createdAt,
+    updatedAt: finalEvaluation.updatedAt
+  };
+};
+
+const buildRetryArchiveSnapshot = async ({ projectId, teamId = null, studentId = null }) => {
+  const cards = await ObservationCard.find({
+    project: projectId,
+    phase: { $in: RETRY_ARCHIVE_PHASES }
+  })
+    .populate('createdBy', 'name email')
+    .sort({ updatedAt: -1, createdAt: -1, _id: -1 })
+    .lean();
+
+  const latestCardsByPhase = [];
+  const seenCardPhases = new Set();
+  for (const card of cards) {
+    if (seenCardPhases.has(card.phase)) continue;
+    seenCardPhases.add(card.phase);
+    latestCardsByPhase.push(serializeObservationCardSnapshot(card));
+  }
+
+  if (teamId) {
+    const [team, enrollment, submissions, attempts, finals] = await Promise.all([
+      Team.findById(teamId).populate('members.user', 'name email').lean(),
+      TeamProject.findOne({ team: teamId, project: projectId }).populate('memberRoles.user', 'name email').lean(),
+      TeamSubmission.find({ team: teamId, project: projectId })
+        .populate('submittedBy', 'name email')
+        .populate('feedbackBy', 'name email')
+        .populate('gradedBy', 'name email')
+        .populate('handoffAcceptedBy', 'name email')
+        .sort({ submittedAt: -1, createdAt: -1, _id: -1 })
+        .lean(),
+      EvaluationAttempt.find({ project: projectId, team: teamId })
+        .populate('student', 'name email')
+        .populate('evaluator', 'name email')
+        .populate('observationCard')
+        .populate('submission')
+        .sort({ attemptNumber: -1, createdAt: -1, _id: -1 })
+        .lean(),
+      FinalEvaluation.find({ project: projectId, team: teamId })
+        .populate('student', 'name email')
+        .populate('team', 'name')
+        .populate('groupEvaluation')
+        .populate('individualEvaluation')
+        .populate('roleEvaluation')
+        .populate('programmingEvaluation')
+        .sort({ attemptNumber: -1, createdAt: -1, _id: -1 })
+        .lean()
+    ]);
+
+    const latestStageSubmissions = [];
+    const latestProgrammingSubmissions = [];
+    const seenStageKeys = new Set();
+    const seenProgrammingKeys = new Set();
+
+    for (const submission of submissions) {
+      const stageKey = String(submission.stageKey || '');
+      const studentKey = String(submission.submittedBy?._id || submission.submittedBy || '');
+
+      if (stageKey === 'programming') {
+        const key = studentKey ? `programming:${studentKey}` : null;
+        if (!key || seenProgrammingKeys.has(key)) continue;
+        seenProgrammingKeys.add(key);
+        latestProgrammingSubmissions.push(serializeTeamSubmissionSnapshot(submission));
+      } else {
+        if (!stageKey || seenStageKeys.has(stageKey)) continue;
+        seenStageKeys.add(stageKey);
+        latestStageSubmissions.push(serializeTeamSubmissionSnapshot(submission));
+      }
+    }
+
+    const latestAttempts = [];
+    const seenAttemptKeys = new Set();
+    for (const attempt of attempts) {
+      const phase = String(attempt.phase || '');
+      const studentKey = String(attempt.student?._id || attempt.student || '');
+      const key = phase === 'group'
+        ? `group:${teamId}`
+        : studentKey
+          ? `${phase}:${studentKey}`
+          : null;
+
+      if (!key || seenAttemptKeys.has(key)) continue;
+      seenAttemptKeys.add(key);
+      latestAttempts.push(serializeEvaluationAttemptSnapshot(attempt));
+    }
+
+    const latestFinals = [];
+    const seenFinals = new Set();
+    for (const finalEvaluation of finals) {
+      const studentKey = String(finalEvaluation.student?._id || finalEvaluation.student || '');
+      if (!studentKey || seenFinals.has(studentKey)) continue;
+      seenFinals.add(studentKey);
+      latestFinals.push(serializeFinalEvaluationSnapshot(finalEvaluation));
+    }
+
+    return {
+      scope: 'team',
+      project: {
+        _id: projectId
+      },
+      team: team ? {
+        _id: team._id,
+        name: team.name,
+        members: (team.members || []).map((member) => ({
+          user: serializeUserRef(member.user),
+          joinedAt: member.joinedAt || null
+        }))
+      } : { _id: teamId },
+      enrollment: enrollment ? {
+        _id: enrollment._id,
+        retryAllowed: Boolean(enrollment.retryAllowed),
+        memberRoles: (enrollment.memberRoles || []).map((memberRole) => ({
+          user: serializeUserRef(memberRole.user),
+          role: memberRole.role
+        })),
+        enrolledAt: enrollment.enrolledAt || null,
+        createdAt: enrollment.createdAt || null,
+        updatedAt: enrollment.updatedAt || null
+      } : null,
+      cards: latestCardsByPhase,
+      submissions: {
+        stage: latestStageSubmissions,
+        programming: latestProgrammingSubmissions
+      },
+      evaluations: {
+        attempts: latestAttempts,
+        finals: latestFinals
+      },
+      openedRetry: {
+        projectId,
+        teamId,
+        studentId: studentId || null
+      }
+    };
+  }
+
+  if (studentId) {
+    const [attempts, finals] = await Promise.all([
+      EvaluationAttempt.find({ project: projectId, student: studentId })
+        .populate('student', 'name email')
+        .populate('evaluator', 'name email')
+        .populate('observationCard')
+        .populate('submission')
+        .sort({ attemptNumber: -1, createdAt: -1, _id: -1 })
+        .lean(),
+      FinalEvaluation.find({ project: projectId, student: studentId })
+        .populate('student', 'name email')
+        .populate('team', 'name')
+        .populate('groupEvaluation')
+        .populate('individualEvaluation')
+        .populate('roleEvaluation')
+        .populate('programmingEvaluation')
+        .sort({ attemptNumber: -1, createdAt: -1, _id: -1 })
+        .lean()
+    ]);
+
+    const latestAttempts = [];
+    const seenAttemptKeys = new Set();
+    for (const attempt of attempts) {
+      const phase = String(attempt.phase || '');
+      const key = `${phase}:${studentId}`;
+      if (seenAttemptKeys.has(key)) continue;
+      seenAttemptKeys.add(key);
+      latestAttempts.push(serializeEvaluationAttemptSnapshot(attempt));
+    }
+
+    const latestFinals = [];
+    const seenFinals = new Set();
+    for (const finalEvaluation of finals) {
+      const key = String(finalEvaluation.student?._id || finalEvaluation.student || studentId);
+      if (seenFinals.has(key)) continue;
+      seenFinals.add(key);
+      latestFinals.push(serializeFinalEvaluationSnapshot(finalEvaluation));
+    }
+
+    return {
+      scope: 'student',
+      project: {
+        _id: projectId
+      },
+      student: { _id: studentId },
+      cards: latestCardsByPhase,
+      evaluations: {
+        attempts: latestAttempts,
+        finals: latestFinals
+      },
+      openedRetry: {
+        projectId,
+        teamId: null,
+        studentId
+      }
+    };
+  }
+
+  return {
+    scope: 'team',
+    project: {
+      _id: projectId
+    },
+    cards: latestCardsByPhase,
+    evaluations: {
+      attempts: [],
+      finals: []
+    },
+    openedRetry: {
+      projectId,
+      teamId: null,
+      studentId: null
+    }
   };
 };
 
@@ -2717,7 +3032,7 @@ exports.allowRetry = async (req, res) => {
     }
 
     if (teamId) {
-      const team = await Team.findById(teamId);
+      const team = await Team.findById(teamId).populate('members.user', 'name email').lean();
       if (!team) {
         return res.status(404).json({
           success: false,
@@ -2725,7 +3040,10 @@ exports.allowRetry = async (req, res) => {
         });
       }
 
-      const memberIds = team.members.map((m) => m.user).filter(Boolean);
+      const memberIds = Array.from(new Set((team.members || [])
+        .map((member) => String(member?.user?._id || member?.user || member || ''))
+        .filter(Boolean)));
+
       if (!memberIds.length) {
         return res.status(400).json({
           success: false,
@@ -2733,14 +3051,23 @@ exports.allowRetry = async (req, res) => {
         });
       }
 
-      // Delete final_delivery submissions to reset the team back to incomplete final delivery stage
-      await TeamSubmission.deleteMany({
-        team: teamId,
+      const retrySnapshot = await buildRetryArchiveSnapshot({ projectId, teamId });
+      const archiveRecord = await AssessmentRetryArchive.create({
         project: projectId,
-        stageKey: 'final_delivery'
+        team: teamId,
+        scope: 'team',
+        createdBy: req.user.id,
+        archivedAt: new Date(),
+        snapshot: retrySnapshot,
+        summary: {
+          submissionStages: (retrySnapshot.submissions?.stage || []).length,
+          programmingSubmissions: (retrySnapshot.submissions?.programming || []).length,
+          evaluationAttempts: (retrySnapshot.evaluations?.attempts || []).length,
+          finalEvaluations: (retrySnapshot.evaluations?.finals || []).length,
+          observationCards: (retrySnapshot.cards || []).length
+        }
       });
 
-      // Set retryAllowed in TeamProject enrollment
       await TeamProject.updateOne(
         {
           team: teamId,
@@ -2749,11 +3076,21 @@ exports.allowRetry = async (req, res) => {
         { retryAllowed: true }
       );
 
-      // Allow new attempts for all team members without deleting or resetting existing submissions.
+      await EvaluationAttempt.updateMany(
+        {
+          project: projectId,
+          team: teamId,
+          phase: 'group',
+          isLatestAttempt: true
+        },
+        { retryAllowed: true }
+      );
+
       await EvaluationAttempt.updateMany(
         {
           project: projectId,
           student: { $in: memberIds },
+          phase: { $in: ['individual_oral', 'role_designer', 'role_hardware', 'role_tester', 'role_programming'] },
           isLatestAttempt: true
         },
         { retryAllowed: true }
@@ -2761,15 +3098,34 @@ exports.allowRetry = async (req, res) => {
 
       return res.json({
         success: true,
-        message: 'تم فتح إعادة المحاولة للفريق - تم حذف التسليم النهائي ليسلموا مرة أخرى'
+        message: 'تم فتح إعادة المحاولة للفريق مع حفظ السجل الكامل قبل إعادة الفتح',
+        data: {
+          archiveId: archiveRecord._id,
+          archivedAt: archiveRecord.archivedAt
+        }
       });
     }
+
+    const retrySnapshot = await buildRetryArchiveSnapshot({ projectId, studentId });
+    const archiveRecord = await AssessmentRetryArchive.create({
+      project: projectId,
+      student: studentId,
+      scope: 'student',
+      createdBy: req.user.id,
+      archivedAt: new Date(),
+      snapshot: retrySnapshot,
+      summary: {
+        evaluationAttempts: (retrySnapshot.evaluations?.attempts || []).length,
+        finalEvaluations: (retrySnapshot.evaluations?.finals || []).length,
+        observationCards: (retrySnapshot.cards || []).length
+      }
+    });
 
     await EvaluationAttempt.updateMany(
       {
         project: projectId,
         student: studentId,
-        phase: { $in: ['group', 'individual_oral'] },
+        phase: { $in: RETRY_ARCHIVE_PHASES },
         isLatestAttempt: true
       },
       { retryAllowed: true }
@@ -2777,12 +3133,47 @@ exports.allowRetry = async (req, res) => {
 
     return res.json({
       success: true,
-      message: 'تم فتح إعادة المحاولة للطالب مع حفظ محاولاته السابقة كسجل'
+      message: 'تم فتح إعادة المحاولة للطالب مع حفظ السجل الكامل قبل إعادة الفتح',
+      data: {
+        archiveId: archiveRecord._id,
+        archivedAt: archiveRecord.archivedAt
+      }
     });
   } catch (error) {
     res.status(500).json({
       success: false,
       message: 'خطأ في السماح بإعادة المحاولة',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get retry archive snapshots for a project/team/student
+// @route   GET /api/assessment/retry-archives/:projectId
+// @access  Private (Teacher/Admin)
+exports.getRetryArchives = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { teamId, studentId } = req.query;
+
+    const query = { project: projectId };
+    if (teamId) query.team = teamId;
+    if (studentId) query.student = studentId;
+
+    const archives = await AssessmentRetryArchive.find(query)
+      .populate('createdBy', 'name email')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({
+      success: true,
+      count: archives.length,
+      data: archives
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في جلب سجل إعادة المحاولة',
       error: error.message
     });
   }
