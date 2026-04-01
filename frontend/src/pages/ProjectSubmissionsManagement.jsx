@@ -347,10 +347,29 @@ const ProjectSubmissionsManagement = () => {
       const teamId = String(team?._id || '');
 
       try {
-        const aiRes = await api.post('/assessment/ai-evaluate-team', {
+        const requestTeamAIDraft = async () => api.post('/assessment/ai-evaluate-team', {
           projectId,
           teamId
         });
+
+        let aiRes = null;
+        let lastErr = null;
+        for (let attempt = 1; attempt <= 3; attempt += 1) {
+          try {
+            aiRes = await requestTeamAIDraft();
+            break;
+          } catch (err) {
+            lastErr = err;
+            const status = err?.response?.status;
+            const isTransient = !status || status >= 500 || status === 429;
+            if (!isTransient || attempt === 3) break;
+            await new Promise((resolve) => setTimeout(resolve, attempt * 1200));
+          }
+        }
+
+        if (!aiRes) {
+          throw lastErr || new Error('فشل استدعاء تقييم AI للفريق');
+        }
 
         const aiData = aiRes.data?.data;
         if (!aiData?.groupCard || !Array.isArray(aiData.individualCards)) {
