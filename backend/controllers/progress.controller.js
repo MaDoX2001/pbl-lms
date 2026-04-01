@@ -328,7 +328,7 @@ exports.addReviewerFeedback = async (req, res) => {
       comments: comments || '',
       score: scoreFromEvaluation,
       source,
-      ...(normalizedAiMeta ? { aiMeta: normalizedAiMeta } : {}),
+      aiMeta: normalizedAiMeta || null,
       reviewedAt
     };
     progress.status = 'reviewed';
@@ -347,7 +347,7 @@ exports.addReviewerFeedback = async (req, res) => {
         confidence: Number(aiMeta.confidence || 0),
         plagiarismSimilarityPercent: Number(aiMeta.plagiarismSimilarityPercent || 0),
         plagiarismLevel: aiMeta.plagiarismLevel || null
-      } : undefined,
+      } : null,
       allowResubmission: Boolean(allowResubmission)
     });
 
