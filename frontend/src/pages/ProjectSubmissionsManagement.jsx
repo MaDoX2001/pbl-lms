@@ -68,6 +68,8 @@ const ProjectSubmissionsManagement = () => {
     open: false,
     team: null
   });
+  const [bulkAIRunning, setBulkAIRunning] = useState(false);
+  const [bulkAIProgress, setBulkAIProgress] = useState({ done: 0, total: 0 });
 
   useEffect(() => {
     fetchData();
@@ -213,6 +215,186 @@ const ProjectSubmissionsManagement = () => {
     }
   };
 
+  const draftToSectionEvaluations = (cardDraft) => {
+    return (cardDraft?.sectionEvaluations || []).map((section) => ({
+      sectionName: section.sectionName,
+      criterionSelections: (section.criterionSelections || []).map((criterion) => ({
+        criterionName: criterion.criterionName,
+        selectedPercentage: criterion.selectedPercentage,
+        selectedDescription: criterion.selectedDescription || ''
+      }))
+    }));
+  };
+
+  const getLatestSubmission = (items = []) => {
+    if (!items.length) return null;
+    return [...items].sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0];
+  };
+
+  const buildTeamAICandidates = () => {
+    const candidates = [];
+
+    Object.values(submissionsByTeam).forEach(({ team, submissions: teamSubmissions }) => {
+      const latestFinal = getLatestSubmission(teamSubmissions.filter((s) => s.stageKey === 'final_delivery'));
+      if (!latestFinal) return;
+
+      const programmingSubmissions = teamSubmissions.filter((s) => s.stageKey === 'programming');
+      if (!programmingSubmissions.length) return;
+
+      const memberIds = (team?.members || [])
+        .map((member) => member?.user?._id || member?._id || member?.user || member)
+        .filter(Boolean)
+        .map((id) => String(id));
+
+      if (!memberIds.length) return;
+
+      const latestProgrammingByStudent = {};
+      programmingSubmissions.forEach((submission) => {
+        const studentId = String(submission.submittedBy?._id || submission.submittedBy || '');
+        if (!studentId) return;
+
+        const current = latestProgrammingByStudent[studentId];
+        if (!current || new Date(submission.submittedAt) > new Date(current.submittedAt)) {
+          latestProgrammingByStudent[studentId] = submission;
+        }
+      });
+
+      const hasProgrammingForAllMembers = memberIds.every((studentId) => Boolean(latestProgrammingByStudent[studentId]));
+      if (!hasProgrammingForAllMembers) return;
+
+      memberIds.forEach((studentId) => {
+        const studentProgrammingSubmission = latestProgrammingByStudent[studentId];
+        candidates.push({
+          projectId,
+          teamId: team._id,
+          teamName: team.name,
+          studentId,
+          studentName: studentProgrammingSubmission?.submittedBy?.name || 'طالب',
+          programmingSubmissionId: studentProgrammingSubmission?._id,
+          finalSubmissionId: latestFinal._id
+        });
+      });
+    });
+
+    return candidates;
+  };
+
+  const runBulkAIEvaluationForTeams = async () => {
+    if (bulkAIRunning) return;
+
+    const candidates = buildTeamAICandidates();
+    if (!candidates.length) {
+      toast.info('لا توجد فرق مكتملة الشروط لتقييم AI (تسليم نهائي + برمجة لكل أعضاء الفريق).');
+      return;
+    }
+
+    const confirmRun = window.confirm(`سيتم تقييم ${candidates.length} طالبًا تلقائيًا في المشاريع الجماعية. المتابعة؟`);
+    if (!confirmRun) return;
+
+    setBulkAIRunning(true);
+    setBulkAIProgress({ done: 0, total: candidates.length });
+
+    let successCount = 0;
+    let failedCount = 0;
+    const groupEvaluatedTeams = new Set();
+
+    for (let i = 0; i < candidates.length; i += 1) {
+      const candidate = candidates[i];
+
+      try {
+        const aiRes = await api.post('/assessment/ai-evaluate-individual', {
+          projectId,
+          studentId: candidate.studentId,
+          submissionId: candidate.programmingSubmissionId
+        });
+
+        const aiData = aiRes.data?.data;
+        if (!aiData) {
+          throw new Error('لم يتم استلام نتيجة AI صالحة');
+        }
+
+        const teamKey = String(aiData.teamId || candidate.teamId || '');
+        if (!teamKey) {
+          throw new Error('تعذر تحديد الفريق للتقييم الجماعي');
+        }
+
+        if (!groupEvaluatedTeams.has(teamKey)) {
+          await api.post('/assessment/evaluate-group', {
+            projectId,
+            teamId: teamKey,
+            submissionId: aiData.basedOnGroupSubmissionId || candidate.finalSubmissionId,
+            sectionEvaluations: draftToSectionEvaluations(aiData.groupCard),
+            feedbackSummary: aiData.feedbackSuggestion || '',
+            evaluationSource: 'ai-batch',
+            aiApproval: {
+              confidence: aiData.confidence,
+              plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
+              plagiarismLevel: aiData.plagiarism?.level,
+              rationale: aiData.rationale
+            }
+          });
+          groupEvaluatedTeams.add(teamKey);
+        }
+
+        await api.post('/assessment/evaluate-individual', {
+          projectId,
+          studentId: candidate.studentId,
+          studentRole: 'programmer',
+          submissionId: aiData.basedOnIndividualSubmissionId || aiData.basedOnSubmissionId || candidate.programmingSubmissionId,
+          sectionEvaluations: draftToSectionEvaluations(aiData.individualCard),
+          feedbackSummary: aiData.feedbackSuggestion || '',
+          evaluationSource: 'ai-batch',
+          aiApproval: {
+            confidence: aiData.confidence,
+            plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
+            plagiarismLevel: aiData.plagiarism?.level,
+            rationale: aiData.rationale
+          }
+        });
+
+        successCount += 1;
+      } catch (err) {
+        failedCount += 1;
+        console.error('Bulk team AI evaluation failed', candidate, err);
+
+        const status = err?.response?.status;
+        const message = err?.response?.data?.message || err?.message || '';
+        const errorDetails = String(err?.response?.data?.error || '');
+        const text = `${message} ${errorDetails}`.toLowerCase();
+
+        const isQuotaOrServiceLimit =
+          status === 429
+          || text.includes('quota')
+          || text.includes('too many requests')
+          || text.includes('rate limit')
+          || text.includes('gemini');
+
+        if (isQuotaOrServiceLimit) {
+          toast.error(message || 'تم إيقاف التقييم: خدمة AI وصلت للحد الأقصى مؤقتًا.');
+          setBulkAIProgress({ done: i + 1, total: candidates.length });
+          break;
+        }
+
+        if (status === 400 || status === 404 || status === 405 || status === 500 || status === 501 || status === 502 || status === 503) {
+          toast.error(message || 'تم إيقاف التقييم الجماعي: خدمة AI غير متاحة أو بيانات المشروع غير مكتملة.');
+          setBulkAIProgress({ done: i + 1, total: candidates.length });
+          break;
+        }
+      } finally {
+        setBulkAIProgress({ done: i + 1, total: candidates.length });
+      }
+    }
+
+    await fetchData();
+    setBulkAIRunning(false);
+
+    if (failedCount === 0) {
+      toast.success(`تم إنهاء تقييم AI لكل الطلاب بنجاح (${successCount}/${candidates.length})`);
+    } else {
+      toast.warning(`اكتمل تقييم AI. نجح ${successCount} وفشل ${failedCount} من ${candidates.length}`);
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'graded':
@@ -302,9 +484,28 @@ const ProjectSubmissionsManagement = () => {
         <Typography variant="h4" gutterBottom>
           {project.title}
         </Typography>
-        <Typography variant="body1" color="text.secondary">
-          {t('totalSubmissionsWithCount', { count: submissions.length })}
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Typography variant="body1" color="text.secondary">
+            {t('totalSubmissionsWithCount', { count: submissions.length })}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+            {bulkAIRunning && (
+              <Chip
+                color="warning"
+                label={`AI يعمل: ${bulkAIProgress.done}/${bulkAIProgress.total}`}
+              />
+            )}
+            <Button
+              variant="outlined"
+              color="secondary"
+              startIcon={<AutoAwesomeIcon />}
+              onClick={runBulkAIEvaluationForTeams}
+              disabled={bulkAIRunning}
+            >
+              {bulkAIRunning ? 'جاري تقييم الطلاب...' : 'تقييم AI لكل الطلاب'}
+            </Button>
+          </Box>
+        </Box>
       </Paper>
 
       {/* Stage Tracking Board */}
