@@ -78,6 +78,7 @@ const ProjectSubmissionsManagement = () => {
     data: null
   });
   const [bulkAIRunning, setBulkAIRunning] = useState(false);
+  const [teamAIRunningById, setTeamAIRunningById] = useState({});
   const [bulkAIProgress, setBulkAIProgress] = useState({ done: 0, total: 0 });
   const [teamSearchTerm, setTeamSearchTerm] = useState('');
   const [finalDeliveryFilter, setFinalDeliveryFilter] = useState('all');
@@ -321,19 +322,9 @@ const ProjectSubmissionsManagement = () => {
     return candidates;
   };
 
-  const runBulkAIEvaluationForTeams = async () => {
-    if (bulkAIRunning) return;
+  const runAIEvaluationForCandidates = async (candidates) => {
+    if (!candidates.length) return { successCount: 0, failedCount: 0 };
 
-    const candidates = buildTeamAICandidates();
-    if (!candidates.length) {
-      toast.info('لا توجد فرق مكتملة الشروط لتقييم AI (تسليم نهائي + برمجة لكل أعضاء الفريق).');
-      return;
-    }
-
-    const confirmRun = window.confirm(`سيتم تقييم ${candidates.length} طالبًا تلقائيًا في المشاريع الجماعية. المتابعة؟`);
-    if (!confirmRun) return;
-
-    setBulkAIRunning(true);
     setBulkAIProgress({ done: 0, total: candidates.length });
 
     let successCount = 0;
@@ -415,7 +406,7 @@ const ProjectSubmissionsManagement = () => {
         successCount += 1;
       } catch (err) {
         failedCount += 1;
-        console.error('Bulk team AI evaluation failed', candidate, err);
+        console.error('Team AI evaluation failed', candidate, err);
 
         const status = err?.response?.status;
         const message = err?.response?.data?.message || err?.message || '';
@@ -436,7 +427,7 @@ const ProjectSubmissionsManagement = () => {
         }
 
         if (status === 400 || status === 404 || status === 405 || status === 500 || status === 501 || status === 502 || status === 503) {
-          toast.error(message || 'تم إيقاف التقييم الجماعي: خدمة AI غير متاحة أو بيانات المشروع غير مكتملة.');
+          toast.error(message || 'تم إيقاف التقييم: خدمة AI غير متاحة أو بيانات الفريق غير مكتملة.');
           setBulkAIProgress({ done: i + 1, total: candidates.length });
           break;
         }
@@ -444,6 +435,52 @@ const ProjectSubmissionsManagement = () => {
         setBulkAIProgress({ done: i + 1, total: candidates.length });
       }
     }
+
+    return { successCount, failedCount };
+  };
+
+  const runAIEvaluationForTeam = async (team) => {
+    const teamId = String(team?._id || '');
+    if (!teamId || bulkAIRunning || teamAIRunningById[teamId]) return;
+
+    const candidates = buildTeamAICandidates().filter((candidate) => String(candidate.teamId) === teamId);
+    if (!candidates.length) {
+      toast.info('هذا الفريق غير مكتمل الشروط لتقييم AI (تسليم نهائي + برمجة لكل الأعضاء).');
+      return;
+    }
+
+    const confirmRun = window.confirm(`سيتم تقييم ${candidates.length} طالبًا تلقائيًا في ${team.name}. المتابعة؟`);
+    if (!confirmRun) return;
+
+    setTeamAIRunningById((prev) => ({ ...prev, [teamId]: true }));
+    try {
+      const { successCount, failedCount } = await runAIEvaluationForCandidates(candidates);
+      await fetchData(true);
+
+      if (failedCount === 0) {
+        toast.success(`تم إنهاء تقييم AI للفريق ${team.name} بنجاح (${successCount}/${candidates.length})`);
+      } else {
+        toast.warning(`اكتمل تقييم AI للفريق ${team.name}. نجح ${successCount} وفشل ${failedCount} من ${candidates.length}`);
+      }
+    } finally {
+      setTeamAIRunningById((prev) => ({ ...prev, [teamId]: false }));
+    }
+  };
+
+  const runBulkAIEvaluationForTeams = async () => {
+    if (bulkAIRunning) return;
+
+    const candidates = buildTeamAICandidates();
+    if (!candidates.length) {
+      toast.info('لا توجد فرق مكتملة الشروط لتقييم AI (تسليم نهائي + برمجة لكل أعضاء الفريق).');
+      return;
+    }
+
+    const confirmRun = window.confirm(`سيتم تقييم ${candidates.length} طالبًا تلقائيًا في المشاريع الجماعية. المتابعة؟`);
+    if (!confirmRun) return;
+
+    setBulkAIRunning(true);
+    const { successCount, failedCount } = await runAIEvaluationForCandidates(candidates);
 
     await fetchData(true);
     setBulkAIRunning(false);
@@ -793,6 +830,16 @@ const ProjectSubmissionsManagement = () => {
                       onClick={() => handleOpenTeamRetryDialog(team)}
                     >
                       فتح إعادة المحاولة للفريق
+                    </Button>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      color="secondary"
+                      startIcon={<AutoAwesomeIcon />}
+                      disabled={bulkAIRunning || Boolean(teamAIRunningById[String(team._id)])}
+                      onClick={() => runAIEvaluationForTeam(team)}
+                    >
+                      {teamAIRunningById[String(team._id)] ? 'جاري تقييم الفريق...' : 'تقييم AI للفريق'}
                     </Button>
                   </Box>
 
