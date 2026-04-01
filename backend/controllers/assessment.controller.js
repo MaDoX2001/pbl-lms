@@ -1137,6 +1137,7 @@ exports.generateAIEvaluationDraft = async (req, res) => {
           'Use ONLY the provided supportArtifacts list as evidence context.',
           'supportArtifacts contains exactly 4 items only: 1 final_delivery and 3 programming submissions (latest per student).',
           'Evaluation priority must be: 1) Wokwi link evidence, 2) report/notes text, 3) files/images/attachments/code text.',
+          'All generated textual fields MUST be in Arabic only (rationale and feedbackSuggestion).',
           'Keep rationale concise and actionable for teacher review.',
           'Include feedbackSuggestion for the student in Arabic.'
         ],
@@ -1388,6 +1389,7 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         'For every criterion in both cards, choose only one allowed percentage from allowedPercentages.',
         'Evaluation priority must be: 1) Wokwi link evidence, 2) student report text, 3) submitted code/files/other artifacts.',
         'If Wokwi link is missing, inaccessible, or insufficient, fallback to report text first before using other artifacts.',
+        'All generated textual fields MUST be in Arabic only (rationale and feedbackSuggestion).',
         'Keep rationale concise and actionable for teacher review.',
         'Include feedbackSuggestion for the student in Arabic.'
       ],
@@ -1539,6 +1541,414 @@ exports.generateAIEvaluationDraft = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'حدث خطأ أثناء توليد تقييم AI',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Generate AI evaluation draft for whole team in one response
+// @route   POST /api/assessment/ai-evaluate-team
+// @access  Private (Teacher/Admin)
+exports.generateAITeamEvaluationDraft = async (req, res) => {
+  try {
+    const { projectId, teamId } = req.body;
+
+    if (!projectId || !teamId) {
+      return res.status(400).json({
+        success: false,
+        message: 'projectId و teamId مطلوبان'
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(projectId) || !mongoose.Types.ObjectId.isValid(teamId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'projectId أو teamId غير صالح'
+      });
+    }
+
+    const project = await Project.findById(projectId).select('title description instructor isTeamProject');
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'المشروع غير موجود' });
+    }
+
+    if (!project.isTeamProject) {
+      return res.status(400).json({
+        success: false,
+        message: 'هذا المسار مخصص للمشاريع الجماعية فقط'
+      });
+    }
+
+    if (req.user.role !== 'admin' && project.instructor?.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'غير مصرح لك بتقييم هذا المشروع' });
+    }
+
+    const [groupCard, individualCard] = await Promise.all([
+      ObservationCard.findOne({ project: projectId, phase: 'group' }),
+      ObservationCard.findOne({ project: projectId, phase: 'individual_oral' })
+    ]);
+
+    if (!groupCard || !individualCard) {
+      return res.status(404).json({
+        success: false,
+        message: 'بطاقات الملاحظة المطلوبة (الجماعية + الفردية) غير متاحة لهذا المشروع'
+      });
+    }
+
+    const teamEnrollment = await TeamProject.findOne({
+      project: projectId,
+      team: teamId
+    }).populate({
+      path: 'team',
+      populate: { path: 'members.user', select: 'name email' }
+    });
+
+    if (!teamEnrollment?.team?._id) {
+      return res.status(404).json({
+        success: false,
+        message: 'الفريق غير مرتبط بهذا المشروع'
+      });
+    }
+
+    const teamMembers = (teamEnrollment.team.members || []).map((m) => ({
+      id: String(m.user?._id || m.user || ''),
+      name: m.user?.name || 'طالب',
+      email: m.user?.email || ''
+    })).filter((m) => Boolean(m.id));
+
+    if (teamMembers.length !== 3) {
+      return res.status(400).json({
+        success: false,
+        message: `تقييم AI مضبوط على 4 أدلة فقط (3 برمجة + 1 نهائي). عدد أعضاء الفريق الحالي: ${teamMembers.length}`
+      });
+    }
+
+    const latestFinalSubmission = await TeamSubmission.findOne({
+      team: teamId,
+      project: projectId,
+      stageKey: 'final_delivery'
+    })
+      .populate('submittedBy', 'name email')
+      .sort({ submittedAt: -1, createdAt: -1 });
+
+    if (!latestFinalSubmission) {
+      return res.status(400).json({
+        success: false,
+        message: 'لا يمكن تقييم AI قبل التسليم النهائي للفريق وإكمال المشروع'
+      });
+    }
+
+    const programmingSubmitters = await TeamSubmission.distinct('submittedBy', {
+      team: teamId,
+      project: projectId,
+      stageKey: 'programming'
+    });
+    const programmingSubmitterSet = new Set(programmingSubmitters.map((id) => String(id)));
+    const hasProgrammingForAllMembers = teamMembers.every((member) => programmingSubmitterSet.has(member.id));
+
+    if (!hasProgrammingForAllMembers) {
+      const missingMembers = teamMembers
+        .filter((m) => !programmingSubmitterSet.has(m.id))
+        .map((m) => m.name);
+
+      return res.status(400).json({
+        success: false,
+        message: `لا يمكن تشغيل تقييم AI قبل اكتمال تسليمات البرمجة لكل أعضاء الفريق. الطلاب الناقصون: ${missingMembers.join('، ') || 'غير محدد'}`
+      });
+    }
+
+    const latestProgrammingSubmissions = await TeamSubmission.find({
+      team: teamId,
+      project: projectId,
+      stageKey: 'programming',
+      submittedBy: { $in: teamMembers.map((m) => m.id) }
+    })
+      .populate('submittedBy', 'name email')
+      .sort({ submittedAt: -1, createdAt: -1 });
+
+    const programmingByMember = new Map();
+    for (const item of latestProgrammingSubmissions) {
+      const submitterId = String(item.submittedBy?._id || item.submittedBy || '');
+      if (!submitterId || programmingByMember.has(submitterId)) continue;
+      programmingByMember.set(submitterId, item);
+    }
+
+    const toEvidenceItem = (item) => ({
+      id: item._id,
+      stageKey: item.stageKey,
+      submissionType: item.submissionType,
+      submittedBy: {
+        id: item.submittedBy?._id || item.submittedBy,
+        name: item.submittedBy?.name || 'طالب'
+      },
+      submittedAt: item.submittedAt,
+      wokwiLink: item.wokwiLink || '',
+      notes: item.notes || '',
+      description: item.description || '',
+      fileUrl: item.fileUrl || '',
+      fileName: item.fileName || '',
+      attachments: (item.attachments || []).map((a) => ({
+        url: a.url,
+        fileName: a.fileName,
+        fileType: a.fileType,
+        fileSize: a.fileSize
+      }))
+    });
+
+    const teamProgrammingArtifacts = teamMembers
+      .filter((member) => programmingByMember.has(member.id))
+      .map((member) => ({
+        student: member,
+        evidence: toEvidenceItem(programmingByMember.get(member.id))
+      }));
+
+    if (teamProgrammingArtifacts.length !== 3) {
+      const availableIds = new Set(teamProgrammingArtifacts.map((item) => item.student.id));
+      const missingMembers = teamMembers.filter((m) => !availableIds.has(m.id)).map((m) => m.name);
+      return res.status(400).json({
+        success: false,
+        message: `تقييم AI يتطلب 3 تسليمات برمجة (آخر تسليمة لكل طالب). الطلاب الناقصون: ${missingMembers.join('، ') || 'غير محدد'}`
+      });
+    }
+
+    const groupPrimary = toEvidenceItem(latestFinalSubmission);
+    const supportArtifacts = [groupPrimary, ...teamProgrammingArtifacts.map((item) => item.evidence)];
+
+    if (supportArtifacts.length !== 4) {
+      return res.status(400).json({
+        success: false,
+        message: `تقييم AI يتطلب 4 أدلة فقط (3 برمجة + 1 نهائي). الأدلة المتاحة حالياً: ${supportArtifacts.length}`
+      });
+    }
+
+    const similarityLinks = Array.from(new Set(
+      supportArtifacts
+        .map((item) => item.wokwiLink || extractWokwiLink(item.notes) || extractWokwiLink(item.description) || '')
+        .filter(Boolean)
+    ));
+
+    const matchedStudents = [];
+    if (similarityLinks.length > 0) {
+      const otherTeamSubmissions = await TeamSubmission.find({
+        project: projectId,
+        team: { $ne: teamId },
+        stageKey: { $in: ['programming', 'final_delivery'] },
+        wokwiLink: { $exists: true, $ne: '' }
+      })
+        .populate('submittedBy', 'name')
+        .populate('team', 'name')
+        .select('wokwiLink submittedBy team stageKey');
+
+      for (const other of otherTeamSubmissions) {
+        if (similarityLinks.includes(String(other.wokwiLink || '').trim())) {
+          matchedStudents.push({
+            studentId: other.submittedBy?._id,
+            studentName: other.submittedBy?.name || 'طالب آخر',
+            teamName: other.team?.name || 'فريق آخر',
+            matchedLink: other.wokwiLink
+          });
+        }
+      }
+    }
+
+    const plagiarismSimilarityPercent = matchedStudents.length > 0 ? 90 : 10;
+    const plagiarismLevel = matchedStudents.length > 0 ? 'high' : 'low';
+    const plagiarismReason = matchedStudents.length > 0
+      ? 'تم العثور على روابط Wokwi مطابقة في تسليمات فرق أخرى بالمشروع.'
+      : 'لا يوجد تطابق مباشر واضح في روابط Wokwi مع تسليمات فرق أخرى.';
+
+    const promptPayload = {
+      language: 'Arabic',
+      task: 'Evaluate the whole team in one response: one group card from final delivery and one individual programming card for each team member. Return structured JSON only.',
+      strictRules: [
+        'Return JSON only without markdown fences.',
+        'For every criterion in both cards, choose only one allowed percentage from allowedPercentages.',
+        'Group card MUST be based primarily on team final delivery evidence only.',
+        'Each student individual card MUST be based primarily on that student latest programming evidence.',
+        'Use ONLY the provided supportArtifacts list as evidence context.',
+        'supportArtifacts contains exactly 4 items only: 1 final_delivery and 3 programming submissions (latest per student).',
+        'Evaluation priority must be: 1) Wokwi link evidence, 2) report/notes text, 3) files/images/attachments/code text.',
+        'All generated textual fields MUST be in Arabic only (rationale, teamFeedbackSuggestion, and per-student feedbackSuggestion).',
+        'Keep rationale concise and actionable for teacher review.'
+      ],
+      teacherGoal: 'Produce one consistent evaluation response that the platform can use to fill all cards and compute final scores accurately.',
+      project: {
+        id: project._id,
+        title: project.title,
+        description: project.description || '',
+        isTeamProject: true
+      },
+      team: {
+        id: teamId,
+        name: teamEnrollment.team.name || 'فريق',
+        members: teamMembers
+      },
+      submission: {
+        source: 'team-submission-model',
+        evidencePriority: ['wokwiLink', 'reportText', 'otherArtifacts'],
+        groupPrimary,
+        memberProgrammingPrimaries: teamProgrammingArtifacts.map((item) => ({
+          student: item.student,
+          evidence: item.evidence
+        })),
+        supportArtifacts
+      },
+      plagiarismSignal: {
+        similarityPercent: plagiarismSimilarityPercent,
+        level: plagiarismLevel,
+        reason: plagiarismReason,
+        matchedStudents
+      },
+      observationCards: {
+        group: buildCardPromptShape(groupCard),
+        individual_oral: buildCardPromptShape(individualCard)
+      },
+      requiredOutputShape: {
+        groupRecommendations: [
+          {
+            sectionName: 'string',
+            criteria: [{ criterionName: 'string', selectedPercentage: 0 }]
+          }
+        ],
+        perStudentRecommendations: [
+          {
+            studentId: 'string',
+            studentName: 'string',
+            individualRecommendations: [
+              {
+                sectionName: 'string',
+                criteria: [{ criterionName: 'string', selectedPercentage: 0 }]
+              }
+            ],
+            feedbackSuggestion: 'string'
+          }
+        ],
+        rationale: 'string',
+        teamFeedbackSuggestion: 'string',
+        confidence: 0
+      }
+    };
+
+    const rawResponse = await callGeminiForAssessment(JSON.stringify(promptPayload));
+    const parsed = safeJsonParse(rawResponse);
+
+    if (!parsed) {
+      return res.status(502).json({
+        success: false,
+        message: 'تعذر قراءة مخرجات AI بصيغة JSON صالحة. حاول مرة أخرى.'
+      });
+    }
+
+    const groupDraft = buildSectionEvaluationsFromCard({
+      card: groupCard,
+      recommendations: parsed.groupRecommendations || [],
+      project,
+      studentRole: 'programmer',
+      enforceAllCriteria: true
+    });
+
+    const perStudentRecommendations = Array.isArray(parsed.perStudentRecommendations)
+      ? parsed.perStudentRecommendations
+      : [];
+
+    const individualCards = teamProgrammingArtifacts.map((item) => {
+      const hit = perStudentRecommendations.find((rec) => {
+        const byId = String(rec?.studentId || '') === String(item.student.id);
+        const byName = String(rec?.studentName || '').trim() === String(item.student.name || '').trim();
+        return byId || byName;
+      });
+
+      const individualDraft = buildSectionEvaluationsFromCard({
+        card: individualCard,
+        recommendations: hit?.individualRecommendations || hit?.recommendations || [],
+        project,
+        studentRole: 'programmer',
+        enforceAllCriteria: true
+      });
+
+      const overallScore = Number((((groupDraft.calculatedScore + individualDraft.calculatedScore) / 2)).toFixed(2));
+
+      return {
+        studentId: item.student.id,
+        studentName: item.student.name,
+        studentRole: 'programmer',
+        submissionId: String(item.evidence.id),
+        individualCard: individualDraft,
+        overallScore,
+        feedbackSuggestion: hit?.feedbackSuggestion || parsed.teamFeedbackSuggestion || ''
+      };
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        teamId: String(teamId),
+        basedOnGroupSubmissionId: String(groupPrimary.id),
+        basedOnIndividualSubmissionIds: individualCards.map((item) => ({
+          studentId: item.studentId,
+          submissionId: item.submissionId
+        })),
+        groupCard: groupDraft,
+        individualCards,
+        rationale: parsed.rationale || 'لم يتم توفير مبرر مفصل من AI.',
+        teamFeedbackSuggestion: parsed.teamFeedbackSuggestion || '',
+        confidence: Number(parsed.confidence || 0),
+        plagiarism: {
+          similarityPercent: plagiarismSimilarityPercent,
+          level: plagiarismLevel,
+          reason: plagiarismReason,
+          matchedStudents
+        },
+        evidenceSummary: {
+          scope: 'team-final-plus-latest-programming-per-student',
+          totalArtifacts: supportArtifacts.length,
+          groupSubmissionId: String(groupPrimary.id),
+          programmingSubmissionIds: teamProgrammingArtifacts.map((item) => String(item.evidence.id)),
+          evidenceSubmissionIds: supportArtifacts.map((item) => String(item.id))
+        },
+        generatedAt: new Date()
+      }
+    });
+  } catch (error) {
+    const rawMessage = String(error?.message || '');
+    const lowered = rawMessage.toLowerCase();
+    const isModelUnavailable =
+      (lowered.includes('404') && lowered.includes('model'))
+      || lowered.includes('no longer available')
+      || lowered.includes('models/');
+    const isQuotaOrRateLimited =
+      lowered.includes('429')
+      || lowered.includes('quota')
+      || lowered.includes('rate limit')
+      || lowered.includes('too many requests');
+
+    if (isModelUnavailable) {
+      return res.status(503).json({
+        success: false,
+        message: 'نموذج تقييم AI الحالي غير متاح. تم تحديث الإعدادات، حاول مرة أخرى خلال دقائق بعد اكتمال النشر.',
+        error: rawMessage
+      });
+    }
+
+    if (isQuotaOrRateLimited) {
+      const retryMatch = rawMessage.match(/retry in\s+([\d.]+)s/i);
+      const retryAfterSeconds = retryMatch ? Math.ceil(Number(retryMatch[1])) : null;
+
+      if (retryAfterSeconds && Number.isFinite(retryAfterSeconds)) {
+        res.set('Retry-After', String(retryAfterSeconds));
+      }
+
+      return res.status(429).json({
+        success: false,
+        message: 'خدمة تقييم AI وصلت للحد الأقصى مؤقتاً. حاول مرة أخرى بعد قليل.',
+        retryAfterSeconds,
+        error: rawMessage
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: 'حدث خطأ أثناء توليد تقييم AI للفريق',
       error: error.message
     });
   }

@@ -322,60 +322,28 @@ const ProjectSubmissionsManagement = () => {
     return candidates;
   };
 
-  const runAIEvaluationForCandidates = async (candidates) => {
-    if (!candidates.length) return { successCount: 0, failedCount: 0 };
+  const runAIEvaluationForTeams = async (teams) => {
+    if (!teams.length) return { successCount: 0, failedCount: 0, totalStudents: 0 };
 
-    setBulkAIProgress({ done: 0, total: candidates.length });
+    setBulkAIProgress({ done: 0, total: teams.length });
 
     let successCount = 0;
     let failedCount = 0;
-    const groupEvaluatedTeams = new Set();
+    let totalStudents = 0;
 
-    for (let i = 0; i < candidates.length; i += 1) {
-      const candidate = candidates[i];
+    for (let i = 0; i < teams.length; i += 1) {
+      const team = teams[i];
+      const teamId = String(team?._id || '');
 
       try {
-        const aiRes = await api.post('/assessment/ai-evaluate-individual', {
+        const aiRes = await api.post('/assessment/ai-evaluate-team', {
           projectId,
-          studentId: candidate.studentId,
-          submissionId: candidate.programmingSubmissionId
+          teamId
         });
 
         const aiData = aiRes.data?.data;
-        if (!aiData) {
-          throw new Error('لم يتم استلام نتيجة AI صالحة');
-        }
-
-        const teamKey = String(aiData.teamId || candidate.teamId || '');
-        if (!teamKey) {
-          throw new Error('تعذر تحديد الفريق للتقييم الجماعي');
-        }
-
-        if (!groupEvaluatedTeams.has(teamKey)) {
-          const evidenceSubmissionIds = [
-            aiData.evidenceSummary?.groupSubmissionId,
-            ...(aiData.evidenceSummary?.programmingSubmissionIds || [])
-          ].filter(Boolean);
-
-          await api.post('/assessment/evaluate-group', {
-            projectId,
-            teamId: teamKey,
-            submissionId: aiData.basedOnGroupSubmissionId || candidate.finalSubmissionId,
-            sectionEvaluations: draftToSectionEvaluations(aiData.groupCard),
-            feedbackSummary: aiData.feedbackSuggestion || '',
-            evaluationSource: 'ai-batch',
-            aiApproval: {
-              confidence: aiData.confidence,
-              plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
-              plagiarismLevel: aiData.plagiarism?.level,
-              rationale: aiData.rationale,
-              evidenceScope: aiData.evidenceSummary?.scope,
-              evidenceCount: aiData.evidenceSummary?.totalArtifacts || evidenceSubmissionIds.length,
-              evidenceSubmissionIds,
-              evidenceSummary: 'تم التقييم اعتمادا على 4 أدلة ثابتة: 3 برمجة + 1 نهائي.'
-            }
-          });
-          groupEvaluatedTeams.add(teamKey);
+        if (!aiData?.groupCard || !Array.isArray(aiData.individualCards)) {
+          throw new Error('لم يتم استلام نتيجة تقييم AI للفريق بصيغة صالحة');
         }
 
         const evidenceSubmissionIds = [
@@ -383,13 +351,12 @@ const ProjectSubmissionsManagement = () => {
           ...(aiData.evidenceSummary?.programmingSubmissionIds || [])
         ].filter(Boolean);
 
-        await api.post('/assessment/evaluate-individual', {
+        await api.post('/assessment/evaluate-group', {
           projectId,
-          studentId: candidate.studentId,
-          studentRole: 'programmer',
-          submissionId: aiData.basedOnIndividualSubmissionId || aiData.basedOnSubmissionId || candidate.programmingSubmissionId,
-          sectionEvaluations: draftToSectionEvaluations(aiData.individualCard),
-          feedbackSummary: aiData.feedbackSuggestion || '',
+          teamId,
+          submissionId: aiData.basedOnGroupSubmissionId,
+          sectionEvaluations: draftToSectionEvaluations(aiData.groupCard),
+          feedbackSummary: aiData.teamFeedbackSuggestion || '',
           evaluationSource: 'ai-batch',
           aiApproval: {
             confidence: aiData.confidence,
@@ -403,10 +370,37 @@ const ProjectSubmissionsManagement = () => {
           }
         });
 
-        successCount += 1;
+        const studentsCountForTeam = aiData.individualCards.length;
+        totalStudents += studentsCountForTeam;
+
+        for (const studentCard of aiData.individualCards) {
+          await api.post('/assessment/evaluate-individual', {
+            projectId,
+            teamId,
+            studentId: studentCard.studentId,
+            studentRole: studentCard.studentRole || 'programmer',
+            submissionId: studentCard.submissionId,
+            sectionEvaluations: draftToSectionEvaluations(studentCard.individualCard),
+            feedbackSummary: studentCard.feedbackSuggestion || aiData.teamFeedbackSuggestion || '',
+            evaluationSource: 'ai-batch',
+            aiApproval: {
+              confidence: aiData.confidence,
+              plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
+              plagiarismLevel: aiData.plagiarism?.level,
+              rationale: aiData.rationale,
+              evidenceScope: aiData.evidenceSummary?.scope,
+              evidenceCount: aiData.evidenceSummary?.totalArtifacts || evidenceSubmissionIds.length,
+              evidenceSubmissionIds,
+              evidenceSummary: 'تم التقييم اعتمادا على 4 أدلة ثابتة: 3 برمجة + 1 نهائي.'
+            }
+          });
+          successCount += 1;
+        }
       } catch (err) {
-        failedCount += 1;
-        console.error('Team AI evaluation failed', candidate, err);
+        const teamMembersCount = (team?.members || []).length || 1;
+        failedCount += teamMembersCount;
+        totalStudents += teamMembersCount;
+        console.error('Team AI evaluation failed', team, err);
 
         const status = err?.response?.status;
         const message = err?.response?.data?.message || err?.message || '';
@@ -422,45 +416,39 @@ const ProjectSubmissionsManagement = () => {
 
         if (isQuotaOrServiceLimit) {
           toast.error(message || 'تم إيقاف التقييم: خدمة AI وصلت للحد الأقصى مؤقتًا.');
-          setBulkAIProgress({ done: i + 1, total: candidates.length });
+          setBulkAIProgress({ done: i + 1, total: teams.length });
           break;
         }
 
         if (status === 400 || status === 404 || status === 405 || status === 500 || status === 501 || status === 502 || status === 503) {
           toast.error(message || 'تم إيقاف التقييم: خدمة AI غير متاحة أو بيانات الفريق غير مكتملة.');
-          setBulkAIProgress({ done: i + 1, total: candidates.length });
+          setBulkAIProgress({ done: i + 1, total: teams.length });
           break;
         }
       } finally {
-        setBulkAIProgress({ done: i + 1, total: candidates.length });
+        setBulkAIProgress({ done: i + 1, total: teams.length });
       }
     }
 
-    return { successCount, failedCount };
+    return { successCount, failedCount, totalStudents };
   };
 
   const runAIEvaluationForTeam = async (team) => {
     const teamId = String(team?._id || '');
     if (!teamId || bulkAIRunning || teamAIRunningById[teamId]) return;
 
-    const candidates = buildTeamAICandidates().filter((candidate) => String(candidate.teamId) === teamId);
-    if (!candidates.length) {
-      toast.info('هذا الفريق غير مكتمل الشروط لتقييم AI (تسليم نهائي + برمجة لكل الأعضاء).');
-      return;
-    }
-
-    const confirmRun = window.confirm(`سيتم تقييم ${candidates.length} طالبًا تلقائيًا في ${team.name}. المتابعة؟`);
+    const confirmRun = window.confirm(`سيتم تقييم ${team.name} بالكامل في طلب AI واحد (التقييم الجماعي + كل الطلاب). المتابعة؟`);
     if (!confirmRun) return;
 
     setTeamAIRunningById((prev) => ({ ...prev, [teamId]: true }));
     try {
-      const { successCount, failedCount } = await runAIEvaluationForCandidates(candidates);
+      const { successCount, failedCount, totalStudents } = await runAIEvaluationForTeams([team]);
       await fetchData(true);
 
       if (failedCount === 0) {
-        toast.success(`تم إنهاء تقييم AI للفريق ${team.name} بنجاح (${successCount}/${candidates.length})`);
+        toast.success(`تم إنهاء تقييم AI للفريق ${team.name} بنجاح (${successCount}/${totalStudents})`);
       } else {
-        toast.warning(`اكتمل تقييم AI للفريق ${team.name}. نجح ${successCount} وفشل ${failedCount} من ${candidates.length}`);
+        toast.warning(`اكتمل تقييم AI للفريق ${team.name}. نجح ${successCount} وفشل ${failedCount} من ${totalStudents}`);
       }
     } finally {
       setTeamAIRunningById((prev) => ({ ...prev, [teamId]: false }));
@@ -470,25 +458,28 @@ const ProjectSubmissionsManagement = () => {
   const runBulkAIEvaluationForTeams = async () => {
     if (bulkAIRunning) return;
 
-    const candidates = buildTeamAICandidates();
-    if (!candidates.length) {
+    const readyTeamIds = Array.from(new Set(buildTeamAICandidates().map((candidate) => String(candidate.teamId))));
+    const teams = readyTeamIds
+      .map((teamId) => submissionsByTeam[teamId]?.team)
+      .filter(Boolean);
+    if (!teams.length) {
       toast.info('لا توجد فرق مكتملة الشروط لتقييم AI (تسليم نهائي + برمجة لكل أعضاء الفريق).');
       return;
     }
 
-    const confirmRun = window.confirm(`سيتم تقييم ${candidates.length} طالبًا تلقائيًا في المشاريع الجماعية. المتابعة؟`);
+    const confirmRun = window.confirm(`سيتم تقييم ${teams.length} فريقًا تلقائيًا (طلب AI واحد لكل فريق). المتابعة؟`);
     if (!confirmRun) return;
 
     setBulkAIRunning(true);
-    const { successCount, failedCount } = await runAIEvaluationForCandidates(candidates);
+    const { successCount, failedCount, totalStudents } = await runAIEvaluationForTeams(teams);
 
     await fetchData(true);
     setBulkAIRunning(false);
 
     if (failedCount === 0) {
-      toast.success(`تم إنهاء تقييم AI لكل الطلاب بنجاح (${successCount}/${candidates.length})`);
+      toast.success(`تم إنهاء تقييم AI لكل الطلاب بنجاح (${successCount}/${totalStudents})`);
     } else {
-      toast.warning(`اكتمل تقييم AI. نجح ${successCount} وفشل ${failedCount} من ${candidates.length}`);
+      toast.warning(`اكتمل تقييم AI. نجح ${successCount} وفشل ${failedCount} من ${totalStudents}`);
     }
   };
 
