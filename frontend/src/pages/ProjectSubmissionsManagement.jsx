@@ -31,7 +31,6 @@ import {
   Architecture as ArchitectureIcon,
   Memory as MemoryIcon,
   Science as ScienceIcon,
-  Verified as VerifiedIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../services/api';
@@ -545,13 +544,6 @@ const ProjectSubmissionsManagement = () => {
       .sort((a, b) => String(a.name).localeCompare(String(b.name), 'ar', { sensitivity: 'base' }));
   };
 
-  const getFinalSubmitterNames = (team) => {
-    const members = getTeamMembersWithRoles(team);
-    return members
-      .filter((m) => m.role === 'tester')
-      .map((m) => m.name);
-  };
-
   const getTeamSubmissionButtons = (teamSubmissions = [], team = {}) => {
     // استخرج قائمة أعضاء الفريق
     const members = [...(team?.members || [])].sort((a, b) => {
@@ -819,13 +811,6 @@ const ProjectSubmissionsManagement = () => {
                         />
                       );
                     })}
-                  </Box>
-
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.2, flexWrap: 'wrap' }}>
-                    <VerifiedIcon color="success" fontSize="small" />
-                    <Typography variant="body2" color="text.secondary">
-                      المسموح لهم بتسليم النهائي: {getFinalSubmitterNames(team).join('، ') || 'غير محدد'}
-                    </Typography>
                   </Box>
 
                   <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 1.2 }}>
