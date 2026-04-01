@@ -43,17 +43,29 @@ const { errorHandler } = require('./middleware/errorHandler');
 // Initialize express app
 const app = express();
 
+const defaultAllowedOrigins = [
+  'http://localhost:3000',
+  'https://pbl-lms-phi.vercel.app',
+  'https://pbl-lms-psi.vercel.app'
+];
+
+const parsedClientOrigins = (process.env.CLIENT_URL || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const allowedOrigins = Array.from(new Set([
+  ...defaultAllowedOrigins,
+  ...parsedClientOrigins
+]));
+
 // Trust proxy - MUST be before any middleware
 app.set('trust proxy', 1);
 
 // Middleware
 app.use(helmet()); // Security headers
 app.use(cors({
-  origin: process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : [
-    'http://localhost:3000',
-    'https://pbl-lms-phi.vercel.app',
-    'https://pbl-lms-psi.vercel.app'
-  ],
+  origin: allowedOrigins,
   credentials: true
 }));
 app.use(compression()); // Compress responses
@@ -136,11 +148,7 @@ const server = http.createServer(app);
 // Initialize Socket.IO
 const io = socketIO(server, {
   cors: {
-    origin: process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : [
-      'http://localhost:3000',
-      'https://pbl-lms-phi.vercel.app',
-      'https://pbl-lms-psi.vercel.app'
-    ],
+    origin: allowedOrigins,
     credentials: true
   }
 });
