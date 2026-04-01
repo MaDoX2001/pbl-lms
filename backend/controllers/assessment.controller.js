@@ -2000,18 +2000,18 @@ exports.getAllFinalEvaluations = async (req, res) => {
 // RETRY MANAGEMENT
 // ============================================================================
 
-// @desc    Allow retry for a full team (all members)
+// @desc    Allow retry for a full team or an individual student
 // @route   POST /api/assessment/allow-retry
 // @access  Private (Teacher/Admin)
-// Body: { teamId, projectId }
+// Body: { teamId, projectId } OR { studentId, projectId }
 exports.allowRetry = async (req, res) => {
   try {
-    const { projectId, teamId } = req.body;
+    const { projectId, teamId, studentId } = req.body;
 
-    if (!projectId || !teamId) {
+    if (!projectId || (!teamId && !studentId)) {
       return res.status(400).json({
         success: false,
-        message: 'يجب تحديد المشروع والفريق'
+        message: 'يجب تحديد المشروع مع الفريق أو الطالب'
       });
     }
 
@@ -2030,43 +2030,60 @@ exports.allowRetry = async (req, res) => {
       });
     }
 
-    const team = await Team.findById(teamId);
-    if (!team) {
-      return res.status(404).json({
-        success: false,
-        message: 'الفريق غير موجود'
-      });
-    }
+    if (teamId) {
+      const team = await Team.findById(teamId);
+      if (!team) {
+        return res.status(404).json({
+          success: false,
+          message: 'الفريق غير موجود'
+        });
+      }
 
-    const memberIds = team.members.map((m) => m.user).filter(Boolean);
-    if (!memberIds.length) {
-      return res.status(400).json({
-        success: false,
-        message: 'لا يوجد أعضاء في الفريق'
-      });
-    }
+      const memberIds = team.members.map((m) => m.user).filter(Boolean);
+      if (!memberIds.length) {
+        return res.status(400).json({
+          success: false,
+          message: 'لا يوجد أعضاء في الفريق'
+        });
+      }
 
-    // Delete final_delivery submissions to reset the team back to incomplete final delivery stage
-    await TeamSubmission.deleteMany({
-      team: teamId,
-      project: projectId,
-      stageKey: 'final_delivery'
-    });
-
-    // Set retryAllowed in TeamProject enrollment
-    await TeamProject.updateOne(
-      {
+      // Delete final_delivery submissions to reset the team back to incomplete final delivery stage
+      await TeamSubmission.deleteMany({
         team: teamId,
-        project: projectId
-      },
-      { retryAllowed: true }
-    );
+        project: projectId,
+        stageKey: 'final_delivery'
+      });
 
-    // Allow new attempts for all team members without deleting or resetting existing submissions.
+      // Set retryAllowed in TeamProject enrollment
+      await TeamProject.updateOne(
+        {
+          team: teamId,
+          project: projectId
+        },
+        { retryAllowed: true }
+      );
+
+      // Allow new attempts for all team members without deleting or resetting existing submissions.
+      await EvaluationAttempt.updateMany(
+        {
+          project: projectId,
+          student: { $in: memberIds },
+          isLatestAttempt: true
+        },
+        { retryAllowed: true }
+      );
+
+      return res.json({
+        success: true,
+        message: 'تم فتح إعادة المحاولة للفريق - تم حذف التسليم النهائي ليسلموا مرة أخرى'
+      });
+    }
+
     await EvaluationAttempt.updateMany(
       {
         project: projectId,
-        student: { $in: memberIds },
+        student: studentId,
+        phase: { $in: ['group', 'individual_oral'] },
         isLatestAttempt: true
       },
       { retryAllowed: true }
@@ -2074,7 +2091,7 @@ exports.allowRetry = async (req, res) => {
 
     return res.json({
       success: true,
-      message: 'تم فتح إعادة المحاولة للفريق - تم حذف التسليم النهائي ليسلموا مرة أخرى'
+      message: 'تم فتح إعادة المحاولة للطالب مع حفظ محاولاته السابقة كسجل'
     });
   } catch (error) {
     res.status(500).json({

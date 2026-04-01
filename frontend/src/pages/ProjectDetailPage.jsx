@@ -573,6 +573,7 @@ const ProjectDetailPage = () => {
 
   const handleSaveReviewerFeedback = async (submissionId, options = {}) => {
     const allowResubmission = options.allowResubmission ?? Boolean(allowResubmitBySubmission[submissionId]);
+    const studentId = options.studentId;
 
     try {
       setSavingFeedbackBySubmission((prev) => ({ ...prev, [submissionId]: true }));
@@ -586,6 +587,14 @@ const ProjectDetailPage = () => {
           plagiarismLevel: null
         }
       });
+
+      if (allowResubmission && studentId) {
+        await api.post('/assessment/allow-retry', {
+          projectId: id,
+          studentId
+        });
+      }
+
       toast.success(allowResubmission ? 'تم فتح إعادة التسليم للطالب بنجاح' : 'تم حفظ تعليق المراجع بنجاح');
       setAllowResubmitBySubmission((prev) => ({ ...prev, [submissionId]: allowResubmission }));
       fetchProjectSubmissionsForReview();
@@ -1598,7 +1607,10 @@ const ProjectDetailPage = () => {
                                   fullWidth
                                   variant="contained"
                                   color={allowResubmitBySubmission[submission._id] ? 'success' : 'warning'}
-                                  onClick={() => handleSaveReviewerFeedback(submission._id, { allowResubmission: true })}
+                                  onClick={() => {
+                                    const studentId = submission.student?._id || submission.studentId || submission.student;
+                                    handleSaveReviewerFeedback(submission._id, { allowResubmission: true, studentId });
+                                  }}
                                   disabled={Boolean(savingFeedbackBySubmission[submission._id]) || Boolean(allowResubmitBySubmission[submission._id])}
                                 >
                                   {allowResubmitBySubmission[submission._id] ? 'إعادة التسليم مفتوحة' : 'فتح إعادة التسليم'}
