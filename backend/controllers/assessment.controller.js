@@ -1839,6 +1839,23 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
       });
     }
 
+    const buildNeutralRecommendationsFromCard = (card) => {
+      return (card.sections || []).map((section) => ({
+        sectionName: section.name,
+        criteria: (section.criteria || []).map((criterion) => ({
+          criterionName: criterion.name,
+          selectedPercentage: 50
+        }))
+      }));
+    };
+
+    const buildStudentFallbackFeedback = (studentName, score) => {
+      const safeScore = Number.isFinite(Number(score)) ? Number(score).toFixed(2) : null;
+      return safeScore
+        ? `يا ${studentName}، شغلك في البرمجة واضح كويس، ودرجتك الحالية ${safeScore}. حاول تزود توضيح أكتر في الكود وملاحظاتك، وراجع حالات الاختبار قبل التسليم الجاي.`
+        : `يا ${studentName}، شغلك كويس كبداية. حاول تكتب الكود بشكل أوضح، وتضيف ملاحظات عن سبب كل خطوة، وتراجع حالات الاختبار قبل التسليم الجاي.`;
+    };
+
     const groupPrimary = toEvidenceItem(latestFinalSubmission);
     const supportArtifacts = [groupPrimary, ...teamProgrammingArtifacts.map((item) => item.evidence)];
 
@@ -1962,14 +1979,29 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
       }
     };
 
-    const rawResponse = await callGeminiForAssessment(JSON.stringify(promptPayload));
-    const parsed = safeJsonParse(rawResponse);
+    let rawResponse = null;
+    try {
+      rawResponse = await callGeminiForAssessment(JSON.stringify(promptPayload));
+    } catch (_) {
+      rawResponse = null;
+    }
+
+    let parsed = rawResponse ? safeJsonParse(rawResponse) : null;
 
     if (!parsed) {
-      return res.status(502).json({
-        success: false,
-        message: 'تعذر قراءة مخرجات AI بصيغة JSON صالحة. حاول مرة أخرى.'
-      });
+      parsed = {
+        groupRecommendations: buildNeutralRecommendationsFromCard(groupCard),
+        perStudentRecommendations: teamProgrammingArtifacts.map((item) => ({
+          studentId: item.student.id,
+          studentName: item.student.name,
+          individualRecommendations: buildNeutralRecommendationsFromCard(individualCard),
+          feedbackSuggestion: buildStudentFallbackFeedback(item.student.name, 50)
+        })),
+        rationale: 'تعذر استخراج رد AI صالح في هذه المحاولة، لذلك تم إنشاء تقييم احتياطي قابل للمراجعة والتعديل يدويًا.',
+        groupFeedbackSuggestion: 'الفريق محتاج يوضح خطوات العمل بشكل أفضل ويكتب ملاحظات أوضح عن الاختبار والتسليم.',
+        teamFeedbackSuggestion: 'الفريق محتاج يركز أكتر على تنظيم التنفيذ وتوضيح كل خطوة في التسليم النهائي.',
+        confidence: 0
+      };
     }
 
     const groupDraft = buildSectionEvaluationsFromCard({
@@ -1983,13 +2015,6 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
     const perStudentRecommendations = Array.isArray(parsed.perStudentRecommendations)
       ? parsed.perStudentRecommendations
       : [];
-
-    const buildStudentFallbackFeedback = (studentName, score) => {
-      const safeScore = Number.isFinite(Number(score)) ? Number(score).toFixed(2) : null;
-      return safeScore
-        ? `يا ${studentName}، شغلك في البرمجة جيد، ودرجتك الحالية ${safeScore}. حاول تزود توضيح الخطوات في الكود وتكتب ملاحظات أقوى عن حالات الاختبار علشان النتيجة تبقى أفضل في المحاولة الجاية.`
-        : `يا ${studentName}، شغلك كويس كبداية. حاول تكتب الكود بشكل أوضح، وتضيف ملاحظات عن سبب كل خطوة، وتراجع حالات الاختبار قبل التسليم الجاي.`;
-    };
 
     const seenFeedback = new Set();
 
