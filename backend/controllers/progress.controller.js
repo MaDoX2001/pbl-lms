@@ -308,19 +308,31 @@ exports.addReviewerFeedback = async (req, res) => {
     }
 
     const reviewedAt = new Date();
-    progress.feedback = {
-      ...(progress.feedback || {}),
-      reviewer: req.user.id,
-      comments: comments || '',
-      score: scoreFromEvaluation,
-      source,
-      aiMeta: aiMeta ? {
+    const hasIncomingAiMeta = aiMeta && typeof aiMeta === 'object';
+    const existingAiMeta = (progress.feedback?.aiMeta && typeof progress.feedback.aiMeta === 'object')
+      ? progress.feedback.aiMeta
+      : null;
+
+    const normalizedAiMeta = hasIncomingAiMeta
+      ? {
         approvedBy: req.user.id,
         approvedAt: new Date(),
         confidence: Number(aiMeta.confidence || 0),
         plagiarismSimilarityPercent: Number(aiMeta.plagiarismSimilarityPercent || 0),
         plagiarismLevel: aiMeta.plagiarismLevel || null
-      } : (progress.feedback?.aiMeta || undefined),
+      }
+      : existingAiMeta;
+
+    const previousFeedback = progress.feedback || {};
+    const { aiMeta: _ignoredAiMeta, ...feedbackWithoutAiMeta } = previousFeedback;
+
+    progress.feedback = {
+      ...feedbackWithoutAiMeta,
+      reviewer: req.user.id,
+      comments: comments || '',
+      score: scoreFromEvaluation,
+      source,
+      ...(normalizedAiMeta ? { aiMeta: normalizedAiMeta } : {}),
       reviewedAt
     };
     progress.status = 'reviewed';
@@ -333,7 +345,7 @@ exports.addReviewerFeedback = async (req, res) => {
       comments: comments || '',
       reviewedAt,
       source,
-      aiMeta: aiMeta ? {
+      aiMeta: hasIncomingAiMeta ? {
         approvedBy: req.user.id,
         approvedAt: new Date(),
         confidence: Number(aiMeta.confidence || 0),
