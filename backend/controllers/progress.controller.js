@@ -1,6 +1,7 @@
 const Progress = require('../models/Progress.model');
 const Project = require('../models/Project.model');
 const User = require('../models/User.model');
+const EvaluationAttempt = require('../models/EvaluationAttempt.model');
 const cloudinaryService = require('../services/cloudinary.service');
 
 // @desc    Get student progress for a project
