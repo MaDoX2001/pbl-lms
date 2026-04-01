@@ -571,14 +571,17 @@ const ProjectDetailPage = () => {
     setWiringImageFile(file);
   };
 
-  const handleSaveReviewerFeedback = async (submissionId) => {
+  const handleSaveReviewerFeedback = async (submissionId, options = {}) => {
+    const allowResubmission = options.allowResubmission ?? Boolean(allowResubmitBySubmission[submissionId]);
+
     try {
       setSavingFeedbackBySubmission((prev) => ({ ...prev, [submissionId]: true }));
       await api.put(`/progress/${submissionId}/feedback`, {
         comments: feedbackBySubmission[submissionId] || '',
-        allowResubmission: Boolean(allowResubmitBySubmission[submissionId])
+        allowResubmission
       });
-      toast.success('تم حفظ تعليق المراجع بنجاح');
+      toast.success(allowResubmission ? 'تم فتح إعادة التسليم للطالب بنجاح' : 'تم حفظ تعليق المراجع بنجاح');
+      setAllowResubmitBySubmission((prev) => ({ ...prev, [submissionId]: allowResubmission }));
       fetchProjectSubmissionsForReview();
     } catch (error) {
       toast.error(error.response?.data?.message || 'فشل حفظ تعليق المراجع');
@@ -1573,20 +1576,6 @@ const ProjectDetailPage = () => {
                               sx={{ mb: 1 }}
                             />
 
-                            <FormControlLabel
-                              sx={{ mb: 1 }}
-                              control={(
-                                <Checkbox
-                                  checked={Boolean(allowResubmitBySubmission[submission._id])}
-                                  onChange={(e) => setAllowResubmitBySubmission((prev) => ({
-                                    ...prev,
-                                    [submission._id]: e.target.checked
-                                  }))}
-                                />
-                              )}
-                              label="السماح بإعادة التسليم"
-                            />
-
                             <Grid container spacing={1} sx={{ mb: 1 }}>
                               <Grid item xs={12} sm={6}>
                                 <Button
@@ -1596,6 +1585,17 @@ const ProjectDetailPage = () => {
                                   disabled={Boolean(savingFeedbackBySubmission[submission._id])}
                                 >
                                   {savingFeedbackBySubmission[submission._id] ? 'جارٍ الحفظ...' : 'حفظ الفيدباك'}
+                                </Button>
+                              </Grid>
+                              <Grid item xs={12} sm={6}>
+                                <Button
+                                  fullWidth
+                                  variant="contained"
+                                  color={allowResubmitBySubmission[submission._id] ? 'success' : 'warning'}
+                                  onClick={() => handleSaveReviewerFeedback(submission._id, { allowResubmission: true })}
+                                  disabled={Boolean(savingFeedbackBySubmission[submission._id]) || Boolean(allowResubmitBySubmission[submission._id])}
+                                >
+                                  {allowResubmitBySubmission[submission._id] ? 'إعادة التسليم مفتوحة' : 'فتح إعادة التسليم'}
                                 </Button>
                               </Grid>
                               <Grid item xs={12} sm={6}>
