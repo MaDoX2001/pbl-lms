@@ -75,6 +75,7 @@ const ProjectSubmissionsManagement = () => {
   });
   const [bulkAIRunning, setBulkAIRunning] = useState(false);
   const [bulkAIProgress, setBulkAIProgress] = useState({ done: 0, total: 0 });
+  const [teamSearchTerm, setTeamSearchTerm] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -484,12 +485,17 @@ const ProjectSubmissionsManagement = () => {
   const getTeamMemberNames = (team) => {
     return (team?.members || [])
       .map((member) => member?.user?.name || member?.name)
-      .filter(Boolean);
+      .filter(Boolean)
+      .sort((a, b) => String(a).localeCompare(String(b), 'ar', { sensitivity: 'base' }));
   };
 
   const getTeamSubmissionButtons = (teamSubmissions = [], team = {}) => {
     // استخرج قائمة أعضاء الفريق
-    const members = team?.members || [];
+    const members = [...(team?.members || [])].sort((a, b) => {
+      const aName = a?.user?.name || a?.name || '';
+      const bName = b?.user?.name || b?.name || '';
+      return String(aName).localeCompare(String(bName), 'ar', { sensitivity: 'base' });
+    });
 
     // لكل عضو، جيب آخر تسليمة برمجية
     const programmingByStudent = {};
@@ -564,6 +570,29 @@ const ProjectSubmissionsManagement = () => {
     return acc;
   }, {}), [submissions]);
 
+  const visibleTeams = useMemo(() => {
+    const q = String(teamSearchTerm || '').trim().toLowerCase();
+
+    const sorted = [...Object.values(submissionsByTeam)].sort((a, b) => {
+      const aName = a?.team?.name || '';
+      const bName = b?.team?.name || '';
+      return String(aName).localeCompare(String(bName), 'ar', { sensitivity: 'base' });
+    });
+
+    if (!q) return sorted;
+
+    return sorted.filter(({ team, submissions: teamSubmissions }) => {
+      const teamName = String(team?.name || '').toLowerCase();
+      const memberNames = getTeamMemberNames(team).join(' ').toLowerCase();
+      const submitterNames = (teamSubmissions || [])
+        .map((s) => s?.submittedBy?.name || '')
+        .join(' ')
+        .toLowerCase();
+
+      return teamName.includes(q) || memberNames.includes(q) || submitterNames.includes(q);
+    });
+  }, [submissionsByTeam, teamSearchTerm]);
+
   if (loading) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
@@ -629,8 +658,28 @@ const ProjectSubmissionsManagement = () => {
       ) : Object.keys(submissionsByTeam).length === 0 ? (
         <Alert severity="info">{t('noSubmissionsUploadedYet')}</Alert>
       ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {Object.values(submissionsByTeam).map(({ team, submissions: teamSubmissions }) => {
+        <Box>
+          <Paper elevation={1} sx={{ p: 2, mb: 1.5 }}>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+              <TextField
+                size="small"
+                label="بحث باسم الفريق أو الطالب"
+                value={teamSearchTerm}
+                onChange={(e) => setTeamSearchTerm(e.target.value)}
+                sx={{ minWidth: 280, maxWidth: 420 }}
+              />
+              <Chip label={`النتائج: ${visibleTeams.length}`} size="small" variant="outlined" />
+              <Typography variant="caption" color="text.secondary">
+                الترتيب: أبجدي حسب اسم الفريق
+              </Typography>
+            </Box>
+          </Paper>
+
+          {visibleTeams.length === 0 ? (
+            <Alert severity="info">لا توجد نتائج مطابقة للبحث الحالي.</Alert>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {visibleTeams.map(({ team, submissions: teamSubmissions }) => {
             const stageRow = stageBoard.find((row) => row.team._id === team._id);
             const completed = stageRow?.progress?.completed || {};
             const stageChips = [
@@ -692,8 +741,10 @@ const ProjectSubmissionsManagement = () => {
                   </Box>
                 </CardContent>
               </Card>
-            );
-          })}
+              );
+            })}
+            </Box>
+          )}
         </Box>
       )}
 
