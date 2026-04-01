@@ -988,14 +988,6 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         });
       }
 
-      const allTeamSubmissions = await TeamSubmission.find({
-        team: teamId,
-        project: projectId
-      })
-        .populate('submittedBy', 'name email')
-        .sort({ submittedAt: -1, createdAt: -1 })
-        .limit(40);
-
       const toEvidenceItem = (item) => ({
         id: item._id,
         stageKey: item.stageKey,
@@ -1020,6 +1012,33 @@ exports.generateAIEvaluationDraft = async (req, res) => {
 
       const individualPrimary = toEvidenceItem(studentProgrammingSubmission);
       const groupPrimary = toEvidenceItem(latestFinalSubmission);
+
+      // Build exactly one latest programming artifact per team member.
+      const programmingByMember = new Map();
+      const memberIdSet = new Set(teamMemberIds);
+      const latestProgrammingSubmissions = await TeamSubmission.find({
+        team: teamId,
+        project: projectId,
+        stageKey: 'programming',
+        submittedBy: { $in: teamMemberIds }
+      })
+        .populate('submittedBy', 'name email')
+        .sort({ submittedAt: -1, createdAt: -1 });
+
+      for (const item of latestProgrammingSubmissions) {
+        const submitterId = String(item.submittedBy?._id || item.submittedBy || '');
+        if (!submitterId || !memberIdSet.has(submitterId) || programmingByMember.has(submitterId)) {
+          continue;
+        }
+        programmingByMember.set(submitterId, item);
+      }
+
+      const selectedProgrammingArtifacts = (teamEnrollment.team.members || [])
+        .map((m) => String(m.user?._id || m.user || ''))
+        .filter((id) => Boolean(id) && programmingByMember.has(id))
+        .map((id) => toEvidenceItem(programmingByMember.get(id)));
+
+      const supportArtifacts = [groupPrimary, ...selectedProgrammingArtifacts];
 
       const individualWokwiLink = studentProgrammingSubmission.wokwiLink
         || extractWokwiLink(studentProgrammingSubmission.notes)
@@ -1071,7 +1090,7 @@ exports.generateAIEvaluationDraft = async (req, res) => {
           'Individual card MUST be based primarily on student programming submission evidence.',
           'Group card MUST be based primarily on team final delivery evidence only.',
           'AI evaluation is allowed only because team final delivery exists and project stages are completed.',
-          'Use other submissions/artifacts only as supporting context when needed.',
+          'Use ONLY the provided supportArtifacts list as evidence context (team final + latest programming per team member).',
           'Evaluation priority must be: 1) Wokwi link evidence, 2) report/notes text, 3) files/images/attachments/code text.',
           'Keep rationale concise and actionable for teacher review.',
           'Include feedbackSuggestion for the student in Arabic.'
@@ -1101,7 +1120,7 @@ exports.generateAIEvaluationDraft = async (req, res) => {
           evidencePriority: ['wokwiLink', 'reportText', 'otherArtifacts'],
           individualPrimary,
           groupPrimary,
-          supportArtifacts: allTeamSubmissions.map(toEvidenceItem)
+          supportArtifacts
         },
         plagiarismSignal: {
           similarityPercent: plagiarismSimilarityPercent,
