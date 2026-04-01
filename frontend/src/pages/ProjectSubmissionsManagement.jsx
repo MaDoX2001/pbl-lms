@@ -584,8 +584,6 @@ const ProjectSubmissionsManagement = () => {
       return String(aName).localeCompare(String(bName), 'ar', { sensitivity: 'base' });
     });
 
-    if (!q) return sorted;
-
     return sorted.filter(({ team, submissions: teamSubmissions }) => {
       const teamName = String(team?.name || '').toLowerCase();
       const memberNames = getTeamMemberNames(team).join(' ').toLowerCase();
@@ -603,6 +601,7 @@ const ProjectSubmissionsManagement = () => {
             : !hasFinal;
 
       if (!passesFinalDeliveryFilter) return false;
+      if (!q) return true;
       return teamName.includes(q) || memberNames.includes(q) || submitterNames.includes(q);
     });
   }, [submissionsByTeam, teamSearchTerm, finalDeliveryFilter]);
