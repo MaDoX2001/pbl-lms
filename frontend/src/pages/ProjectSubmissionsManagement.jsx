@@ -18,12 +18,8 @@ import {
   TextField,
   Divider,
   IconButton,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
 } from '@mui/material';
 import {
-  ExpandMore as ExpandMoreIcon,
   Download as DownloadIcon,
   OpenInNew as OpenInNewIcon,
   Feedback as FeedbackIcon,
@@ -67,6 +63,11 @@ const ProjectSubmissionsManagement = () => {
   const [teamRetryDialog, setTeamRetryDialog] = useState({
     open: false,
     team: null
+  });
+  const [submissionDetailsDialog, setSubmissionDetailsDialog] = useState({
+    open: false,
+    submission: null,
+    title: ''
   });
   const [bulkAIRunning, setBulkAIRunning] = useState(false);
   const [bulkAIProgress, setBulkAIProgress] = useState({ done: 0, total: 0 });
@@ -440,6 +441,62 @@ const ProjectSubmissionsManagement = () => {
       .filter(Boolean);
   };
 
+  const getTeamSubmissionButtons = (teamSubmissions = [], team = {}) => {
+    // استخرج قائمة أعضاء الفريق
+    const members = team?.members || [];
+
+    // لكل عضو، جيب آخر تسليمة برمجية
+    const programmingByStudent = {};
+
+    teamSubmissions
+      .filter((submission) => submission.stageKey === 'programming')
+      .forEach((submission) => {
+        const studentId = submission.submittedBy?._id || submission.submittedBy;
+        if (!studentId) return;
+
+        const studentIdStr = String(studentId);
+        const current = programmingByStudent[studentIdStr];
+
+        if (!current || new Date(submission.submittedAt) > new Date(current.submittedAt)) {
+          programmingByStudent[studentIdStr] = submission;
+        }
+      });
+
+    // لكل عضو في الفريق، جيب آخر برمجة لهم مع إسمه
+    const programmingButtons = members
+      .slice(0, 3)
+      .map((member) => {
+        const memberId = String(member.user?._id || member._id || '');
+        const submission = programmingByStudent[memberId];
+        const memberName = member.user?.name || member.name || 'طالب';
+
+        return {
+          key: `programming-${memberId}`,
+          label: `برمجة: ${memberName}`,
+          submission: submission || null
+        };
+      });
+
+    // جيب آخر التسليم النهائي
+    const latestFinalDelivery = [...teamSubmissions]
+      .filter((submission) => submission.stageKey === 'final_delivery')
+      .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0] || null;
+
+    return [
+      ...programmingButtons,
+      { key: 'final-delivery', label: 'التسليم النهائي', submission: latestFinalDelivery }
+    ];
+  };
+
+  const handleOpenSubmissionDetails = (submission, title) => {
+    if (!submission) return;
+    setSubmissionDetailsDialog({
+      open: true,
+      submission,
+      title
+    });
+  };
+
   // Group submissions by team
   const submissionsByTeam = submissions.reduce((acc, submission) => {
     const teamId = submission.team._id;
@@ -508,161 +565,127 @@ const ProjectSubmissionsManagement = () => {
         </Box>
       </Paper>
 
-      {/* Stage Tracking Board */}
-      <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h5" gutterBottom>
-          لوحة متابعة المراحل
-        </Typography>
-        <Divider sx={{ mb: 2 }} />
-
-        {stageLoading ? (
+      {/* Compact Team Cards (merged stages + evaluation submissions) */}
+      {stageLoading ? (
+        <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
             <CircularProgress />
           </Box>
-        ) : stageBoard.length === 0 ? (
-          <Alert severity="info">لا توجد فرق مسجلة في هذا المشروع بعد.</Alert>
-        ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-            {stageBoard.map((row) => {
-              const completed = row.progress?.completed || {};
-              const stageChips = [
-                { key: 'design', label: 'التصميم' },
-                { key: 'wiring', label: 'الموصل' },
-                { key: 'programming', label: 'البرمجة' },
-                { key: 'testing', label: 'المختبر' },
-                { key: 'final_delivery', label: 'النهائي' }
-              ];
-
-              return (
-                <Card key={row.team._id} variant="outlined">
-                  <CardContent>
-                    <Typography variant="h6" sx={{ mb: 1 }}>{row.team.name}</Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                      الأعضاء: {getTeamMemberNames(row.team).join('، ') || 'غير متاح'}
-                    </Typography>
-
-                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
-                      {stageChips.map((s) => (
-                        <Chip
-                          key={s.key}
-                          label={`${s.label}: ${completed[s.key] ? 'مكتمل' : 'غير مكتمل'}`}
-                          color={completed[s.key] ? 'success' : 'default'}
-                          variant={completed[s.key] ? 'filled' : 'outlined'}
-                          size="small"
-                        />
-                      ))}
-                    </Box>
-
-                    <Typography variant="caption" color="text.secondary">
-                      برمجة: {row.progress?.programmingSubmittedCount || 0}/{row.progress?.programmingRequiredCount || 0}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </Box>
-        )}
-      </Paper>
-
-      {/* Submissions by Team */}
-      {Object.keys(submissionsByTeam).length === 0 ? (
+        </Paper>
+      ) : Object.keys(submissionsByTeam).length === 0 ? (
         <Alert severity="info">{t('noSubmissionsUploadedYet')}</Alert>
       ) : (
-        Object.values(submissionsByTeam).map(({ team, submissions: teamSubmissions }) => (
-          <Accordion key={team._id} sx={{ mb: 2 }}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
-                <Typography variant="h6">{team.name}</Typography>
-                <Chip label={t('teamSubmissionsCount', { count: teamSubmissions.length })} size="small" />
-                <Box sx={{ flex: 1 }} />
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleOpenTeamRetryDialog(team);
-                  }}
-                  sx={{ mr: 1 }}
-                >
-                  فتح إعادة المحاولة للفريق كله
-                </Button>
-                <Typography variant="body2" color="text.secondary">
-                  {t('membersWithValue', { members: getTeamMemberNames(team).join(', ') || 'غير متاح' })}
-                </Typography>
-              </Box>
-            </AccordionSummary>
-            <AccordionDetails>
-              {teamSubmissions
-                .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
-                .map((submission, index) => {
-                  // First submission in sorted list is the most recent (last submission)
-                  const isLastSubmission = index === 0;
-                  
-                  return (
-                    <Card 
-                      key={submission._id} 
-                      sx={{ 
-                        mb: 2,
-                        border: isLastSubmission ? '2px solid #1976d2' : 'none',
-                        bgcolor: isLastSubmission ? '#e3f2fd' : 'transparent'
-                      }}
-                    >
-                      <CardContent>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
-                          <Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                              <Typography variant="h6">
-                                {t('submissionNumber', { number: teamSubmissions.length - index })}
-                              </Typography>
-                              <Chip
-                                label={`المرحلة: ${getStageLabel(submission.stageKey)}`}
-                                size="small"
-                                variant="outlined"
-                              />
-                              {isLastSubmission && (
-                                <Chip 
-                                  label={t('latestSubmissionApproved')} 
-                                  color="primary" 
-                                  size="small"
-                                  sx={{ fontWeight: 'bold' }}
-                                />
-                              )}
-                              {submission.stageKey === 'final_delivery' && (
-                                <Chip
-                                  label="تسليم نهائي"
-                                  color="success"
-                                  size="small"
-                                />
-                              )}
-                            </Box>
-                            <Typography variant="body2" color="text.secondary">
-                              {t('uploadedByLabel')}{' '}
-                              <Typography
-                                component="span"
-                                variant="body2"
-                                sx={{
-                                  color: 'primary.main',
-                                  cursor: 'pointer',
-                                  fontWeight: 600,
-                                  '&:hover': { textDecoration: 'underline' }
-                                }}
-                                onClick={() => navigate(`/user/${submission.submittedBy._id}`)}
-                              >
-                                {submission.submittedBy.name}
-                              </Typography>
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              {t('dateWithValue', { date: new Date(submission.submittedAt).toLocaleString('ar-EG') })}
-                            </Typography>
-                          </Box>
-                          <Chip
-                            label={getStatusLabel(submission.status)}
-                            color={getStatusColor(submission.status)}
-                          />
-                        </Box>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          {Object.values(submissionsByTeam).map(({ team, submissions: teamSubmissions }) => {
+            const stageRow = stageBoard.find((row) => row.team._id === team._id);
+            const completed = stageRow?.progress?.completed || {};
+            const stageChips = [
+              { key: 'design', label: 'التصميم' },
+              { key: 'wiring', label: 'الموصل' },
+              { key: 'programming', label: 'البرمجة' },
+              { key: 'testing', label: 'المختبر' },
+              { key: 'final_delivery', label: 'النهائي' }
+            ];
+            const submissionButtons = getTeamSubmissionButtons(teamSubmissions, team);
 
-                      {/* Submission Link / File */}
-                      {submission.submissionType === 'wokwi' ? (
+            return (
+              <Card key={team._id} variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 1 }}>
+                    <Typography variant="h6">{team.name}</Typography>
+                    <Chip label={t('teamSubmissionsCount', { count: teamSubmissions.length })} size="small" />
+                    <Typography variant="caption" color="text.secondary">
+                      برمجة: {stageRow?.progress?.programmingSubmittedCount || 0}/{stageRow?.progress?.programmingRequiredCount || 0}
+                    </Typography>
+                    <Box sx={{ flex: 1 }} />
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => handleOpenTeamRetryDialog(team)}
+                    >
+                      فتح إعادة المحاولة للفريق
+                    </Button>
+                  </Box>
+
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1.2 }}>
+                    {t('membersWithValue', { members: getTeamMemberNames(team).join(', ') || 'غير متاح' })}
+                  </Typography>
+
+                  <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 1.2 }}>
+                    {stageChips.map((s) => (
+                      <Chip
+                        key={s.key}
+                        label={`${s.label}: ${completed[s.key] ? 'مكتمل' : 'غير مكتمل'}`}
+                        color={completed[s.key] ? 'success' : 'default'}
+                        variant={completed[s.key] ? 'filled' : 'outlined'}
+                        size="small"
+                      />
+                    ))}
+                  </Box>
+
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    {submissionButtons.map((item) => (
+                      <Button
+                        key={item.key}
+                        variant={item.submission ? 'contained' : 'outlined'}
+                        size="small"
+                        disabled={!item.submission}
+                        onClick={() => handleOpenSubmissionDetails(item.submission, item.label)}
+                      >
+                        {item.label}
+                      </Button>
+                    ))}
+                  </Box>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </Box>
+      )}
+
+      {/* Submission Details Dialog */}
+      <Dialog
+        open={submissionDetailsDialog.open}
+        onClose={() => setSubmissionDetailsDialog({ open: false, submission: null, title: '' })}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          {submissionDetailsDialog.title || 'تفاصيل التسليم'}
+        </DialogTitle>
+        <DialogContent dividers>
+          {submissionDetailsDialog.submission && (
+            <Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
+                <Box>
+                  <Chip
+                    label={`المرحلة: ${getStageLabel(submissionDetailsDialog.submission.stageKey)}`}
+                    size="small"
+                    variant="outlined"
+                    sx={{ mb: 1 }}
+                  />
+                  <Typography variant="body2" color="text.secondary">
+                    {t('uploadedByLabel')}{' '}
+                    <Typography
+                      component="span"
+                      variant="body2"
+                      sx={{ color: 'primary.main', cursor: 'pointer', fontWeight: 600, '&:hover': { textDecoration: 'underline' } }}
+                      onClick={() => navigate(`/user/${submissionDetailsDialog.submission.submittedBy?._id}`)}
+                    >
+                      {submissionDetailsDialog.submission.submittedBy?.name || 'غير معروف'}
+                    </Typography>
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {t('dateWithValue', { date: new Date(submissionDetailsDialog.submission.submittedAt).toLocaleString('ar-EG') })}
+                  </Typography>
+                </Box>
+                <Chip
+                  label={getStatusLabel(submissionDetailsDialog.submission.status)}
+                  color={getStatusColor(submissionDetailsDialog.submission.status)}
+                />
+              </Box>
+
+              {submissionDetailsDialog.submission.submissionType === 'wokwi' ? (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap' }}>
                           <DescriptionIcon color="action" />
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -672,7 +695,7 @@ const ProjectSubmissionsManagement = () => {
                             size="small"
                             variant="contained"
                             startIcon={<OpenInNewIcon />}
-                            href={submission.wokwiLink}
+                            href={submissionDetailsDialog.submission.wokwiLink}
                             target="_blank"
                             rel="noopener noreferrer"
                             sx={{ ml: 1 }}
@@ -683,10 +706,10 @@ const ProjectSubmissionsManagement = () => {
                       ) : (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                           <DescriptionIcon color="action" />
-                          <Typography variant="body2">{submission.fileName}</Typography>
+                          <Typography variant="body2">{submissionDetailsDialog.submission.fileName}</Typography>
                           <IconButton
                             size="small"
-                            href={submission.fileUrl}
+                            href={submissionDetailsDialog.submission.fileUrl}
                             target="_blank"
                             download
                           >
@@ -695,25 +718,24 @@ const ProjectSubmissionsManagement = () => {
                         </Box>
                       )}
 
-                      {/* Description */}
-                      {submission.description && (
+                      {submissionDetailsDialog.submission.description && (
                         <Box sx={{ mb: 2 }}>
                           <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                             {t('descriptionLabel')}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            {submission.description}
+                            {submissionDetailsDialog.submission.description}
                           </Typography>
                         </Box>
                       )}
 
-                      {submission.notes && (
+                      {submissionDetailsDialog.submission.notes && (
                         <Box sx={{ mb: 2 }}>
                           <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                             ملاحظات الطالب
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            {submission.notes}
+                            {submissionDetailsDialog.submission.notes}
                           </Typography>
                         </Box>
                       )}
@@ -722,17 +744,17 @@ const ProjectSubmissionsManagement = () => {
 
                       {/* Feedback Section */}
                       <Box sx={{ mb: 2 }}>
-                        {submission.feedback ? (
+                        {submissionDetailsDialog.submission.feedback ? (
                           <Alert severity="info" icon={<FeedbackIcon />}>
                             <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                               {t('teacherFeedbackLabel')}
                             </Typography>
                             <Typography variant="body2">
-                              {submission.feedback}
+                              {submissionDetailsDialog.submission.feedback}
                             </Typography>
-                            {submission.feedbackBy && (
+                            {submissionDetailsDialog.submission.feedbackBy && (
                               <Typography variant="caption" color="text.secondary">
-                                - {submission.feedbackBy.name}
+                                - {submissionDetailsDialog.submission.feedbackBy.name}
                               </Typography>
                             )}
                           </Alert>
@@ -742,24 +764,24 @@ const ProjectSubmissionsManagement = () => {
                         <Button
                           variant="outlined"
                           startIcon={<FeedbackIcon />}
-                          onClick={() => handleOpenFeedbackDialog(submission)}
+                          onClick={() => handleOpenFeedbackDialog(submissionDetailsDialog.submission)}
                           sx={{ mt: 1 }}
                           size="small"
                         >
-                          {submission.feedback ? t('editFeedback') : t('addFeedback')}
+                          {submissionDetailsDialog.submission.feedback ? t('editFeedback') : t('addFeedback')}
                         </Button>
                       </Box>
 
                       {/* Grade Section */}
                       <Box>
-                        {submission.score !== null ? (
+                        {submissionDetailsDialog.submission.score !== null ? (
                           <Alert severity="success" icon={<GradeIcon />}>
                             <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                              {t('scoreOutOf100', { score: submission.score })}
+                              {t('scoreOutOf100', { score: submissionDetailsDialog.submission.score })}
                             </Typography>
-                            {submission.gradedBy && (
+                            {submissionDetailsDialog.submission.gradedBy && (
                               <Typography variant="caption" color="text.secondary">
-                                - {submission.gradedBy.name}
+                                - {submissionDetailsDialog.submission.gradedBy.name}
                               </Typography>
                             )}
                           </Alert>
@@ -771,17 +793,17 @@ const ProjectSubmissionsManagement = () => {
                             variant="contained"
                             color="primary"
                             startIcon={<AssessmentIcon />}
-                            onClick={() => handleOpenDigitalEvaluation(submission)}
+                            onClick={() => handleOpenDigitalEvaluation(submissionDetailsDialog.submission)}
                             size="small"
                           >
                             {t('digitalEvaluation')}
                           </Button>
-                          {submission.stageKey === 'programming' && submission.submittedBy?._id && (
+                          {submissionDetailsDialog.submission.stageKey === 'programming' && submissionDetailsDialog.submission.submittedBy?._id && (
                             <Button
                               variant="outlined"
                               color="secondary"
                               startIcon={<AutoAwesomeIcon />}
-                              onClick={() => navigate(`/evaluate/individual/${projectId}/${submission.submittedBy._id}/${submission._id}?ai=1`)}
+                              onClick={() => navigate(`/evaluate/individual/${projectId}/${submissionDetailsDialog.submission.submittedBy._id}/${submissionDetailsDialog.submission._id}?ai=1`)}
                               size="small"
                             >
                               تقييم AI
@@ -790,21 +812,22 @@ const ProjectSubmissionsManagement = () => {
                           <Button
                             variant="outlined"
                             startIcon={<GradeIcon />}
-                            onClick={() => handleOpenGradeDialog(submission)}
+                            onClick={() => handleOpenGradeDialog(submissionDetailsDialog.submission)}
                             size="small"
                           >
-                            {submission.score !== null ? t('editScore') : t('addScore')}
+                            {submissionDetailsDialog.submission.score !== null ? t('editScore') : t('addScore')}
                           </Button>
                         </Box>
                       </Box>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </AccordionDetails>
-          </Accordion>
-        ))
-      )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSubmissionDetailsDialog({ open: false, submission: null, title: '' })}>
+            {t('close') || 'إغلاق'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Feedback Dialog */}
       <Dialog open={feedbackDialog.open} onClose={() => setFeedbackDialog({ open: false, submission: null, feedback: '' })} maxWidth="sm" fullWidth>
