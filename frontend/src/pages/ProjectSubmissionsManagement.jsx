@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -69,6 +69,10 @@ const ProjectSubmissionsManagement = () => {
     submission: null,
     title: ''
   });
+  const [submissionEvaluationState, setSubmissionEvaluationState] = useState({
+    loading: false,
+    data: null
+  });
   const [bulkAIRunning, setBulkAIRunning] = useState(false);
   const [bulkAIProgress, setBulkAIProgress] = useState({ done: 0, total: 0 });
 
@@ -76,17 +80,35 @@ const ProjectSubmissionsManagement = () => {
     fetchData();
   }, [projectId]);
 
-  const fetchData = async () => {
+  const fetchData = async (forceRefresh = false) => {
     try {
       setLoading(true);
 
+      const cacheKey = `project-submissions:${projectId}`;
+      const cachedRaw = !forceRefresh ? sessionStorage.getItem(cacheKey) : null;
+      if (cachedRaw) {
+        try {
+          const cached = JSON.parse(cachedRaw);
+          if (cached?.ts && Date.now() - cached.ts < 45000) {
+            setProject(cached.project || null);
+            setSubmissions(cached.submissions || []);
+            setStageBoard(cached.stageBoard || []);
+            setStageLoading(false);
+            setLoading(false);
+            return;
+          }
+        } catch (_) {}
+      }
+
       // Get project details
       const projectResponse = await api.get(`/projects/${projectId}`);
-      setProject(projectResponse.data.data);
+      const projectData = projectResponse.data.data;
+      setProject(projectData);
 
       // Get all submissions for this project
       const submissionsResponse = await api.get(`/team-submissions/project/${projectId}`);
-      setSubmissions(submissionsResponse.data.data);
+      const submissionsData = submissionsResponse.data.data;
+      setSubmissions(submissionsData);
 
       // Stage progress board by team
       setStageLoading(true);
@@ -111,6 +133,12 @@ const ProjectSubmissionsManagement = () => {
       );
       setStageBoard(progressRows);
       setStageLoading(false);
+      sessionStorage.setItem(cacheKey, JSON.stringify({
+        ts: Date.now(),
+        project: projectData,
+        submissions: submissionsData,
+        stageBoard: progressRows
+      }));
 
       setLoading(false);
     } catch (err) {
@@ -135,7 +163,7 @@ const ProjectSubmissionsManagement = () => {
       });
       toast.success(t('feedbackAddedSuccess'));
       setFeedbackDialog({ open: false, submission: null, feedback: '' });
-      fetchData();
+      fetchData(true);
     } catch (err) {
       toast.error(err.response?.data?.message || t('genericError'));
     }
@@ -162,7 +190,7 @@ const ProjectSubmissionsManagement = () => {
       });
       toast.success(t('scoreAddedSuccess'));
       setGradeDialog({ open: false, submission: null, score: '' });
-      fetchData();
+      fetchData(true);
     } catch (err) {
       toast.error(err.response?.data?.message || t('genericError'));
     }
@@ -210,7 +238,7 @@ const ProjectSubmissionsManagement = () => {
 
       toast.success('تم فتح إعادة المحاولة للفريق في جميع المراحل بنجاح');
       setTeamRetryDialog({ open: false, team: null });
-      fetchData();
+      fetchData(true);
     } catch (err) {
       toast.error(err.response?.data?.message || 'فشل فتح إعادة المحاولة للفريق');
     }
@@ -320,6 +348,11 @@ const ProjectSubmissionsManagement = () => {
         }
 
         if (!groupEvaluatedTeams.has(teamKey)) {
+          const evidenceSubmissionIds = [
+            aiData.evidenceSummary?.groupSubmissionId,
+            ...(aiData.evidenceSummary?.programmingSubmissionIds || [])
+          ].filter(Boolean);
+
           await api.post('/assessment/evaluate-group', {
             projectId,
             teamId: teamKey,
@@ -331,11 +364,20 @@ const ProjectSubmissionsManagement = () => {
               confidence: aiData.confidence,
               plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
               plagiarismLevel: aiData.plagiarism?.level,
-              rationale: aiData.rationale
+              rationale: aiData.rationale,
+              evidenceScope: aiData.evidenceSummary?.scope,
+              evidenceCount: aiData.evidenceSummary?.totalArtifacts || evidenceSubmissionIds.length,
+              evidenceSubmissionIds,
+              evidenceSummary: 'تم التقييم اعتمادا على 4 أدلة ثابتة: 3 برمجة + 1 نهائي.'
             }
           });
           groupEvaluatedTeams.add(teamKey);
         }
+
+        const evidenceSubmissionIds = [
+          aiData.evidenceSummary?.groupSubmissionId,
+          ...(aiData.evidenceSummary?.programmingSubmissionIds || [])
+        ].filter(Boolean);
 
         await api.post('/assessment/evaluate-individual', {
           projectId,
@@ -349,7 +391,11 @@ const ProjectSubmissionsManagement = () => {
             confidence: aiData.confidence,
             plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
             plagiarismLevel: aiData.plagiarism?.level,
-            rationale: aiData.rationale
+            rationale: aiData.rationale,
+            evidenceScope: aiData.evidenceSummary?.scope,
+            evidenceCount: aiData.evidenceSummary?.totalArtifacts || evidenceSubmissionIds.length,
+            evidenceSubmissionIds,
+            evidenceSummary: 'تم التقييم اعتمادا على 4 أدلة ثابتة: 3 برمجة + 1 نهائي.'
           }
         });
 
@@ -386,7 +432,7 @@ const ProjectSubmissionsManagement = () => {
       }
     }
 
-    await fetchData();
+    await fetchData(true);
     setBulkAIRunning(false);
 
     if (failedCount === 0) {
@@ -488,17 +534,25 @@ const ProjectSubmissionsManagement = () => {
     ];
   };
 
-  const handleOpenSubmissionDetails = (submission, title) => {
+  const handleOpenSubmissionDetails = async (submission, title) => {
     if (!submission) return;
     setSubmissionDetailsDialog({
       open: true,
       submission,
       title
     });
+    setSubmissionEvaluationState({ loading: true, data: null });
+
+    try {
+      const evaluationRes = await api.get(`/assessment/evaluation/${submission._id}`);
+      setSubmissionEvaluationState({ loading: false, data: evaluationRes.data?.data || null });
+    } catch (_) {
+      setSubmissionEvaluationState({ loading: false, data: null });
+    }
   };
 
   // Group submissions by team
-  const submissionsByTeam = submissions.reduce((acc, submission) => {
+  const submissionsByTeam = useMemo(() => submissions.reduce((acc, submission) => {
     const teamId = submission.team._id;
     if (!acc[teamId]) {
       acc[teamId] = {
@@ -508,7 +562,7 @@ const ProjectSubmissionsManagement = () => {
     }
     acc[teamId].submissions.push(submission);
     return acc;
-  }, {});
+  }, {}), [submissions]);
 
   if (loading) {
     return (
@@ -646,7 +700,10 @@ const ProjectSubmissionsManagement = () => {
       {/* Submission Details Dialog */}
       <Dialog
         open={submissionDetailsDialog.open}
-        onClose={() => setSubmissionDetailsDialog({ open: false, submission: null, title: '' })}
+        onClose={() => {
+          setSubmissionDetailsDialog({ open: false, submission: null, title: '' });
+          setSubmissionEvaluationState({ loading: false, data: null });
+        }}
         maxWidth="md"
         fullWidth
       >
@@ -742,6 +799,35 @@ const ProjectSubmissionsManagement = () => {
 
                       <Divider sx={{ my: 2 }} />
 
+                      <Box sx={{ mb: 2 }}>
+                        {submissionEvaluationState.loading ? (
+                          <Alert severity="info">جاري تحميل تفاصيل تقييم AI...</Alert>
+                        ) : submissionEvaluationState.data?.aiApproval?.rationale ? (
+                          <Alert severity="success">
+                            <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                              ملخص قرار AI
+                            </Typography>
+                            <Typography variant="body2" sx={{ mb: 1 }}>
+                              {submissionEvaluationState.data.aiApproval.rationale}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              الثقة: {submissionEvaluationState.data.aiApproval.confidence ?? '-'}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              التشابه: {submissionEvaluationState.data.aiApproval.plagiarismSimilarityPercent ?? '-'}%
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              مستوى التشابه: {submissionEvaluationState.data.aiApproval.plagiarismLevel || 'غير محدد'}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              عدد الأدلة المستخدمة: {submissionEvaluationState.data.aiApproval.evidenceCount || 0}
+                            </Typography>
+                          </Alert>
+                        ) : (
+                          <Alert severity="info">لا توجد بيانات قرار AI محفوظة لهذا التسليم.</Alert>
+                        )}
+                      </Box>
+
                       {/* Feedback Section */}
                       <Box sx={{ mb: 2 }}>
                         {submissionDetailsDialog.submission.feedback ? (
@@ -823,7 +909,10 @@ const ProjectSubmissionsManagement = () => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setSubmissionDetailsDialog({ open: false, submission: null, title: '' })}>
+          <Button onClick={() => {
+            setSubmissionDetailsDialog({ open: false, submission: null, title: '' });
+            setSubmissionEvaluationState({ loading: false, data: null });
+          }}>
             {t('close') || 'إغلاق'}
           </Button>
         </DialogActions>

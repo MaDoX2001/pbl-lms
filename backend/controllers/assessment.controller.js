@@ -210,6 +210,31 @@ const callGeminiForAssessment = async (prompt) => {
   throw lastError || new Error('فشل استدعاء نموذج الذكاء الاصطناعي');
 };
 
+const normalizeAIEvidenceIds = (ids) => {
+  if (!Array.isArray(ids)) return [];
+  return ids
+    .map((id) => String(id || '').trim())
+    .filter((id) => mongoose.Types.ObjectId.isValid(id));
+};
+
+const buildStoredAIApproval = (aiApproval, userId) => {
+  if (!aiApproval) return undefined;
+  const evidenceSubmissionIds = normalizeAIEvidenceIds(aiApproval.evidenceSubmissionIds);
+
+  return {
+    evaluationApprovedBy: userId,
+    evaluationApprovedAt: new Date(),
+    confidence: Number(aiApproval.confidence || 0),
+    plagiarismSimilarityPercent: Number(aiApproval.plagiarismSimilarityPercent || 0),
+    plagiarismLevel: aiApproval.plagiarismLevel || null,
+    rationale: aiApproval.rationale || '',
+    evidenceScope: aiApproval.evidenceScope || null,
+    evidenceCount: Number(aiApproval.evidenceCount || evidenceSubmissionIds.length || 0),
+    evidenceSubmissionIds,
+    evidenceSummary: aiApproval.evidenceSummary || ''
+  };
+};
+
 // ============================================================================
 // OBSERVATION CARD MANAGEMENT
 // ============================================================================
@@ -491,14 +516,7 @@ exports.evaluateGroup = async (req, res) => {
       calculatedScore,
       feedbackSummary,
       evaluationSource,
-      aiApproval: aiApproval ? {
-        evaluationApprovedBy: req.user.id,
-        evaluationApprovedAt: new Date(),
-        confidence: Number(aiApproval.confidence || 0),
-        plagiarismSimilarityPercent: Number(aiApproval.plagiarismSimilarityPercent || 0),
-        plagiarismLevel: aiApproval.plagiarismLevel || null,
-        rationale: aiApproval.rationale || ''
-      } : undefined,
+      aiApproval: buildStoredAIApproval(aiApproval, req.user.id),
       retryAllowed: false,
       isLatestAttempt: true
     });
@@ -748,14 +766,7 @@ exports.evaluateIndividual = async (req, res) => {
       calculatedScore,
       feedbackSummary,
       evaluationSource,
-      aiApproval: aiApproval ? {
-        evaluationApprovedBy: req.user.id,
-        evaluationApprovedAt: new Date(),
-        confidence: Number(aiApproval.confidence || 0),
-        plagiarismSimilarityPercent: Number(aiApproval.plagiarismSimilarityPercent || 0),
-        plagiarismLevel: aiApproval.plagiarismLevel || null,
-        rationale: aiApproval.rationale || ''
-      } : undefined,
+      aiApproval: buildStoredAIApproval(aiApproval, req.user.id),
       retryAllowed: false,
       isLatestAttempt: true
     });
@@ -927,7 +938,18 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       }
 
       const teamId = teamEnrollment.team._id;
-      const teamMemberIds = (teamEnrollment.team.members || []).map((m) => String(m.user?._id || m.user));
+      const teamMembers = (teamEnrollment.team.members || []).map((m) => ({
+        id: String(m.user?._id || m.user || ''),
+        name: m.user?.name || 'طالب'
+      })).filter((m) => Boolean(m.id));
+      const teamMemberIds = teamMembers.map((m) => m.id);
+
+      if (teamMembers.length !== 3) {
+        return res.status(400).json({
+          success: false,
+          message: `تقييم AI مضبوط على 4 أدلة فقط (3 برمجة + 1 نهائي). عدد أعضاء الفريق الحالي: ${teamMembers.length}`
+        });
+      }
 
       const latestFinalSubmission = await TeamSubmission.findOne({
         team: teamId,
@@ -953,9 +975,13 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       const hasProgrammingForAllMembers = teamMemberIds.every((memberId) => programmingSubmitterSet.has(memberId));
 
       if (!hasProgrammingForAllMembers) {
+        const missingMembers = teamMembers
+          .filter((m) => !programmingSubmitterSet.has(m.id))
+          .map((m) => m.name);
+
         return res.status(400).json({
           success: false,
-          message: 'لا يمكن تشغيل تقييم AI قبل اكتمال تسليمات البرمجة لكل أعضاء الفريق'
+          message: `لا يمكن تشغيل تقييم AI قبل اكتمال تسليمات البرمجة لكل أعضاء الفريق. الطلاب الناقصون: ${missingMembers.join('، ') || 'غير محدد'}`
         });
       }
 
@@ -1033,12 +1059,30 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         programmingByMember.set(submitterId, item);
       }
 
-      const selectedProgrammingArtifacts = (teamEnrollment.team.members || [])
-        .map((m) => String(m.user?._id || m.user || ''))
+      const selectedProgrammingArtifacts = teamMembers
+        .map((m) => m.id)
         .filter((id) => Boolean(id) && programmingByMember.has(id))
         .map((id) => toEvidenceItem(programmingByMember.get(id)));
 
+      if (selectedProgrammingArtifacts.length !== 3) {
+        const existingProgrammers = new Set(selectedProgrammingArtifacts.map((item) => String(item.submittedBy?.id || '')));
+        const missingMembers = teamMembers
+          .filter((m) => !existingProgrammers.has(m.id))
+          .map((m) => m.name);
+
+        return res.status(400).json({
+          success: false,
+          message: `تقييم AI يتطلب 3 تسليمات برمجة (آخر تسليمة لكل طالب). الطلاب الناقصون: ${missingMembers.join('، ') || 'غير محدد'}`
+        });
+      }
+
       const supportArtifacts = [groupPrimary, ...selectedProgrammingArtifacts];
+      if (supportArtifacts.length !== 4) {
+        return res.status(400).json({
+          success: false,
+          message: `تقييم AI يتطلب 4 أدلة فقط (3 برمجة + 1 نهائي). الأدلة المتاحة حالياً: ${supportArtifacts.length}`
+        });
+      }
 
       const individualWokwiLink = studentProgrammingSubmission.wokwiLink
         || extractWokwiLink(studentProgrammingSubmission.notes)
@@ -1090,7 +1134,8 @@ exports.generateAIEvaluationDraft = async (req, res) => {
           'Individual card MUST be based primarily on student programming submission evidence.',
           'Group card MUST be based primarily on team final delivery evidence only.',
           'AI evaluation is allowed only because team final delivery exists and project stages are completed.',
-          'Use ONLY the provided supportArtifacts list as evidence context (team final + latest programming per team member).',
+          'Use ONLY the provided supportArtifacts list as evidence context.',
+          'supportArtifacts contains exactly 4 items only: 1 final_delivery and 3 programming submissions (latest per student).',
           'Evaluation priority must be: 1) Wokwi link evidence, 2) report/notes text, 3) files/images/attachments/code text.',
           'Keep rationale concise and actionable for teacher review.',
           'Include feedbackSuggestion for the student in Arabic.'
@@ -1199,6 +1244,13 @@ exports.generateAIEvaluationDraft = async (req, res) => {
             level: plagiarismLevel,
             reason: plagiarismReason,
             matchedStudents
+          },
+          evidenceSummary: {
+            scope: 'team-final-plus-latest-programming-per-student',
+            totalArtifacts: supportArtifacts.length,
+            groupSubmissionId: String(groupPrimary.id),
+            programmingSubmissionIds: selectedProgrammingArtifacts.map((item) => String(item.id)),
+            evidenceSubmissionIds: supportArtifacts.map((item) => String(item.id))
           },
           generatedAt: new Date()
         }

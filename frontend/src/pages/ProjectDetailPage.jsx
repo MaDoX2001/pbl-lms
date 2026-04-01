@@ -655,6 +655,11 @@ const ProjectDetailPage = () => {
       throw new Error('لم يتم استلام نتيجة AI صالحة');
     }
 
+    const evidenceSubmissionIds = [
+      aiData.evidenceSummary?.groupSubmissionId,
+      ...(aiData.evidenceSummary?.programmingSubmissionIds || [])
+    ].filter(Boolean);
+
     await api.post('/assessment/evaluate-group', {
       projectId: id,
       studentId,
@@ -666,7 +671,11 @@ const ProjectDetailPage = () => {
         confidence: aiData.confidence,
         plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
         plagiarismLevel: aiData.plagiarism?.level,
-        rationale: aiData.rationale
+        rationale: aiData.rationale,
+        evidenceScope: aiData.evidenceSummary?.scope,
+        evidenceCount: aiData.evidenceSummary?.totalArtifacts || evidenceSubmissionIds.length,
+        evidenceSubmissionIds,
+        evidenceSummary: 'تم التقييم اعتمادا على 4 أدلة ثابتة: 3 برمجة + 1 نهائي.'
       }
     });
 
@@ -682,7 +691,11 @@ const ProjectDetailPage = () => {
         confidence: aiData.confidence,
         plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
         plagiarismLevel: aiData.plagiarism?.level,
-        rationale: aiData.rationale
+        rationale: aiData.rationale,
+        evidenceScope: aiData.evidenceSummary?.scope,
+        evidenceCount: aiData.evidenceSummary?.totalArtifacts || evidenceSubmissionIds.length,
+        evidenceSubmissionIds,
+        evidenceSummary: 'تم التقييم اعتمادا على 4 أدلة ثابتة: 3 برمجة + 1 نهائي.'
       }
     });
 

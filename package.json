@@ -9,7 +9,9 @@
     "dev-frontend": "cd frontend && npm run dev",
     "dev": "concurrently \"npm run dev-backend\" \"npm run dev-frontend\"",
     "build": "cd frontend && npm run build",
-    "test": "cd backend && npm test && cd ../frontend && npm test"
+    "test": "cd backend && npm test && cd ../frontend && npm test",
+    "security:check-secrets": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/check-secrets.ps1",
+    "test:ai-team-e2e": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/test-ai-team-e2e.ps1"
   },
   "keywords": [
     "lms",

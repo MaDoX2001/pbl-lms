@@ -117,6 +117,21 @@ const evaluationAttemptSchema = new mongoose.Schema({
     rationale: {
       type: String,
       default: ''
+    },
+    evidenceScope: {
+      type: String,
+      default: null
+    },
+    evidenceCount: {
+      type: Number,
+      default: 0
+    },
+    evidenceSubmissionIds: [{
+      type: mongoose.Schema.Types.ObjectId
+    }],
+    evidenceSummary: {
+      type: String,
+      default: ''
     }
   },
   retryAllowed: {

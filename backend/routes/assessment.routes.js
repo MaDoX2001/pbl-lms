@@ -19,7 +19,8 @@ const {
   getStudentLevel,
   getStudentBadges,
   createOrUpdateBadge,
-  getProjectBadge
+  getProjectBadge,
+  getEvaluation
 } = require('../controllers/assessment.controller');
 
 // ============================================================================
@@ -55,6 +56,7 @@ router.get('/final-all/:projectId', protect, authorize('teacher', 'admin'), getA
 // ============================================================================
 router.post('/allow-retry', protect, authorize('teacher', 'admin'), allowRetry);
 router.get('/attempts/:projectId/:studentId', protect, getStudentAttempts);
+router.get('/evaluation/:submissionId', protect, getEvaluation);
 
 // ============================================================================
 // STUDENT LEVEL & BADGES ROUTES

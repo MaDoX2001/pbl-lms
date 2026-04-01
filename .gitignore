@@ -53,3 +53,9 @@ coverage/
 /backend/dist
 /frontend/build
 backend/scripts/clear-chat-data.js
+
+# Local tokens and temporary auth artifacts
+token.txt
+*.token
+*.jwt
+scripts/tmp-*.ps1
