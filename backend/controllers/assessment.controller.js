@@ -571,6 +571,7 @@ exports.evaluateIndividual = async (req, res) => {
   try {
     const { 
       projectId, 
+      teamId,
       studentId,
       studentRole,
       submissionId, 
@@ -579,6 +580,8 @@ exports.evaluateIndividual = async (req, res) => {
       evaluationSource = 'manual',
       aiApproval = null
     } = req.body;
+
+    let resolvedTeamId = null;
 
     // Verify project exists
     const project = await Project.findById(projectId);
@@ -599,23 +602,36 @@ exports.evaluateIndividual = async (req, res) => {
 
     // IF team project, verify Phase 1 is complete
     if (project.isTeamProject) {
-      // Find student's team
-      const team = await Team.findOne({
-        project: projectId,
-        'members.user': studentId
-      });
+      let teamEnrollment = null;
 
-      if (!team) {
+      if (teamId) {
+        teamEnrollment = await TeamProject.findOne({
+          project: projectId,
+          team: teamId,
+          'memberRoles.user': studentId
+        });
+      }
+
+      if (!teamEnrollment) {
+        teamEnrollment = await TeamProject.findOne({
+          project: projectId,
+          'memberRoles.user': studentId
+        });
+      }
+
+      if (!teamEnrollment) {
         return res.status(404).json({
           success: false,
           message: 'الطالب غير مسجل في أي فريق لهذا المشروع'
         });
       }
 
+      resolvedTeamId = teamEnrollment.team;
+
       // Check if group evaluation exists
       const groupEval = await EvaluationAttempt.findOne({
         project: projectId,
-        team: team._id,
+        team: resolvedTeamId,
         phase: 'group',
         isLatestAttempt: true
       });
@@ -721,6 +737,7 @@ exports.evaluateIndividual = async (req, res) => {
     const individualEvaluation = await EvaluationAttempt.create({
       project: projectId,
       phase: 'individual_oral',
+      team: project.isTeamProject ? resolvedTeamId : undefined,
       student: studentId,
       studentRole,
       submission: submissionId,
@@ -1501,20 +1518,19 @@ exports.finalizeEvaluation = async (req, res) => {
     // STEP 2: GET GROUP EVALUATION (IF TEAM PROJECT)
     // ========================================================================
     if (project.isTeamProject) {
-      // Find student's team
-      const team = await Team.findOne({
+      const teamEnrollment = await TeamProject.findOne({
         project: projectId,
-        'members.user': studentId
+        'memberRoles.user': studentId
       });
 
-      if (!team) {
+      if (!teamEnrollment) {
         return res.status(404).json({
           success: false,
           message: 'الطالب غير مسجل في أي فريق'
         });
       }
 
-      teamId = team._id;
+      teamId = teamEnrollment.team;
 
       groupEvaluation = await EvaluationAttempt.findOne({
         project: projectId,
