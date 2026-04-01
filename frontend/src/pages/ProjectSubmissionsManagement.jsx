@@ -76,6 +76,7 @@ const ProjectSubmissionsManagement = () => {
   const [bulkAIRunning, setBulkAIRunning] = useState(false);
   const [bulkAIProgress, setBulkAIProgress] = useState({ done: 0, total: 0 });
   const [teamSearchTerm, setTeamSearchTerm] = useState('');
+  const [finalDeliveryFilter, setFinalDeliveryFilter] = useState('all');
 
   useEffect(() => {
     fetchData();
@@ -259,6 +260,10 @@ const ProjectSubmissionsManagement = () => {
   const getLatestSubmission = (items = []) => {
     if (!items.length) return null;
     return [...items].sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0];
+  };
+
+  const hasFinalDeliverySubmission = (teamSubmissions = []) => {
+    return teamSubmissions.some((submission) => submission.stageKey === 'final_delivery');
   };
 
   const buildTeamAICandidates = () => {
@@ -589,9 +594,18 @@ const ProjectSubmissionsManagement = () => {
         .join(' ')
         .toLowerCase();
 
+      const hasFinal = hasFinalDeliverySubmission(teamSubmissions);
+      const passesFinalDeliveryFilter =
+        finalDeliveryFilter === 'all'
+          ? true
+          : finalDeliveryFilter === 'submitted'
+            ? hasFinal
+            : !hasFinal;
+
+      if (!passesFinalDeliveryFilter) return false;
       return teamName.includes(q) || memberNames.includes(q) || submitterNames.includes(q);
     });
-  }, [submissionsByTeam, teamSearchTerm]);
+  }, [submissionsByTeam, teamSearchTerm, finalDeliveryFilter]);
 
   if (loading) {
     return (
@@ -668,6 +682,29 @@ const ProjectSubmissionsManagement = () => {
                 onChange={(e) => setTeamSearchTerm(e.target.value)}
                 sx={{ minWidth: 280, maxWidth: 420 }}
               />
+              <Button
+                size="small"
+                variant={finalDeliveryFilter === 'all' ? 'contained' : 'outlined'}
+                onClick={() => setFinalDeliveryFilter('all')}
+              >
+                كل الفرق
+              </Button>
+              <Button
+                size="small"
+                variant={finalDeliveryFilter === 'submitted' ? 'contained' : 'outlined'}
+                color={finalDeliveryFilter === 'submitted' ? 'success' : 'inherit'}
+                onClick={() => setFinalDeliveryFilter('submitted')}
+              >
+                سلّم النهائي
+              </Button>
+              <Button
+                size="small"
+                variant={finalDeliveryFilter === 'not_submitted' ? 'contained' : 'outlined'}
+                color={finalDeliveryFilter === 'not_submitted' ? 'warning' : 'inherit'}
+                onClick={() => setFinalDeliveryFilter('not_submitted')}
+              >
+                لم يسلّم النهائي
+              </Button>
               <Chip label={`النتائج: ${visibleTeams.length}`} size="small" variant="outlined" />
               <Typography variant="caption" color="text.secondary">
                 الترتيب: أبجدي حسب اسم الفريق
