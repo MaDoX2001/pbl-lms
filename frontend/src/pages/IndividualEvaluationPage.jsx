@@ -362,7 +362,13 @@ const IndividualEvaluationPage = () => {
         submissionId
       });
 
-      setAiData(res.data?.data || null);
+      const aiResult = res.data?.data || null;
+      if (!aiResult) {
+        throw new Error('لم يتم استلام نتيجة AI صالحة');
+      }
+
+      await handleApproveAIEvaluation(aiResult, { silentSuccess: true, closeDialog: false });
+      setAiData(aiResult);
     } catch (err) {
       const msg = err.response?.data?.message || 'فشل في توليد تقييم AI';
       setAiError(msg);
@@ -374,72 +380,73 @@ const IndividualEvaluationPage = () => {
     }
   };
 
-  const handleApproveAIEvaluation = () => {
-    if (!aiData) return;
+  const handleApproveAIEvaluation = async (sourceAiData = aiData, options = {}) => {
+    const { silentSuccess = false, closeDialog = true } = options;
+    if (!sourceAiData) return;
 
-    const run = async () => {
-      try {
-        setSubmitting(true);
+    try {
+      setSubmitting(true);
 
-        applyCardToSelections(aiData.groupCard, setGroupSelections);
-        applyCardToSelections(aiData.individualCard, setSelections);
-        setStudentRole(aiData.studentRole || 'programmer');
+      applyCardToSelections(sourceAiData.groupCard, setGroupSelections);
+      applyCardToSelections(sourceAiData.individualCard, setSelections);
+      setStudentRole(sourceAiData.studentRole || 'programmer');
 
-        if (aiData.groupCard) {
-          const groupPayload = {
-            projectId,
-            submissionId: aiData.basedOnGroupSubmissionId || aiData.basedOnSubmissionId || submissionId,
-            sectionEvaluations: draftToSectionEvaluations(aiData.groupCard),
-            feedbackSummary,
-            evaluationSource: 'ai-assisted',
-            aiApproval: {
-              confidence: aiData.confidence,
-              plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
-              plagiarismLevel: aiData.plagiarism?.level,
-              rationale: aiData.rationale
-            }
-          };
-
-          if (project?.isTeamProject) {
-            if (!aiData.teamId) {
-              throw new Error('تعذر تحديد الفريق المرتبط بهذا التقييم');
-            }
-            groupPayload.teamId = aiData.teamId;
-          } else {
-            groupPayload.studentId = studentId;
-          }
-
-          await api.post('/assessment/evaluate-group', groupPayload);
-        }
-
-        await api.post('/assessment/evaluate-individual', {
+      if (sourceAiData.groupCard) {
+        const groupPayload = {
           projectId,
-          studentId,
-          studentRole: 'programmer',
-          submissionId: aiData.basedOnIndividualSubmissionId || aiData.basedOnSubmissionId || submissionId,
-          sectionEvaluations: draftToSectionEvaluations(aiData.individualCard),
+          submissionId: sourceAiData.basedOnGroupSubmissionId || sourceAiData.basedOnSubmissionId || submissionId,
+          sectionEvaluations: draftToSectionEvaluations(sourceAiData.groupCard),
           feedbackSummary,
           evaluationSource: 'ai-assisted',
           aiApproval: {
-            confidence: aiData.confidence,
-            plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
-            plagiarismLevel: aiData.plagiarism?.level,
-            rationale: aiData.rationale
+            confidence: sourceAiData.confidence,
+            plagiarismSimilarityPercent: sourceAiData.plagiarism?.similarityPercent,
+            plagiarismLevel: sourceAiData.plagiarism?.level,
+            rationale: sourceAiData.rationale
           }
-        });
+        };
 
-        alert('تم اعتماد تقييم AI تلقائيًا وحفظ بطاقات الملاحظة');
-        setAiDialogOpen(false);
-      } catch (err) {
-        const msg = err.response?.data?.message || 'فشل اعتماد تقييم AI';
-        setAiError(msg);
-        alert(msg);
-      } finally {
-        setSubmitting(false);
+        if (project?.isTeamProject) {
+          if (!sourceAiData.teamId) {
+            throw new Error('تعذر تحديد الفريق المرتبط بهذا التقييم');
+          }
+          groupPayload.teamId = sourceAiData.teamId;
+        } else {
+          groupPayload.studentId = studentId;
+        }
+
+        await api.post('/assessment/evaluate-group', groupPayload);
       }
-    };
 
-    run();
+      await api.post('/assessment/evaluate-individual', {
+        projectId,
+        studentId,
+        studentRole: 'programmer',
+        submissionId: sourceAiData.basedOnIndividualSubmissionId || sourceAiData.basedOnSubmissionId || submissionId,
+        sectionEvaluations: draftToSectionEvaluations(sourceAiData.individualCard),
+        feedbackSummary,
+        evaluationSource: 'ai-assisted',
+        aiApproval: {
+          confidence: sourceAiData.confidence,
+          plagiarismSimilarityPercent: sourceAiData.plagiarism?.similarityPercent,
+          plagiarismLevel: sourceAiData.plagiarism?.level,
+          rationale: sourceAiData.rationale
+        }
+      });
+
+      if (!silentSuccess) {
+        alert('تم اعتماد تقييم AI تلقائيًا وحفظ بطاقات الملاحظة');
+      }
+      if (closeDialog) {
+        setAiDialogOpen(false);
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || 'فشل اعتماد تقييم AI';
+      setAiError(msg);
+      alert(msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleApproveAIFeedback = () => {
@@ -895,14 +902,6 @@ const IndividualEvaluationPage = () => {
             color="secondary"
           >
             اعتماد الفيدباك
-          </Button>
-          <Button
-            onClick={handleApproveAIEvaluation}
-            disabled={aiLoading || !aiData}
-            variant="contained"
-            color="primary"
-          >
-            اعتماد التقييم
           </Button>
         </DialogActions>
       </Dialog>

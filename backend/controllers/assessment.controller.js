@@ -1250,6 +1250,7 @@ exports.generateAIEvaluationDraft = async (req, res) => {
           'supportArtifacts contains exactly 4 items only: 1 final_delivery and 3 programming submissions (latest per student).',
           'Evaluation priority must be: 1) Wokwi link evidence, 2) report/notes text, 3) files/images/attachments/code text.',
           'All generated textual fields MUST be in Arabic only (rationale and feedbackSuggestion).',
+          'feedbackSuggestion MUST be written in clear Egyptian Arabic (لهجة مصرية بسيطة ومهنية).',
           'Keep rationale concise and actionable for teacher review.',
           'Include feedbackSuggestion for the student in Arabic.'
         ],
@@ -1502,6 +1503,7 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         'Evaluation priority must be: 1) Wokwi link evidence, 2) student report text, 3) submitted code/files/other artifacts.',
         'If Wokwi link is missing, inaccessible, or insufficient, fallback to report text first before using other artifacts.',
         'All generated textual fields MUST be in Arabic only (rationale and feedbackSuggestion).',
+        'feedbackSuggestion MUST be written in clear Egyptian Arabic (لهجة مصرية بسيطة ومهنية).',
         'Keep rationale concise and actionable for teacher review.',
         'Include feedbackSuggestion for the student in Arabic.'
       ],
@@ -1881,6 +1883,7 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
         'supportArtifacts contains exactly 4 items only: 1 final_delivery and 3 programming submissions (latest per student).',
         'Evaluation priority must be: 1) Wokwi link evidence, 2) report/notes text, 3) files/images/attachments/code text.',
         'All generated textual fields MUST be in Arabic only (rationale, teamFeedbackSuggestion, and per-student feedbackSuggestion).',
+        'teamFeedbackSuggestion and per-student feedbackSuggestion MUST be written in clear Egyptian Arabic (لهجة مصرية بسيطة ومهنية).',
         'Keep rationale concise and actionable for teacher review.'
       ],
       teacherGoal: 'Produce one consistent evaluation response that the platform can use to fill all cards and compute final scores accurately.',
