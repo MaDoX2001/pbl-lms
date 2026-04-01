@@ -235,6 +235,16 @@ const buildStoredAIApproval = (aiApproval, userId) => {
   };
 };
 
+const normalizeFeedbackText = (text) => String(text || '').replace(/\s+/g, ' ').trim();
+
+const hasEnoughFeedbackSpecificity = (text = '', studentName = '') => {
+  const clean = normalizeFeedbackText(text);
+  if (!clean || clean.length < 24) return false;
+  // Ensure the feedback is at least somewhat tailored to the student.
+  if (studentName && !clean.includes(studentName)) return false;
+  return true;
+};
+
 // ============================================================================
 // OBSERVATION CARD MANAGEMENT
 // ============================================================================
@@ -1566,13 +1576,17 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       }
     };
 
-    const rawResponse = await callGeminiForAssessment(JSON.stringify(promptPayload));
-    const parsed = safeJsonParse(rawResponse);
+    let parsed = null;
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      const rawResponse = await callGeminiForAssessment(JSON.stringify(promptPayload));
+      parsed = safeJsonParse(rawResponse);
+      if (parsed) break;
+    }
 
     if (!parsed) {
       return res.status(502).json({
         success: false,
-        message: 'تعذر قراءة مخرجات AI بصيغة JSON صالحة. حاول مرة أخرى.'
+        message: 'تعذر قراءة مخرجات AI بصيغة JSON صالحة بعد إعادة المحاولة. حاول مرة أخرى.'
       });
     }
 
@@ -1970,8 +1984,6 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
       ? parsed.perStudentRecommendations
       : [];
 
-    const normalizeArabicText = (text) => String(text || '').replace(/\s+/g, ' ').trim();
-
     const buildStudentFallbackFeedback = (studentName, score) => {
       const safeScore = Number.isFinite(Number(score)) ? Number(score).toFixed(2) : null;
       return safeScore
@@ -1998,8 +2010,8 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
 
       const overallScore = Number((((groupDraft.calculatedScore + individualDraft.calculatedScore) / 2)).toFixed(2));
 
-      let feedbackSuggestion = normalizeArabicText(hit?.feedbackSuggestion || '');
-      if (!feedbackSuggestion) {
+      let feedbackSuggestion = normalizeFeedbackText(hit?.feedbackSuggestion || '');
+      if (!hasEnoughFeedbackSpecificity(feedbackSuggestion, item.student.name)) {
         feedbackSuggestion = buildStudentFallbackFeedback(item.student.name, individualDraft.calculatedScore);
       }
 
@@ -2020,7 +2032,15 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
       };
     });
 
-    const groupFeedbackSuggestion = normalizeArabicText(parsed.groupFeedbackSuggestion || parsed.teamFeedbackSuggestion || '');
+    const groupFeedbackSuggestion = normalizeFeedbackText(parsed.groupFeedbackSuggestion || parsed.teamFeedbackSuggestion || '');
+
+    const uniqueFeedbackCount = new Set(individualCards.map((c) => normalizeFeedbackText(c.feedbackSuggestion).toLowerCase())).size;
+    if (uniqueFeedbackCount !== individualCards.length) {
+      return res.status(502).json({
+        success: false,
+        message: 'تم رفض نتيجة AI لأن التعليقات الفردية غير مميزة لكل طالب. حاول مرة أخرى.'
+      });
+    }
 
     return res.json({
       success: true,
