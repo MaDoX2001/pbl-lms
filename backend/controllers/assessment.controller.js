@@ -881,13 +881,6 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       return res.status(403).json({ success: false, message: 'غير مصرح لك بتقييم هذا المشروع' });
     }
 
-    if (project.isTeamProject) {
-      return res.status(400).json({
-        success: false,
-        message: 'نسخة AI الحالية مفعلة فقط للمشروع الفردي. سنوسعها للمشروع الجماعي بعد التجربة.'
-      });
-    }
-
     const [groupCard, individualCard] = await Promise.all([
       ObservationCard.findOne({ project: projectId, phase: 'group' }),
       ObservationCard.findOne({ project: projectId, phase: 'individual_oral' })
@@ -897,6 +890,282 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'بطاقات الملاحظة المطلوبة (الجماعية + الفردية) غير متاحة لهذا المشروع'
+      });
+    }
+
+    if (project.isTeamProject) {
+      const teamEnrollment = await TeamProject.findOne({
+        project: projectId,
+        'memberRoles.user': studentId
+      }).populate({
+        path: 'team',
+        populate: { path: 'members.user', select: 'name email' }
+      });
+
+      if (!teamEnrollment?.team?._id) {
+        return res.status(404).json({
+          success: false,
+          message: 'الطالب غير مرتبط بفريق مسجل في هذا المشروع'
+        });
+      }
+
+      const teamId = teamEnrollment.team._id;
+      const teamMemberIds = (teamEnrollment.team.members || []).map((m) => String(m.user?._id || m.user));
+
+      const latestFinalSubmission = await TeamSubmission.findOne({
+        team: teamId,
+        project: projectId,
+        stageKey: 'final_delivery'
+      })
+        .populate('submittedBy', 'name email')
+        .sort({ submittedAt: -1, createdAt: -1 });
+
+      if (!latestFinalSubmission) {
+        return res.status(400).json({
+          success: false,
+          message: 'لا يمكن تقييم AI قبل التسليم النهائي للفريق وإكمال المشروع'
+        });
+      }
+
+      const programmingSubmitters = await TeamSubmission.distinct('submittedBy', {
+        team: teamId,
+        project: projectId,
+        stageKey: 'programming'
+      });
+      const programmingSubmitterSet = new Set(programmingSubmitters.map((id) => String(id)));
+      const hasProgrammingForAllMembers = teamMemberIds.every((memberId) => programmingSubmitterSet.has(memberId));
+
+      if (!hasProgrammingForAllMembers) {
+        return res.status(400).json({
+          success: false,
+          message: 'لا يمكن تشغيل تقييم AI قبل اكتمال تسليمات البرمجة لكل أعضاء الفريق'
+        });
+      }
+
+      let studentProgrammingSubmission = null;
+      if (submissionId) {
+        studentProgrammingSubmission = await TeamSubmission.findOne({
+          _id: submissionId,
+          team: teamId,
+          project: projectId,
+          stageKey: 'programming',
+          submittedBy: studentId
+        }).populate('submittedBy', 'name email');
+      }
+
+      if (!studentProgrammingSubmission) {
+        studentProgrammingSubmission = await TeamSubmission.findOne({
+          team: teamId,
+          project: projectId,
+          stageKey: 'programming',
+          submittedBy: studentId
+        })
+          .populate('submittedBy', 'name email')
+          .sort({ submittedAt: -1, createdAt: -1 });
+      }
+
+      if (!studentProgrammingSubmission) {
+        return res.status(404).json({
+          success: false,
+          message: 'لا يوجد تسليم برمجة لهذا الطالب داخل الفريق'
+        });
+      }
+
+      const allTeamSubmissions = await TeamSubmission.find({
+        team: teamId,
+        project: projectId
+      })
+        .populate('submittedBy', 'name email')
+        .sort({ submittedAt: -1, createdAt: -1 })
+        .limit(40);
+
+      const toEvidenceItem = (item) => ({
+        id: item._id,
+        stageKey: item.stageKey,
+        submissionType: item.submissionType,
+        submittedBy: {
+          id: item.submittedBy?._id || item.submittedBy,
+          name: item.submittedBy?.name || 'طالب'
+        },
+        submittedAt: item.submittedAt,
+        wokwiLink: item.wokwiLink || '',
+        notes: item.notes || '',
+        description: item.description || '',
+        fileUrl: item.fileUrl || '',
+        fileName: item.fileName || '',
+        attachments: (item.attachments || []).map((a) => ({
+          url: a.url,
+          fileName: a.fileName,
+          fileType: a.fileType,
+          fileSize: a.fileSize
+        }))
+      });
+
+      const individualPrimary = toEvidenceItem(studentProgrammingSubmission);
+      const groupPrimary = toEvidenceItem(latestFinalSubmission);
+
+      const individualWokwiLink = studentProgrammingSubmission.wokwiLink
+        || extractWokwiLink(studentProgrammingSubmission.notes)
+        || extractWokwiLink(studentProgrammingSubmission.description)
+        || '';
+      const groupWokwiLink = latestFinalSubmission.wokwiLink
+        || extractWokwiLink(latestFinalSubmission.notes)
+        || extractWokwiLink(latestFinalSubmission.description)
+        || '';
+
+      const chosenSimilarityLink = individualWokwiLink || groupWokwiLink || '';
+      const matchedStudents = [];
+
+      if (chosenSimilarityLink) {
+        const otherTeamSubmissions = await TeamSubmission.find({
+          project: projectId,
+          team: { $ne: teamId },
+          stageKey: { $in: ['programming', 'final_delivery'] },
+          wokwiLink: { $exists: true, $ne: '' }
+        })
+          .populate('submittedBy', 'name')
+          .populate('team', 'name')
+          .select('wokwiLink submittedBy team stageKey');
+
+        for (const other of otherTeamSubmissions) {
+          if (String(other.wokwiLink || '').trim() === chosenSimilarityLink) {
+            matchedStudents.push({
+              studentId: other.submittedBy?._id,
+              studentName: other.submittedBy?.name || 'طالب آخر',
+              teamName: other.team?.name || 'فريق آخر',
+              matchedLink: other.wokwiLink
+            });
+          }
+        }
+      }
+
+      const plagiarismSimilarityPercent = matchedStudents.length > 0 ? 90 : 10;
+      const plagiarismLevel = matchedStudents.length > 0 ? 'high' : 'low';
+      const plagiarismReason = matchedStudents.length > 0
+        ? 'تم العثور على رابط Wokwi مطابق في تسليمات فرق أخرى بالمشروع.'
+        : 'لا يوجد تطابق مباشر واضح في رابط Wokwi مع تسليمات فرق أخرى.';
+
+      const promptPayload = {
+        language: 'Arabic',
+        task: 'Evaluate one team-project student for individual programming card and evaluate team final delivery for group card. Return structured JSON only.',
+        strictRules: [
+          'Return JSON only without markdown fences.',
+          'For every criterion in both cards, choose only one allowed percentage from allowedPercentages.',
+          'Individual card MUST be based primarily on student programming submission evidence.',
+          'Group card MUST be based primarily on team final delivery evidence only.',
+          'AI evaluation is allowed only because team final delivery exists and project stages are completed.',
+          'Use other submissions/artifacts only as supporting context when needed.',
+          'Evaluation priority must be: 1) Wokwi link evidence, 2) report/notes text, 3) files/images/attachments/code text.',
+          'Keep rationale concise and actionable for teacher review.',
+          'Include feedbackSuggestion for the student in Arabic.'
+        ],
+        teacherGoal: 'Draft teacher-like observation-card evaluation to review and approve manually.',
+        project: {
+          id: project._id,
+          title: project.title,
+          description: project.description || '',
+          isTeamProject: true
+        },
+        team: {
+          id: teamId,
+          name: teamEnrollment.team.name || 'فريق',
+          members: (teamEnrollment.team.members || []).map((m) => ({
+            id: m.user?._id || m.user,
+            name: m.user?.name || 'طالب'
+          }))
+        },
+        student: {
+          id: studentId,
+          name: studentProgrammingSubmission.submittedBy?.name || 'طالب',
+          email: studentProgrammingSubmission.submittedBy?.email || ''
+        },
+        submission: {
+          source: 'team-submission-model',
+          evidencePriority: ['wokwiLink', 'reportText', 'otherArtifacts'],
+          individualPrimary,
+          groupPrimary,
+          supportArtifacts: allTeamSubmissions.map(toEvidenceItem)
+        },
+        plagiarismSignal: {
+          similarityPercent: plagiarismSimilarityPercent,
+          level: plagiarismLevel,
+          reason: plagiarismReason,
+          matchedStudents
+        },
+        observationCards: {
+          group: buildCardPromptShape(groupCard),
+          individual_oral: buildCardPromptShape(individualCard)
+        },
+        requiredOutputShape: {
+          groupRecommendations: [
+            {
+              sectionName: 'string',
+              criteria: [{ criterionName: 'string', selectedPercentage: 0 }]
+            }
+          ],
+          individualRecommendations: [
+            {
+              sectionName: 'string',
+              criteria: [{ criterionName: 'string', selectedPercentage: 0 }]
+            }
+          ],
+          rationale: 'string',
+          feedbackSuggestion: 'string',
+          confidence: 0
+        }
+      };
+
+      const rawResponse = await callGeminiForAssessment(JSON.stringify(promptPayload));
+      const parsed = safeJsonParse(rawResponse);
+
+      if (!parsed) {
+        return res.status(502).json({
+          success: false,
+          message: 'تعذر قراءة مخرجات AI بصيغة JSON صالحة. حاول مرة أخرى.'
+        });
+      }
+
+      const groupDraft = buildSectionEvaluationsFromCard({
+        card: groupCard,
+        recommendations: parsed.groupRecommendations || [],
+        project,
+        studentRole: 'programmer',
+        enforceAllCriteria: true
+      });
+
+      const individualDraft = buildSectionEvaluationsFromCard({
+        card: individualCard,
+        recommendations: parsed.individualRecommendations || [],
+        project,
+        studentRole: 'programmer',
+        enforceAllCriteria: true
+      });
+
+      const overallScore = Number((((groupDraft.calculatedScore + individualDraft.calculatedScore) / 2)).toFixed(2));
+
+      return res.json({
+        success: true,
+        data: {
+          teamId,
+          basedOnGroupSubmissionId: latestFinalSubmission._id,
+          basedOnIndividualSubmissionId: studentProgrammingSubmission._id,
+          basedOnSubmissionId: studentProgrammingSubmission._id,
+          basedOnSubmissionSource: 'team-submission-model',
+          studentRole: 'programmer',
+          groupCard: groupDraft,
+          individualCard: individualDraft,
+          overallScore,
+          rationale: parsed.rationale || 'لم يتم توفير مبرر مفصل من AI.',
+          feedbackSuggestion: parsed.feedbackSuggestion || '',
+          confidence: Number(parsed.confidence || 0),
+          plagiarism: {
+            similarityPercent: plagiarismSimilarityPercent,
+            level: plagiarismLevel,
+            reason: plagiarismReason,
+            matchedStudents
+          },
+          generatedAt: new Date()
+        }
       });
     }
 

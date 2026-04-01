@@ -61,6 +61,7 @@ const IndividualEvaluationPage = () => {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiData, setAiData] = useState(null);
   const [aiError, setAiError] = useState('');
+  const isAIAutoMode = new URLSearchParams(location.search).get('ai') === '1';
 
   const isAllRolesMode = Boolean(project && !project.isTeamProject);
   const canStartEvaluation = isAllRolesMode || Boolean(studentRole);
@@ -384,11 +385,10 @@ const IndividualEvaluationPage = () => {
         applyCardToSelections(aiData.individualCard, setSelections);
         setStudentRole(aiData.studentRole || 'programmer');
 
-        if (isAllRolesMode && aiData.groupCard) {
-          await api.post('/assessment/evaluate-group', {
+        if (aiData.groupCard) {
+          const groupPayload = {
             projectId,
-            studentId,
-            submissionId: aiData.basedOnSubmissionId || submissionId,
+            submissionId: aiData.basedOnGroupSubmissionId || aiData.basedOnSubmissionId || submissionId,
             sectionEvaluations: draftToSectionEvaluations(aiData.groupCard),
             feedbackSummary,
             evaluationSource: 'ai-assisted',
@@ -398,14 +398,25 @@ const IndividualEvaluationPage = () => {
               plagiarismLevel: aiData.plagiarism?.level,
               rationale: aiData.rationale
             }
-          });
+          };
+
+          if (project?.isTeamProject) {
+            if (!aiData.teamId) {
+              throw new Error('تعذر تحديد الفريق المرتبط بهذا التقييم');
+            }
+            groupPayload.teamId = aiData.teamId;
+          } else {
+            groupPayload.studentId = studentId;
+          }
+
+          await api.post('/assessment/evaluate-group', groupPayload);
         }
 
         await api.post('/assessment/evaluate-individual', {
           projectId,
           studentId,
           studentRole: 'programmer',
-          submissionId: aiData.basedOnSubmissionId || submissionId,
+          submissionId: aiData.basedOnIndividualSubmissionId || aiData.basedOnSubmissionId || submissionId,
           sectionEvaluations: draftToSectionEvaluations(aiData.individualCard),
           feedbackSummary,
           evaluationSource: 'ai-assisted',
@@ -482,7 +493,7 @@ const IndividualEvaluationPage = () => {
   }
 
   // Phase 1 blocking check
-  if (project?.isTeamProject && (!phase1Status || !phase1Status.phase1Complete)) {
+  if (project?.isTeamProject && !isAIAutoMode && (!phase1Status || !phase1Status.phase1Complete)) {
     return (
       <Box>
         <Paper sx={{ p: 4, textAlign: 'center' }}>

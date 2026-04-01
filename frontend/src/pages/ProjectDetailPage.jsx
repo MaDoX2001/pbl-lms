@@ -703,7 +703,7 @@ const ProjectDetailPage = () => {
     if (bulkAIRunning) return;
 
     if (project?.isTeamProject) {
-      toast.info('تقييم AI التلقائي متاح حالياً للمشاريع الفردية فقط. للمشاريع الفريقية استخدم التقييم اليدوي حالياً.');
+      toast.info('للمشاريع الجماعية: استخدم صفحة تسليمات الفرق ثم زر "تقييم AI" من تسليم البرمجة لكل طالب.');
       return;
     }
 

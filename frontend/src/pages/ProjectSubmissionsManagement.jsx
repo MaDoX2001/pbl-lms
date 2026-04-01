@@ -31,6 +31,7 @@ import {
   ArrowBack as ArrowBackIcon,
   Description as DescriptionIcon,
   Assessment as AssessmentIcon,
+  AutoAwesome as AutoAwesomeIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../services/api';
@@ -574,6 +575,17 @@ const ProjectSubmissionsManagement = () => {
                           >
                             {t('digitalEvaluation')}
                           </Button>
+                          {submission.stageKey === 'programming' && submission.submittedBy?._id && (
+                            <Button
+                              variant="outlined"
+                              color="secondary"
+                              startIcon={<AutoAwesomeIcon />}
+                              onClick={() => navigate(`/evaluate/individual/${projectId}/${submission.submittedBy._id}/${submission._id}?ai=1`)}
+                              size="small"
+                            >
+                              تقييم AI
+                            </Button>
+                          )}
                           <Button
                             variant="outlined"
                             startIcon={<GradeIcon />}
