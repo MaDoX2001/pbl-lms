@@ -323,11 +323,7 @@ exports.addReviewerFeedback = async (req, res) => {
       }
       : existingAiMeta;
 
-    const previousFeedback = progress.feedback || {};
-    const { aiMeta: _ignoredAiMeta, ...feedbackWithoutAiMeta } = previousFeedback;
-
     progress.feedback = {
-      ...feedbackWithoutAiMeta,
       reviewer: req.user.id,
       comments: comments || '',
       score: scoreFromEvaluation,
