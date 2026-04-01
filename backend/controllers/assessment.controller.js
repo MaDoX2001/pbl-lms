@@ -865,6 +865,118 @@ exports.getIndividualStatus = async (req, res) => {
   }
 };
 
+// @desc    Get group + individual latest scores for all teams in a project
+// @route   GET /api/assessment/team-scores/:projectId
+// @access  Private (Teacher/Admin)
+exports.getProjectTeamScores = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    const project = await Project.findById(projectId).select('instructor isTeamProject');
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'المشروع غير موجود'
+      });
+    }
+
+    if (!project.isTeamProject) {
+      return res.status(400).json({
+        success: false,
+        message: 'هذه الواجهة مخصصة للمشاريع الجماعية'
+      });
+    }
+
+    if (req.user.role !== 'admin' && project.instructor?.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'غير مصرح لك بعرض درجات هذا المشروع'
+      });
+    }
+
+    const enrollments = await TeamProject.find({ project: projectId })
+      .populate({
+        path: 'team',
+        populate: { path: 'members.user', select: 'name email' }
+      })
+      .select('team memberRoles');
+
+    const teamIds = enrollments.map((e) => e.team?._id).filter(Boolean);
+    const allMemberIds = enrollments.flatMap((enrollment) =>
+      (enrollment.team?.members || []).map((m) => m.user?._id || m.user).filter(Boolean)
+    );
+
+    const [groupAttempts, individualAttempts] = await Promise.all([
+      EvaluationAttempt.find({
+        project: projectId,
+        phase: 'group',
+        isLatestAttempt: true,
+        team: { $in: teamIds }
+      }).select('team calculatedScore updatedAt'),
+      EvaluationAttempt.find({
+        project: projectId,
+        phase: 'individual_oral',
+        isLatestAttempt: true,
+        student: { $in: allMemberIds }
+      }).select('team student calculatedScore studentRole updatedAt')
+    ]);
+
+    const groupScoreByTeam = groupAttempts.reduce((acc, item) => {
+      acc[String(item.team)] = {
+        score: Number(item.calculatedScore || 0),
+        updatedAt: item.updatedAt
+      };
+      return acc;
+    }, {});
+
+    const individualByTeam = individualAttempts.reduce((acc, item) => {
+      const teamKey = String(item.team || '');
+      if (!teamKey) return acc;
+      if (!acc[teamKey]) acc[teamKey] = {};
+      acc[teamKey][String(item.student)] = {
+        score: Number(item.calculatedScore || 0),
+        studentRole: item.studentRole || 'programmer',
+        updatedAt: item.updatedAt
+      };
+      return acc;
+    }, {});
+
+    const data = enrollments.map((enrollment) => {
+      const teamId = String(enrollment.team?._id || '');
+      const members = (enrollment.team?.members || []).map((m) => {
+        const studentId = String(m.user?._id || m.user || '');
+        const individual = individualByTeam[teamId]?.[studentId] || null;
+        return {
+          studentId,
+          name: m.user?.name || 'طالب',
+          individualProgrammingScore: individual?.score ?? null,
+          studentRole: individual?.studentRole || 'programmer',
+          updatedAt: individual?.updatedAt || null
+        };
+      });
+
+      return {
+        teamId,
+        teamName: enrollment.team?.name || 'فريق',
+        groupScore: groupScoreByTeam[teamId]?.score ?? null,
+        groupUpdatedAt: groupScoreByTeam[teamId]?.updatedAt || null,
+        members
+      };
+    });
+
+    return res.json({
+      success: true,
+      data
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'خطأ في جلب درجات الفرق',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Generate AI evaluation draft for one student (individual project pilot)
 // @route   POST /api/assessment/ai-evaluate-individual
 // @access  Private (Teacher/Admin)

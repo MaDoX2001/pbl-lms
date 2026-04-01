@@ -51,6 +51,7 @@ const ProjectSubmissionsManagement = () => {
   const [project, setProject] = useState(null);
   const [submissions, setSubmissions] = useState([]);
   const [projectEnrollments, setProjectEnrollments] = useState([]);
+  const [teamScoresByTeamId, setTeamScoresByTeamId] = useState({});
   const [stageBoard, setStageBoard] = useState([]);
   const [stageLoading, setStageLoading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -100,6 +101,7 @@ const ProjectSubmissionsManagement = () => {
             setProject(cached.project || null);
             setSubmissions(cached.submissions || []);
             setProjectEnrollments(cached.enrollments || []);
+            setTeamScoresByTeamId(cached.teamScoresByTeamId || {});
             setStageBoard(cached.stageBoard || []);
             setStageLoading(false);
             setLoading(false);
@@ -140,6 +142,14 @@ const ProjectSubmissionsManagement = () => {
           }
         })
       );
+
+      const scoreResponse = await api.get(`/assessment/team-scores/${projectId}`);
+      const teamScores = (scoreResponse.data?.data || []).reduce((acc, row) => {
+        acc[String(row.teamId)] = row;
+        return acc;
+      }, {});
+      setTeamScoresByTeamId(teamScores);
+
       setStageBoard(progressRows);
       setStageLoading(false);
       sessionStorage.setItem(cacheKey, JSON.stringify({
@@ -147,6 +157,7 @@ const ProjectSubmissionsManagement = () => {
         project: projectData,
         submissions: submissionsData,
         enrollments,
+        teamScoresByTeamId: teamScores,
         stageBoard: progressRows
       }));
 
@@ -804,6 +815,11 @@ const ProjectSubmissionsManagement = () => {
               { key: 'final_delivery', label: 'النهائي' }
             ];
             const submissionButtons = getTeamSubmissionButtons(teamSubmissions, team);
+            const teamScoreRow = teamScoresByTeamId[String(team._id)] || null;
+            const memberScoreById = (teamScoreRow?.members || []).reduce((acc, m) => {
+              acc[String(m.studentId)] = m;
+              return acc;
+            }, {});
 
             return (
               <Card key={team._id} variant="outlined">
@@ -814,6 +830,12 @@ const ProjectSubmissionsManagement = () => {
                     <Typography variant="caption" color="text.secondary">
                       برمجة: {stageRow?.progress?.programmingSubmittedCount || 0}/{stageRow?.progress?.programmingRequiredCount || 0}
                     </Typography>
+                    <Chip
+                      size="small"
+                      color={teamScoreRow?.groupScore !== null && teamScoreRow?.groupScore !== undefined ? 'success' : 'default'}
+                      variant={teamScoreRow?.groupScore !== null && teamScoreRow?.groupScore !== undefined ? 'filled' : 'outlined'}
+                      label={`درجة الجماعي: ${teamScoreRow?.groupScore !== null && teamScoreRow?.groupScore !== undefined ? Number(teamScoreRow.groupScore).toFixed(2) : '-'}`}
+                    />
                     <Box sx={{ flex: 1 }} />
                     <Button
                       variant="outlined"
@@ -838,6 +860,7 @@ const ProjectSubmissionsManagement = () => {
                     {getTeamMembersWithRoles(team).map((member) => {
                       const meta = roleMeta[member.role] || null;
                       const RoleIcon = meta?.icon;
+                      const individualScore = memberScoreById[String(member.userId)]?.individualProgrammingScore;
                       return (
                         <Chip
                           key={member.userId}
@@ -846,6 +869,21 @@ const ProjectSubmissionsManagement = () => {
                           color={meta?.color || 'default'}
                           icon={RoleIcon ? <RoleIcon fontSize="small" /> : undefined}
                           label={meta ? `${member.name} - ${meta.label}` : member.name}
+                        />
+                      );
+                    })}
+                  </Box>
+
+                  <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 1.2 }}>
+                    {getTeamMembersWithRoles(team).map((member) => {
+                      const individualScore = memberScoreById[String(member.userId)]?.individualProgrammingScore;
+                      return (
+                        <Chip
+                          key={`score-${member.userId}`}
+                          size="small"
+                          color={individualScore !== null && individualScore !== undefined ? 'primary' : 'default'}
+                          variant={individualScore !== null && individualScore !== undefined ? 'filled' : 'outlined'}
+                          label={`برمجة ${member.name}: ${individualScore !== null && individualScore !== undefined ? Number(individualScore).toFixed(2) : '-'}`}
                         />
                       );
                     })}
