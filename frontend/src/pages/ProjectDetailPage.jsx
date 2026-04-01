@@ -578,7 +578,13 @@ const ProjectDetailPage = () => {
       setSavingFeedbackBySubmission((prev) => ({ ...prev, [submissionId]: true }));
       await api.put(`/progress/${submissionId}/feedback`, {
         comments: feedbackBySubmission[submissionId] || '',
-        allowResubmission
+        allowResubmission,
+        source: 'manual',
+        aiMeta: {
+          confidence: 0,
+          plagiarismSimilarityPercent: 0,
+          plagiarismLevel: null
+        }
       });
       toast.success(allowResubmission ? 'تم فتح إعادة التسليم للطالب بنجاح' : 'تم حفظ تعليق المراجع بنجاح');
       setAllowResubmitBySubmission((prev) => ({ ...prev, [submissionId]: allowResubmission }));
