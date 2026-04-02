@@ -3570,7 +3570,13 @@ exports.allowRetry = async (req, res) => {
           team: teamId,
           project: projectId
         },
-        { retryAllowed: true }
+        {
+          $set: {
+            retryAllowed: true,
+            isFinalized: false,
+            finalizedAt: null
+          }
+        }
       );
 
       await EvaluationAttempt.updateMany(

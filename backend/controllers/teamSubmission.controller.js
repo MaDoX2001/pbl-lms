@@ -219,8 +219,7 @@ const canSubmitAfterFinalDelivery = async (projectId, studentId, teamId) => {
     const teamProject = await TeamProject.findOne({
       team: teamId,
       project: projectId,
-      retryAllowed: true,
-      isFinalized: { $ne: true }
+      retryAllowed: true
     }).select('_id');
     return Boolean(teamProject);
   }
@@ -502,11 +501,18 @@ exports.getStageProgress = async (req, res) => {
       .select('stageKey submittedBy submissionType submittedAt');
     const teamMemberIds = getTeamMemberIds(team);
     const progress = buildStageProgress(submissions, teamMemberIds);
+    const completed = { ...progress.completed };
+
+    // When retry is explicitly opened by teacher/admin, expose final stage as reopened in UI.
+    if (enrollment.retryAllowed) {
+      completed.final_delivery = false;
+    }
 
     res.json({
       success: true,
       data: {
-        completed: progress.completed,
+        completed,
+        retryAllowed: Boolean(enrollment.retryAllowed),
         programmingRequiredCount: teamMemberIds.length,
         programmingSubmittedCount: progress.programmingSubmitters.length
       }
