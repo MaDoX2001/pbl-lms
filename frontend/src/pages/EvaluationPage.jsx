@@ -63,8 +63,13 @@ const EvaluationPage = () => {
           const studentId = teamSubmission?.submittedBy?._id || teamSubmission?.submittedBy;
           const stageKey = teamSubmission?.stageKey;
 
-          if ((stageKey === 'programming' || stageKey === 'final_delivery') && projectId && studentId) {
+          if (stageKey === 'programming' && projectId && studentId) {
             navigate(`/evaluate/individual/${projectId}/${studentId}/${submissionId}`, { replace: true });
+            return;
+          }
+
+          if (stageKey === 'final_delivery' && projectId && teamId) {
+            navigate(`/evaluate/group/${projectId}/${teamId}/${submissionId}`, { replace: true });
             return;
           }
 

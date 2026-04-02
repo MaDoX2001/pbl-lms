@@ -240,9 +240,15 @@ const ProjectSubmissionsManagement = () => {
     const studentId = submission?.submittedBy?._id || submission?.submittedBy;
     const stageKey = submission?.stageKey;
 
-    // Programming & final delivery are evaluated per student.
-    if ((stageKey === 'programming' || stageKey === 'final_delivery') && studentId) {
+    // Programming is evaluated per student.
+    if (stageKey === 'programming' && studentId) {
       navigate(`/evaluate/individual/${projectId}/${studentId}/${submission._id}`);
+      return;
+    }
+
+    // Final delivery should be evaluated with the group card.
+    if (stageKey === 'final_delivery' && teamId) {
+      navigate(`/evaluate/group/${projectId}/${teamId}/${submission._id}`);
       return;
     }
 
@@ -1117,11 +1123,22 @@ const ProjectSubmissionsManagement = () => {
                       variant="contained"
                       size="small"
                       color="secondary"
-                      startIcon={<AutoAwesomeIcon />}
+                              onClick={() => navigate(`/evaluate/individual/${projectId}/${submissionDetailsDialog.submission.submittedBy?._id}/${submissionDetailsDialog.submission._id}?ai=1`)}
                       disabled={bulkAIRunning || Boolean(teamAIRunningById[String(team._id)])}
                       onClick={() => runAIEvaluationForTeam(team)}
                     >
                       {teamAIRunningById[String(team._id)] ? 'جاري تقييم الفريق...' : 'تقييم AI للفريق'}
+                          {submissionDetailsDialog.submission.stageKey === 'final_delivery' && submissionDetailsDialog.submission.team?._id && (
+                            <Button
+                              variant="outlined"
+                              color="secondary"
+                              startIcon={<AutoAwesomeIcon />}
+                              onClick={() => navigate(`/evaluate/group/${projectId}/${submissionDetailsDialog.submission.team._id}/${submissionDetailsDialog.submission._id}?ai=1`)}
+                              size="small"
+                            >
+                              {t('aiReview')}
+                            </Button>
+                          )}
                     </Button>
                   </Box>
 
