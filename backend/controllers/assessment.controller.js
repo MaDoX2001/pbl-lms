@@ -1637,14 +1637,32 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         }
       };
 
-      const rawResponse = await callGeminiForAssessment(JSON.stringify(promptPayload));
-      const parsed = safeJsonParse(rawResponse);
+      const buildNeutralRecommendationsFromCard = (card) => {
+        return (card.sections || []).map((section) => ({
+          sectionName: section.name,
+          criteria: (section.criteria || []).map((criterion) => ({
+            criterionName: criterion.name,
+            selectedPercentage: 50
+          }))
+        }));
+      };
+
+      let parsed = null;
+      try {
+        const rawResponse = await callGeminiForAssessment(JSON.stringify(promptPayload));
+        parsed = safeJsonParse(rawResponse);
+      } catch (_) {
+        parsed = null;
+      }
 
       if (!parsed) {
-        return res.status(502).json({
-          success: false,
-          message: 'تعذر قراءة مخرجات AI بصيغة JSON صالحة. حاول مرة أخرى.'
-        });
+        parsed = {
+          groupRecommendations: latestFinalSubmission ? buildNeutralRecommendationsFromCard(groupCard) : [],
+          individualRecommendations: buildNeutralRecommendationsFromCard(individualCard),
+          rationale: 'تعذر استخراج رد AI صالح في هذه المحاولة، فتم إنشاء تقييم احتياطي قابل للمراجعة.',
+          feedbackSuggestion: `يا ${studentProgrammingSubmission.submittedBy?.name || 'طالب'}، شغلك كويس كبداية. حاول توضح منطق الكود أكتر وتوثق خطوات الاختبار قبل التسليم الجاي.`,
+          confidence: 0
+        };
       }
 
       const groupDraft = buildSectionEvaluationsFromCard({
