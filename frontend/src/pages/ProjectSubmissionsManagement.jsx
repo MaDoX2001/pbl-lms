@@ -378,6 +378,37 @@ const ProjectSubmissionsManagement = () => {
   const runAIEvaluationForTeams = async (teams) => {
     if (!teams.length) return { successCount: 0, failedCount: 0, totalStudents: 0 };
 
+    const STUDENT_AI_MAX_RETRIES = 2;
+    const STUDENT_AI_DELAY_MS = 1400;
+    const RETRY_BACKOFF_BASE_MS = 1200;
+    const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    const callIndividualAIDraftWithRetry = async (candidate) => {
+      let lastErr = null;
+
+      for (let attempt = 1; attempt <= STUDENT_AI_MAX_RETRIES + 1; attempt += 1) {
+        try {
+          return await api.post('/assessment/ai-evaluate-individual', {
+            projectId,
+            studentId: candidate.studentId,
+            submissionId: candidate.programmingSubmissionId
+          });
+        } catch (err) {
+          lastErr = err;
+          const status = err?.response?.status;
+          const isTransient = !status || status === 429 || status >= 500;
+
+          if (!isTransient || attempt === STUDENT_AI_MAX_RETRIES + 1) {
+            break;
+          }
+
+          await wait(attempt * RETRY_BACKOFF_BASE_MS);
+        }
+      }
+
+      throw lastErr || new Error('فشل استدعاء تقييم AI الفردي');
+    };
+
     setBulkAIProgress({ done: 0, total: teams.length });
 
     const allCandidates = buildTeamAICandidates();
@@ -407,14 +438,12 @@ const ProjectSubmissionsManagement = () => {
 
         let groupSaved = false;
 
-        for (const candidate of teamCandidates) {
+        for (let candidateIndex = 0; candidateIndex < teamCandidates.length; candidateIndex += 1) {
+          const candidate = teamCandidates[candidateIndex];
           totalStudents += 1;
+
           try {
-            const aiRes = await api.post('/assessment/ai-evaluate-individual', {
-              projectId,
-              studentId: candidate.studentId,
-              submissionId: candidate.programmingSubmissionId
-            });
+            const aiRes = await callIndividualAIDraftWithRetry(candidate);
 
             const aiData = aiRes.data?.data;
             if (!aiData?.individualCard) {
@@ -476,6 +505,11 @@ const ProjectSubmissionsManagement = () => {
             failedCount += 1;
             const studentMessage = studentErr?.response?.data?.message || studentErr?.message || 'فشل تقييم AI لهذا الطالب';
             toast.error(`${candidate.studentName}: ${studentMessage}`);
+          } finally {
+            const isLastCandidate = candidateIndex === teamCandidates.length - 1;
+            if (!isLastCandidate) {
+              await wait(STUDENT_AI_DELAY_MS);
+            }
           }
         }
 
