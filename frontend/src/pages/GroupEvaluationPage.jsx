@@ -51,7 +51,8 @@ const GroupEvaluationPage = () => {
       const cardRes = await axios.get(`/api/assessment/observation-card/${projectId}/group`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
-      setObservationCard(cardRes.data.data);
+      const cardData = cardRes.data.data;
+      setObservationCard(cardData);
 
       // Fetch project details
       const projectRes = await axios.get(`/api/projects/${projectId}`, {
@@ -67,8 +68,8 @@ const GroupEvaluationPage = () => {
 
       // Initialize selections
       const initialSelections = {};
-      cardRes.data.data.sections.forEach(section => {
-        section.criteria.forEach(criterion => {
+      (cardData?.sections || []).filter(Boolean).forEach((section) => {
+        (section.criteria || []).filter(Boolean).forEach((criterion) => {
           initialSelections[`${section.name}_${criterion.name}`] = {
             sectionName: section.name,
             criterionName: criterion.name,
@@ -101,14 +102,16 @@ const GroupEvaluationPage = () => {
   };
 
   const calculatePreviewScore = () => {
-    if (!observationCard) return 0;
+    if (!observationCard?.sections?.length) return 0;
 
     let totalScore = 0;
-    observationCard.sections.forEach(section => {
-      const criteriaCount = section.criteria.length;
+    observationCard.sections.filter(Boolean).forEach(section => {
+      const criteriaList = (section.criteria || []).filter(Boolean);
+      const criteriaCount = criteriaList.length;
+      if (!criteriaCount) return;
       let sumPercentages = 0;
       
-      section.criteria.forEach(criterion => {
+      criteriaList.forEach(criterion => {
         const key = `${section.name}_${criterion.name}`;
         const selection = selections[key];
         if (selection && selection.selectedPercentage !== null) {
@@ -142,17 +145,24 @@ const GroupEvaluationPage = () => {
 
       // Group selections by section
       const sectionEvaluations = [];
-      observationCard.sections.forEach(section => {
-        const criterionSelections = section.criteria.map(criterion => {
+      (observationCard?.sections || []).filter(Boolean).forEach((section) => {
+        const criterionSelections = (section.criteria || []).filter(Boolean).map((criterion) => {
           const key = `${section.name}_${criterion.name}`;
           return selections[key];
         });
+        if (!criterionSelections.length) return;
         
         sectionEvaluations.push({
           sectionName: section.name,
           criterionSelections
         });
       });
+
+      if (!sectionEvaluations.length) {
+        setError(t('observationCardNotFound'));
+        setSubmitting(false);
+        return;
+      }
 
       await axios.post('/api/assessment/evaluate-group', {
         projectId,
@@ -182,6 +192,12 @@ const GroupEvaluationPage = () => {
   }
 
   if (!observationCard) {
+    return (
+      <Alert severity="error">{t('observationCardNotFound')}</Alert>
+    );
+  }
+
+  if (!Array.isArray(observationCard.sections) || observationCard.sections.length === 0) {
     return (
       <Alert severity="error">{t('observationCardNotFound')}</Alert>
     );
@@ -239,7 +255,7 @@ const GroupEvaluationPage = () => {
       </Paper>
 
       {/* Evaluation Sections */}
-      {observationCard.sections.map((section, sectionIndex) => (
+      {observationCard.sections.filter(Boolean).map((section, sectionIndex) => (
         <Paper key={sectionIndex} sx={{ p: 3, mb: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h5" fontWeight={600}>
@@ -258,7 +274,7 @@ const GroupEvaluationPage = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {section.criteria.map((criterion, criterionIndex) => {
+                {(section.criteria || []).filter(Boolean).map((criterion, criterionIndex) => {
                   const key = `${section.name}_${criterion.name}`;
                   const selected = selections[key];
 
@@ -272,7 +288,7 @@ const GroupEvaluationPage = () => {
                           value={selected?.selectedPercentage?.toString() || ''}
                           onChange={(e) => {
                             const percentage = parseInt(e.target.value);
-                            const option = criterion.options.find(o => o.percentage === percentage);
+                            const option = (criterion.options || []).find(o => o.percentage === percentage);
                             handleSelection(
                               section.name,
                               criterion.name,
@@ -281,7 +297,7 @@ const GroupEvaluationPage = () => {
                             );
                           }}
                         >
-                          {criterion.options.map(option => (
+                          {(criterion.options || []).map(option => (
                             <FormControlLabel
                               key={option.percentage}
                               value={option.percentage.toString()}
