@@ -1038,6 +1038,26 @@ exports.deleteSubmission = async (req, res) => {
         });
       }
 
+      if (stageKey === 'programming') {
+        const latestWiringSubmission = await TeamSubmission.findOne({
+          team: teamId,
+          project: projectId,
+          stageKey: 'wiring'
+        }).sort({ submittedAt: -1, createdAt: -1 });
+
+        const sharedDiagram = normalizeStageInputText(
+          latestWiringSubmission?.stageInputs?.wiringDiagramDetails || latestWiringSubmission?.notes || '',
+          8000
+        );
+
+        if (!sharedDiagram) {
+          return res.status(400).json({
+            success: false,
+            message: 'لا يمكن قبول تسليم البرمجة قبل وجود Diagram واضح من مرحلة الموصل.'
+          });
+        }
+      }
+
       if (stageKey === 'testing' && !stagedInputsDraft.testingReport) {
         return res.status(400).json({
           success: false,
@@ -1118,6 +1138,22 @@ exports.deleteSubmission = async (req, res) => {
           team,
           enrollment
         });
+
+        const hasDesignNarrative = Boolean(normalizeStageInputText(finalAutoFillPayload?.designNarrative || '', 4000));
+        const hasWiringDiagram = Boolean(normalizeStageInputText(finalAutoFillPayload?.wiringDiagramDetails || '', 8000));
+        const hasTestingReport = Boolean(normalizeStageInputText(finalAutoFillPayload?.testingReport || '', 12000));
+        const programmingEntries = Array.isArray(finalAutoFillPayload?.programmingEntries)
+          ? finalAutoFillPayload.programmingEntries
+          : [];
+        const hasAllProgrammingCodes = programmingEntries.length > 0
+          && programmingEntries.every((entry) => Boolean(normalizeStageInputText(entry?.code || '', 40000)));
+
+        if (!hasDesignNarrative || !hasWiringDiagram || !hasTestingReport || !hasAllProgrammingCodes) {
+          return res.status(400).json({
+            success: false,
+            message: 'لا يمكن قبول التسليم النهائي قبل استكمال كل الخانات الأساسية (التصميم، Diagram الموصل، أكواد كل الطلاب، وتقرير الاختبار).'
+          });
+        }
       }
 
       const submission = await TeamSubmission.create({

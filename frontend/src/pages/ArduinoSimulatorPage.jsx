@@ -456,6 +456,25 @@ function ArduinoSimulatorPage() {
       return;
     }
 
+    if (selectedStage === 'final_delivery') {
+      const hasDesignNarrative = Boolean((finalAutoFillPreview.designNarrative || '').trim());
+      const hasWiringDiagram = Boolean((finalAutoFillPreview.wiringDiagramDetails || '').trim());
+      const hasTestingReport = Boolean((finalAutoFillPreview.testingReport || '').trim());
+      const entries = Array.isArray(finalAutoFillPreview.programmingEntries)
+        ? finalAutoFillPreview.programmingEntries
+        : [];
+      const hasAllCodes = entries.length > 0 && entries.every((entry) => Boolean((entry.code || '').trim()));
+
+      if (!hasDesignNarrative || !hasWiringDiagram || !hasTestingReport || !hasAllCodes) {
+        setSnack({
+          open: true,
+          msg: 'لا يمكن قبول التسليم النهائي قبل اكتمال مدخلات التصميم والـ Diagram وأكواد كل الطلاب وتقرير الاختبار.',
+          severity: 'warning'
+        });
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
       const myTeam = await api.get('/teams/my-team');
@@ -775,6 +794,7 @@ function ArduinoSimulatorPage() {
           {selectedStage === 'design' && (
             <TextField
               fullWidth
+              required
               multiline
               minRows={4}
               label="مدخل المصمم"
@@ -788,6 +808,7 @@ function ArduinoSimulatorPage() {
           {selectedStage === 'wiring' && (
             <TextField
               fullWidth
+              required
               multiline
               minRows={5}
               label="محتوى الـ Diagram"
@@ -801,6 +822,7 @@ function ArduinoSimulatorPage() {
           {selectedStage === 'programming' && (
             <TextField
               fullWidth
+              required
               multiline
               minRows={8}
               label="الكود البرمجي"
@@ -814,6 +836,7 @@ function ArduinoSimulatorPage() {
           {selectedStage === 'testing' && (
             <TextField
               fullWidth
+              required
               multiline
               minRows={6}
               label="تقرير المختبر"

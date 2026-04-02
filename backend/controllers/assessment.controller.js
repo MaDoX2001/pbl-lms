@@ -29,6 +29,16 @@ const extractWokwiLink = (text) => {
   return match ? match[0] : null;
 };
 
+const sanitizeEvidenceForAI = (evidenceItem) => {
+  if (!evidenceItem) return null;
+  return {
+    ...evidenceItem,
+    // Keep Wokwi link only as supplemental metadata, not a primary programming signal.
+    wokwiLinkSupplemental: evidenceItem.wokwiLink || '',
+    wokwiLink: ''
+  };
+};
+
 const extractWokwiProjectId = (wokwiLink) => {
   if (!wokwiLink || typeof wokwiLink !== 'string') return null;
   const match = wokwiLink.match(/https:\/\/wokwi\.com\/projects\/([a-zA-Z0-9_-]+)/i);
@@ -337,6 +347,51 @@ const buildSectionEvaluationsFromCard = ({
   return {
     sectionEvaluations,
     calculatedScore: Number(totalScore.toFixed(2))
+  };
+};
+
+const validateAIRecommendationsAgainstCard = ({
+  card,
+  recommendations,
+  project,
+  studentRole,
+  enforceAllCriteria = false
+}) => {
+  const recMap = buildRecommendedMap(recommendations || []);
+  const missing = [];
+  const invalid = [];
+
+  for (const section of card.sections || []) {
+    const sectionRec = recMap[section.name] || {};
+
+    for (const criterion of section.criteria || []) {
+      const isRequired = enforceAllCriteria
+        ? true
+        : (
+          !project?.isTeamProject
+          || (criterion.applicableRoles || []).includes('all')
+          || (criterion.applicableRoles || []).includes(studentRole)
+        );
+
+      if (!isRequired) continue;
+
+      if (!(criterion.name in sectionRec)) {
+        missing.push(`${section.name} > ${criterion.name}`);
+        continue;
+      }
+
+      const selectedPercentage = Number(sectionRec[criterion.name]);
+      const allowedOptions = new Set((criterion.options || []).map((o) => Number(o.percentage)));
+      if (!Number.isFinite(selectedPercentage) || !allowedOptions.has(selectedPercentage)) {
+        invalid.push(`${section.name} > ${criterion.name}`);
+      }
+    }
+  }
+
+  return {
+    ok: missing.length === 0 && invalid.length === 0,
+    missing,
+    invalid
   };
 };
 
@@ -1653,39 +1708,30 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       const individualPrimary = toEvidenceItem(studentProgrammingSubmission);
       const groupPrimary = latestFinalSubmission ? toEvidenceItem(latestFinalSubmission) : null;
 
-      // Build exactly one latest programming artifact per team member.
-      const programmingByMember = new Map();
-      const memberIdSet = new Set(teamMemberIds);
-      const latestProgrammingSubmissions = await TeamSubmission.find({
+      const latestWiringSubmission = await TeamSubmission.findOne({
         team: teamId,
         project: projectId,
-        stageKey: 'programming',
-        submittedBy: { $in: teamMemberIds }
+        stageKey: 'wiring'
       })
         .populate('submittedBy', 'name email')
         .sort({ submittedAt: -1, createdAt: -1 });
 
-      for (const item of latestProgrammingSubmissions) {
-        const submitterId = String(item.submittedBy?._id || item.submittedBy || '');
-        if (!submitterId || !memberIdSet.has(submitterId) || programmingByMember.has(submitterId)) {
-          continue;
-        }
-        programmingByMember.set(submitterId, item);
+      const sharedWiringDiagramDetails = normalizeFeedbackText(
+        latestWiringSubmission?.stageInputs?.wiringDiagramDetails || latestWiringSubmission?.notes || ''
+      );
+
+      if (!sharedWiringDiagramDetails) {
+        return res.status(422).json({
+          success: false,
+          message: 'لا يمكن تقييم البرمجة بالـ AI بدون Diagram واضح من مرحلة الموصل.'
+        });
       }
 
-      const selectedProgrammingArtifacts = teamMembers
-        .map((m) => m.id)
-        .filter((id) => Boolean(id) && programmingByMember.has(id))
-        .map((id) => toEvidenceItem(programmingByMember.get(id)));
-
+      // Individual evaluation must rely on the target student's own submission evidence.
       const supportArtifacts = [
-        ...(groupPrimary ? [groupPrimary] : []),
-        ...selectedProgrammingArtifacts
+        individualPrimary,
+        ...(groupPrimary ? [groupPrimary] : [])
       ];
-
-      if (!supportArtifacts.some((item) => String(item.id) === String(individualPrimary.id))) {
-        supportArtifacts.unshift(individualPrimary);
-      }
 
       const individualWokwiLink = studentProgrammingSubmission.wokwiLink
         || extractWokwiLink(studentProgrammingSubmission.notes)
@@ -1761,20 +1807,22 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       const promptPayload = {
         language: 'Arabic',
         task: latestFinalSubmission
-          ? 'Evaluate one team-project student for individual programming card and evaluate team final delivery for group card. Return structured JSON only. Prioritize structured stage inputs, then fallback to extracted Wokwi code.'
-          : 'Evaluate one team-project student for individual programming card only. Prioritize structured stage inputs, then fallback to extracted Wokwi code. Return structured JSON only.',
+          ? 'Evaluate one team-project student for individual programming card and evaluate team final delivery for group card. Return structured JSON only. Prioritize student code + shared wiring diagram as the main evidence.'
+          : 'Evaluate one team-project student for individual programming card only. Prioritize student code + shared wiring diagram as the main evidence. Return structured JSON only.',
         strictRules: [
           'Return JSON only without markdown fences.',
           'For every criterion in both cards, choose only one allowed percentage from allowedPercentages.',
-          'Individual card MUST be based primarily on student programmingCode input when available; fallback to extracted Wokwi code only if needed.',
+          'Individual card MUST be based primarily on student programmingCode input and sharedWiringDiagramDetails.',
+          'Wokwi links are supplemental metadata only and MUST NOT override code + sharedWiringDiagramDetails evidence.',
+          'If coding evidence is missing, fail the evaluation instead of generating generic feedback.',
           ...(latestFinalSubmission
             ? ['Group card MUST be based primarily on team final delivery evidence only.']
             : ['If groupPrimary is null, return empty groupRecommendations and focus on individualRecommendations only.']),
-          'Use ONLY provided stageInputs, programmingCode input, extractedWokwiCode, and supportArtifacts list as evidence context.',
+          'Use ONLY provided stageInputs, programmingCode input, sharedWiringDiagramDetails, notes, attachments metadata, and supportArtifacts list as evidence context.',
           latestFinalSubmission
             ? 'supportArtifacts may include final_delivery and available programming submissions; prioritize target student programmingCode input for individual card.'
             : 'supportArtifacts may not include final_delivery; prioritize target student programmingCode input for individual card.',
-          'Evaluation priority for individual programming must be: 1) programmingCode input, 2) extractedWokwiCode fallback, 3) stageInputs context.',
+          'Evaluation priority for individual programming must be: 1) programmingCode input, 2) sharedWiringDiagramDetails, 3) notes and attachments metadata, 4) other stageInputs context.',
           'All generated textual fields MUST be in Arabic only (rationale and feedbackSuggestion).',
           'feedbackSuggestion MUST be written in clear Egyptian Arabic (لهجة مصرية بسيطة ومهنية).',
           'feedbackSuggestion MUST mention concrete observations from the provided code evidence and the student name.',
@@ -1803,11 +1851,12 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         },
         submission: {
           source: 'team-submission-model',
-          evidencePriority: ['programmingCodeInput', 'extractedWokwiCode', 'stageInputs'],
-          individualPrimary,
-          groupPrimary,
-          supportArtifacts,
+          evidencePriority: ['programmingCodeInput', 'sharedWiringDiagramDetails', 'notesAttachments', 'stageInputs'],
+          individualPrimary: sanitizeEvidenceForAI(individualPrimary),
+          groupPrimary: sanitizeEvidenceForAI(groupPrimary),
+          supportArtifacts: supportArtifacts.map((item) => sanitizeEvidenceForAI(item)),
           programmingCodeInput: effectiveProgrammingCode,
+          sharedWiringDiagramDetails,
           stageInputsContext: contextualStageInputs,
           extractedWokwiCode,
           extractedWokwiFiles: wokwiBundle?.files || []
@@ -1865,6 +1914,46 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         });
       }
 
+      const individualValidation = validateAIRecommendationsAgainstCard({
+        card: individualCard,
+        recommendations: parsed.individualRecommendations || [],
+        project,
+        studentRole: 'programmer',
+        enforceAllCriteria: true
+      });
+
+      if (!individualValidation.ok) {
+        return res.status(502).json({
+          success: false,
+          message: 'لم يستطع النظام تقييم الطالب لأن توصيات AI الفردية كانت ناقصة أو غير صالحة.',
+          data: {
+            missingCriteria: individualValidation.missing,
+            invalidCriteria: individualValidation.invalid
+          }
+        });
+      }
+
+      if (latestFinalSubmission) {
+        const groupValidation = validateAIRecommendationsAgainstCard({
+          card: groupCard,
+          recommendations: parsed.groupRecommendations || [],
+          project,
+          studentRole: 'programmer',
+          enforceAllCriteria: true
+        });
+
+        if (!groupValidation.ok) {
+          return res.status(502).json({
+            success: false,
+            message: 'لم يستطع النظام تقييم الطالب لأن توصيات AI الجماعية كانت ناقصة أو غير صالحة.',
+            data: {
+              missingCriteria: groupValidation.missing,
+              invalidCriteria: groupValidation.invalid
+            }
+          });
+        }
+      }
+
       const groupDraft = buildSectionEvaluationsFromCard({
         card: groupCard,
         recommendations: parsed.groupRecommendations || [],
@@ -1908,10 +1997,10 @@ exports.generateAIEvaluationDraft = async (req, res) => {
             matchedStudents
           },
           evidenceSummary: {
-            scope: latestFinalSubmission ? 'team-final-plus-latest-programming-per-student' : 'latest-programming-per-student',
+            scope: latestFinalSubmission ? 'target-student-programming-plus-team-final' : 'target-student-programming',
             totalArtifacts: supportArtifacts.length,
             groupSubmissionId: groupPrimary ? String(groupPrimary.id) : null,
-            programmingSubmissionIds: selectedProgrammingArtifacts.map((item) => String(item.id)),
+            programmingSubmissionIds: [String(individualPrimary.id)],
             evidenceSubmissionIds: supportArtifacts.map((item) => String(item.id))
           },
           generatedAt: new Date()
@@ -2392,6 +2481,25 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
       });
     }
 
+    const latestWiringSubmission = await TeamSubmission.findOne({
+      team: teamId,
+      project: projectId,
+      stageKey: 'wiring'
+    })
+      .populate('submittedBy', 'name email')
+      .sort({ submittedAt: -1, createdAt: -1 });
+
+    const sharedWiringDiagramDetails = normalizeFeedbackText(
+      latestWiringSubmission?.stageInputs?.wiringDiagramDetails || latestWiringSubmission?.notes || ''
+    );
+
+    if (!sharedWiringDiagramDetails) {
+      return res.status(422).json({
+        success: false,
+        message: 'لا يمكن تشغيل تقييم AI قبل وجود Diagram واضح من تسليم الموصل.'
+      });
+    }
+
     const teamProgrammingEvidenceWithCode = await Promise.all(
       teamProgrammingArtifacts.map(async (item) => {
         const inputCode = normalizeFeedbackText(item.evidence?.stageInputs?.programmingCode || '');
@@ -2475,15 +2583,16 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
 
     const promptPayload = {
       language: 'Arabic',
-      task: 'Evaluate the whole team in one response: one group card from best available final/team evidence and one individual programming card for each team member. Prioritize structured stage inputs first, then fallback evidence. Return structured JSON only.',
+      task: 'Evaluate the whole team in one response: one group card and one individual programming card per student using code + shared wiring diagram as primary evidence. Return structured JSON only.',
       strictRules: [
         'Return JSON only without markdown fences.',
         'For every criterion in both cards, choose only one allowed percentage from allowedPercentages.',
         'Group card MUST be based primarily on groupPrimary evidence (prefer final_delivery when available) and final stage structured inputs when available.',
-        'Each student individual card MUST be based primarily on that student effectiveProgrammingCode (input code first, then extracted Wokwi fallback).',
-        'Use ONLY the provided stageInputs, effectiveProgrammingCode, and supportArtifacts list as evidence context.',
+        'Each student individual card MUST be based primarily on that student effectiveProgrammingCode plus sharedWiringDiagramDetails.',
+          'Wokwi links are supplemental metadata only and MUST NOT override code + sharedWiringDiagramDetails evidence.',
+        'Use ONLY the provided stageInputs, effectiveProgrammingCode, sharedWiringDiagramDetails, notes, attachments metadata, and supportArtifacts list as evidence context.',
         'supportArtifacts may include final_delivery when available, plus the latest programming submissions per student.',
-        'Evaluation priority must be: 1) structured stage inputs, 2) per-student effectiveProgrammingCode, 3) notes/attachments/Wokwi links.',
+        'Evaluation priority must be: 1) per-student effectiveProgrammingCode, 2) sharedWiringDiagramDetails, 3) notes/attachments metadata, 4) other stageInputs.',
         'All generated textual fields MUST be in Arabic only (rationale, teamFeedbackSuggestion, and per-student feedbackSuggestion).',
         'teamFeedbackSuggestion and per-student feedbackSuggestion MUST be written in clear Egyptian Arabic (لهجة مصرية بسيطة ومهنية).',
         'group/team feedback MUST be specific to the team and not generic.',
@@ -2506,14 +2615,15 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
       },
       submission: {
         source: 'team-submission-model',
-        evidencePriority: ['stageInputs', 'effectiveProgrammingCode', 'notesAttachments', 'wokwiLink'],
-        groupPrimary,
+        evidencePriority: ['effectiveProgrammingCode', 'sharedWiringDiagramDetails', 'notesAttachments', 'stageInputs'],
+        groupPrimary: sanitizeEvidenceForAI(groupPrimary),
+        sharedWiringDiagramDetails,
         memberProgrammingPrimaries: teamProgrammingEvidenceWithCode.map((item) => ({
           student: item.student,
-          evidence: item.evidence,
+          evidence: sanitizeEvidenceForAI(item.evidence),
           effectiveProgrammingCode: item.effectiveProgrammingCode
         })),
-        supportArtifacts
+        supportArtifacts: supportArtifacts.map((item) => sanitizeEvidenceForAI(item))
       },
       plagiarismSignal: {
         similarityPercent: plagiarismSimilarityPercent,
@@ -2577,6 +2687,25 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
       });
     }
 
+    const groupValidation = validateAIRecommendationsAgainstCard({
+      card: groupCard,
+      recommendations: parsed.groupRecommendations || [],
+      project,
+      studentRole: 'programmer',
+      enforceAllCriteria: true
+    });
+
+    if (!groupValidation.ok) {
+      return res.status(502).json({
+        success: false,
+        message: 'تعذر على AI إكمال التقييم الجماعي لأن توصيات المجموعة ناقصة أو غير صالحة. لن يتم حفظ أي تقييم.',
+        data: {
+          missingCriteria: groupValidation.missing,
+          invalidCriteria: groupValidation.invalid
+        }
+      });
+    }
+
     const groupDraft = buildSectionEvaluationsFromCard({
       card: groupCard,
       recommendations: parsed.groupRecommendations || [],
@@ -2597,6 +2726,24 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
         const byName = String(rec?.studentName || '').trim() === String(item.student.name || '').trim();
         return byId || byName;
       });
+
+      const individualValidation = validateAIRecommendationsAgainstCard({
+        card: individualCard,
+        recommendations: hit?.individualRecommendations || hit?.recommendations || [],
+        project,
+        studentRole: 'programmer',
+        enforceAllCriteria: true
+      });
+
+      if (!individualValidation.ok) {
+        return {
+          studentId: item.student.id,
+          studentName: item.student.name,
+          invalidRecommendations: true,
+          invalidDetails: individualValidation,
+          feedbackSuggestion: ''
+        };
+      }
 
       const individualDraft = buildSectionEvaluationsFromCard({
         card: individualCard,
@@ -2626,11 +2773,23 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
         studentName: item.student.name,
         studentRole: 'programmer',
         submissionId: String(item.evidence.id),
+        invalidRecommendations: false,
         individualCard: individualDraft,
         overallScore,
         feedbackSuggestion
       };
     });
+
+    const invalidRecommendationStudents = individualCards
+      .filter((entry) => entry.invalidRecommendations)
+      .map((entry) => entry.studentName);
+
+    if (invalidRecommendationStudents.length > 0) {
+      return res.status(502).json({
+        success: false,
+        message: `تعذر على AI تقييم الطلاب التاليين بسبب توصيات ناقصة/غير صالحة: ${invalidRecommendationStudents.join('، ')}. لن يتم حفظ التقييم.`
+      });
+    }
 
     const invalidFeedbackStudents = individualCards
       .filter((entry) => !entry.feedbackSuggestion)
