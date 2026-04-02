@@ -2074,12 +2074,13 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
       .populate('submittedBy', 'name email')
       .sort({ submittedAt: -1, createdAt: -1 });
 
-    if (!latestFinalSubmission) {
-      return res.status(400).json({
-        success: false,
-        message: 'لا يمكن تقييم AI قبل التسليم النهائي للفريق وإكمال المشروع'
-      });
-    }
+    const latestGroupFallbackSubmission = await TeamSubmission.findOne({
+      team: teamId,
+      project: projectId,
+      stageKey: { $in: ['design', 'wiring', 'testing'] }
+    })
+      .populate('submittedBy', 'name email')
+      .sort({ submittedAt: -1, createdAt: -1 });
 
     const programmingSubmitters = await TeamSubmission.distinct('submittedBy', {
       team: teamId,
@@ -2171,15 +2172,19 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
         : `يا ${studentName}، شغلك كويس كبداية. حاول تكتب الكود بشكل أوضح، وتضيف ملاحظات عن سبب كل خطوة، وتراجع حالات الاختبار قبل التسليم الجاي.`;
     };
 
-    const groupPrimary = toEvidenceItem(latestFinalSubmission);
-    const supportArtifacts = [groupPrimary, ...teamProgrammingArtifacts.map((item) => item.evidence)];
-
-    if (supportArtifacts.length !== 4) {
+    const groupEvidenceSource = latestFinalSubmission || latestGroupFallbackSubmission || teamProgrammingArtifacts[0]?.evidence || null;
+    if (!groupEvidenceSource) {
       return res.status(400).json({
         success: false,
-        message: `تقييم AI يتطلب 4 أدلة فقط (3 برمجة + 1 نهائي). الأدلة المتاحة حالياً: ${supportArtifacts.length}`
+        message: 'لا توجد أدلة كافية لتقييم الفريق. أضف على الأقل تسليمات البرمجة.'
       });
     }
+
+    const groupPrimary = latestFinalSubmission || latestGroupFallbackSubmission
+      ? toEvidenceItem(groupEvidenceSource)
+      : groupEvidenceSource;
+
+    const supportArtifacts = [groupPrimary, ...teamProgrammingArtifacts.map((item) => item.evidence)];
 
     const similarityLinks = Array.from(new Set(
       supportArtifacts
@@ -2219,14 +2224,14 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
 
     const promptPayload = {
       language: 'Arabic',
-      task: 'Evaluate the whole team in one response: one group card from final delivery and one individual programming card for each team member. Return structured JSON only.',
+      task: 'Evaluate the whole team in one response: one group card from best available team evidence and one individual programming card for each team member. Return structured JSON only.',
       strictRules: [
         'Return JSON only without markdown fences.',
         'For every criterion in both cards, choose only one allowed percentage from allowedPercentages.',
-        'Group card MUST be based primarily on team final delivery evidence only.',
+        'Group card MUST be based primarily on groupPrimary evidence (prefer final_delivery when available).',
         'Each student individual card MUST be based primarily on that student latest programming evidence.',
         'Use ONLY the provided supportArtifacts list as evidence context.',
-        'supportArtifacts contains exactly 4 items only: 1 final_delivery and 3 programming submissions (latest per student).',
+        'supportArtifacts may include final_delivery when available, plus the latest programming submissions per student.',
         'Evaluation priority must be: 1) Wokwi link evidence, 2) report/notes text, 3) files/images/attachments/code text.',
         'All generated textual fields MUST be in Arabic only (rationale, teamFeedbackSuggestion, and per-student feedbackSuggestion).',
         'teamFeedbackSuggestion and per-student feedbackSuggestion MUST be written in clear Egyptian Arabic (لهجة مصرية بسيطة ومهنية).',
