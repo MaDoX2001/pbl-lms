@@ -235,6 +235,39 @@ const ProjectSubmissionsManagement = () => {
     }
   };
 
+  const handleApproveAIFeedback = async () => {
+    const submission = submissionDetailsDialog.submission;
+    const aiFeedback = submissionEvaluationState.data?.feedbackSummary || '';
+
+    if (!submission?._id) {
+      toast.error('بيانات التسليم غير متوفرة');
+      return;
+    }
+
+    if (!aiFeedback.trim()) {
+      toast.error('لا يوجد فيدباك AI صالح لاعتماده');
+      return;
+    }
+
+    try {
+      await api.put(`/team-submissions/${submission._id}/feedback`, {
+        feedback: aiFeedback,
+        source: 'ai-assisted'
+      });
+
+      toast.success('تم اعتماد فيدباك AI وحفظه للتسليم');
+      setSubmissionDetailsDialog((prev) => ({
+        ...prev,
+        submission: prev.submission
+          ? { ...prev.submission, feedback: aiFeedback }
+          : prev.submission
+      }));
+      fetchData(true);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'فشل اعتماد فيدباك AI');
+    }
+  };
+
   const handleOpenDigitalEvaluation = (submission) => {
     const teamId = submission?.team?._id;
     const studentId = submission?.submittedBy?._id || submission?.submittedBy;
@@ -1281,6 +1314,27 @@ const ProjectSubmissionsManagement = () => {
                         ) : (
                           <Alert severity="info">لا توجد بيانات قرار AI محفوظة لهذا التسليم.</Alert>
                         )}
+                      </Box>
+
+                      <Box sx={{ mb: 2 }}>
+                        <Paper variant="outlined" sx={{ p: 2, bgcolor: 'rgba(25, 118, 210, 0.04)' }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                            فيدباك AI المقترح
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap', mb: 1.5 }}>
+                            {submissionEvaluationState.data?.feedbackSummary || 'لا يوجد فيدباك AI محفوظ لهذا التسليم.'}
+                          </Typography>
+                          <Button
+                            variant="contained"
+                            color="secondary"
+                            size="small"
+                            onClick={handleApproveAIFeedback}
+                            disabled={!submissionEvaluationState.data?.feedbackSummary}
+                            startIcon={<FeedbackIcon />}
+                          >
+                            اعتماد الفيدباك
+                          </Button>
+                        </Paper>
                       </Box>
 
                       {/* Feedback Section */}
