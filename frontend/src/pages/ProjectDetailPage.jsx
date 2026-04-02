@@ -89,6 +89,7 @@ const ProjectDetailPage = () => {
   const [selectedTeams, setSelectedTeams] = useState([]);
   const [selectAllTeams, setSelectAllTeams] = useState(false);
   const [teamRegisterDialogOpen, setTeamRegisterDialogOpen] = useState(false);
+  const [teamUnregisterDialogOpen, setTeamUnregisterDialogOpen] = useState(false);
   const [countdown, setCountdown] = useState('');
   const [studentProjectSubmission, setStudentProjectSubmission] = useState(null);
   const [studentEvaluationScore, setStudentEvaluationScore] = useState(null);
@@ -107,6 +108,10 @@ const ProjectDetailPage = () => {
   const [teamEnrollmentLoading, setTeamEnrollmentLoading] = useState(false);
   const [teamAlreadyEnrolled, setTeamAlreadyEnrolled] = useState(false);
   const [enrollingTeam, setEnrollingTeam] = useState(false);
+  const [enrolledTeams, setEnrolledTeams] = useState([]);
+  const [selectedTeamEnrollments, setSelectedTeamEnrollments] = useState([]);
+  const [selectAllEnrolledTeams, setSelectAllEnrolledTeams] = useState(false);
+  const [unregisteringTeams, setUnregisteringTeams] = useState(false);
 
   useEffect(() => {
     if (!project?.deadline) { setCountdown(''); return; }
@@ -440,6 +445,32 @@ const ProjectDetailPage = () => {
     setTeamRegisterDialogOpen(true);
   };
 
+  const fetchEnrolledTeamsForProject = async () => {
+    try {
+      const response = await api.get(`/team-projects/project/${id}`);
+      setEnrolledTeams(response.data?.data || []);
+    } catch (error) {
+      setEnrolledTeams([]);
+      toast.error(error.response?.data?.message || 'تعذر جلب الفرق المسجلة في المشروع');
+    }
+  };
+
+  const handleOpenTeamUnregister = async () => {
+    await fetchEnrolledTeamsForProject();
+    setSelectedTeamEnrollments([]);
+    setSelectAllEnrolledTeams(false);
+    setTeamUnregisterDialogOpen(true);
+  };
+
+  const handleSelectAllEnrolledTeams = (checked) => {
+    setSelectAllEnrolledTeams(checked);
+    if (checked) {
+      setSelectedTeamEnrollments(enrolledTeams);
+    } else {
+      setSelectedTeamEnrollments([]);
+    }
+  };
+
   const handleSelectAllTeams = (checked) => {
     setSelectAllTeams(checked);
     if (checked) {
@@ -489,6 +520,38 @@ const ProjectDetailPage = () => {
       setSelectAllTeams(false);
     } catch (error) {
       toast.error(error.response?.data?.message || t('teamRegisterFailed'));
+    }
+  };
+
+  const handleUnregisterTeam = async () => {
+    if (selectedTeamEnrollments.length === 0) {
+      toast.error('اختر فريقاً واحداً على الأقل لإلغاء تسجيله');
+      return;
+    }
+
+    if (!window.confirm(`سيتم إلغاء تسجيل ${selectedTeamEnrollments.length} فريق من المشروع. هل تريد المتابعة؟`)) {
+      return;
+    }
+
+    try {
+      setUnregisteringTeams(true);
+      let successCount = 0;
+
+      for (const enrollment of selectedTeamEnrollments) {
+        await api.delete(`/team-projects/${enrollment._id}`);
+        successCount++;
+      }
+
+      toast.success(`تم إلغاء تسجيل ${successCount} فريق بنجاح`);
+      setTeamUnregisterDialogOpen(false);
+      setSelectedTeamEnrollments([]);
+      setSelectAllEnrolledTeams(false);
+      await fetchEnrolledTeamsForProject();
+      dispatch(fetchProjectById(id));
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'تعذر إلغاء تسجيل الفرق');
+    } finally {
+      setUnregisteringTeams(false);
     }
   };
 
@@ -1245,6 +1308,18 @@ const ProjectDetailPage = () => {
                 >
                   {t('registerTeamInProject')}
                 </Button>
+                {user?.role === 'admin' && (
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    fullWidth
+                    startIcon={<GroupsIcon />}
+                    onClick={handleOpenTeamUnregister}
+                    sx={{ mt: 1 }}
+                  >
+                    إلغاء تسجيل فرق من المشروع
+                  </Button>
+                )}
               </>
             )}
 
@@ -1942,6 +2017,65 @@ const ProjectDetailPage = () => {
             disabled={selectedTeams.length === 0}
           >
             {t('register')} {selectedTeams.length > 0 && `(${selectedTeams.length})`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Team Unregistration Dialog */}
+      <Dialog open={teamUnregisterDialogOpen} onClose={() => setTeamUnregisterDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>إلغاء تسجيل الفرق من المشروع</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={selectAllEnrolledTeams}
+                  onChange={(e) => handleSelectAllEnrolledTeams(e.target.checked)}
+                />
+              }
+              label="إلغاء تسجيل كل الفرق المحددة"
+            />
+            <Autocomplete
+              multiple
+              options={enrolledTeams}
+              value={selectedTeamEnrollments}
+              onChange={(e, newValue) => {
+                setSelectedTeamEnrollments(newValue);
+                setSelectAllEnrolledTeams(newValue.length === enrolledTeams.length && enrolledTeams.length > 0);
+              }}
+              getOptionLabel={(option) => `${option.team?.name || 'فريق بدون اسم'} (${option.team?.members?.length || 0} ${t('members')})`}
+              isOptionEqualToValue={(option, value) => option._id === value._id}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="اختيار الفرق المسجلة"
+                  placeholder="ابحث عن فريق مسجل"
+                />
+              )}
+              noOptionsText="لا توجد فرق مسجلة حالياً في هذا المشروع"
+              renderTags={(value, getTagProps) =>
+                value.map((option, index) => (
+                  <Chip
+                    key={option._id}
+                    label={option.team?.name || 'فريق'}
+                    {...getTagProps({ index })}
+                  />
+                ))
+              }
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTeamUnregisterDialogOpen(false)}>{t('cancel')}</Button>
+          <Button
+            onClick={handleUnregisterTeam}
+            variant="contained"
+            color="error"
+            disabled={selectedTeamEnrollments.length === 0 || unregisteringTeams}
+          >
+            {unregisteringTeams
+              ? 'جارِ إلغاء التسجيل...'
+              : `إلغاء التسجيل ${selectedTeamEnrollments.length > 0 ? `(${selectedTeamEnrollments.length})` : ''}`}
           </Button>
         </DialogActions>
       </Dialog>
