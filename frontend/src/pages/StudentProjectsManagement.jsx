@@ -37,6 +37,8 @@ import {
   Groups as GroupsIcon,
   Person as PersonIcon,
   EmojiEvents as TrophyIcon,
+  History as HistoryIcon,
+  Feedback as FeedbackIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../services/api';
@@ -66,6 +68,16 @@ const StudentProjectsManagement = () => {
   const [expandedTeam, setExpandedTeam] = useState(null);
   const [selectedFinalEval, setSelectedFinalEval] = useState(null);
   const [finalEvalDialogOpen, setFinalEvalDialogOpen] = useState(false);
+  const [teamAIHistoryDialog, setTeamAIHistoryDialog] = useState({
+    open: false,
+    team: null,
+    project: null
+  });
+  const [teamAIHistoryState, setTeamAIHistoryState] = useState({
+    loading: false,
+    data: []
+  });
+  const [teamFeedbackApplying, setTeamFeedbackApplying] = useState(false);
 
   useEffect(() => {
     fetchTeams();
@@ -217,6 +229,62 @@ const StudentProjectsManagement = () => {
     }
   };
 
+  const handleOpenTeamAIHistory = async (team, project) => {
+    if (!team?._id || !project?._id) return;
+
+    setTeamAIHistoryDialog({ open: true, team, project });
+    setTeamAIHistoryState({ loading: true, data: [] });
+
+    try {
+      const res = await api.get(`/assessment/team-history/${project._id}/${team._id}`);
+      setTeamAIHistoryState({ loading: false, data: res.data?.data || [] });
+    } catch (err) {
+      setTeamAIHistoryState({ loading: false, data: [] });
+      toast.error(err.response?.data?.message || 'فشل تحميل سجل AI للفريق');
+    }
+  };
+
+  const handleApplyTeamFeedbackBulk = async (historyItem) => {
+    const teamId = teamAIHistoryDialog.team?._id;
+    const projectId = teamAIHistoryDialog.project?._id;
+    const feedbackText = String(historyItem?.feedbackSummary || '').trim();
+
+    if (!teamId || !projectId) {
+      toast.error('بيانات الفريق أو المشروع غير مكتملة');
+      return;
+    }
+
+    if (!feedbackText) {
+      toast.error('لا يوجد فيدباك صالح في هذه المحاولة');
+      return;
+    }
+
+    setTeamFeedbackApplying(true);
+    try {
+      const submissionsRes = await api.get(`/team-submissions/team/${teamId}/project/${projectId}`);
+      const teamSubmissions = submissionsRes.data?.data || [];
+
+      if (!teamSubmissions.length) {
+        toast.error('لا توجد تسليمات للفريق لتطبيق الفيدباك عليها');
+        setTeamFeedbackApplying(false);
+        return;
+      }
+
+      for (const submission of teamSubmissions) {
+        await api.put(`/team-submissions/${submission._id}/feedback`, {
+          feedback: feedbackText,
+          source: 'ai-assisted'
+        });
+      }
+
+      toast.success('تم اعتماد الفيدباك على كل تسليمات الفريق');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'فشل اعتماد الفيدباك جماعيا');
+    } finally {
+      setTeamFeedbackApplying(false);
+    }
+  };
+
   if (loading) {
     return (
       <Container maxWidth="xl" sx={{ mt: 4, display: 'flex', justifyContent: 'center', minHeight: '60vh', alignItems: 'center' }}>
@@ -328,6 +396,15 @@ const StudentProjectsManagement = () => {
                                 onClick={() => handleViewSubmissions(project._id)}
                               >
                                 {t('viewSubmissions')}
+                              </Button>
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                color="secondary"
+                                startIcon={<HistoryIcon />}
+                                onClick={() => handleOpenTeamAIHistory(team, project)}
+                              >
+                                سجل AI
                               </Button>
                             </Box>
 
@@ -527,6 +604,72 @@ const StudentProjectsManagement = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setFinalEvalDialogOpen(false)}>{t('close')}</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={teamAIHistoryDialog.open}
+        onClose={() => {
+          setTeamAIHistoryDialog({ open: false, team: null, project: null });
+          setTeamAIHistoryState({ loading: false, data: [] });
+        }}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          سجل AI: {teamAIHistoryDialog.team?.name || ''} - {teamAIHistoryDialog.project?.title || ''}
+        </DialogTitle>
+        <DialogContent dividers>
+          {teamAIHistoryState.loading ? (
+            <Alert severity="info">جاري تحميل السجل...</Alert>
+          ) : teamAIHistoryState.data.length === 0 ? (
+            <Alert severity="info">لا توجد محاولات AI محفوظة لهذا الفريق في هذا المشروع.</Alert>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {teamAIHistoryState.data.map((item, index) => {
+                const feedbackText = String(item.feedbackSummary || '').trim();
+                return (
+                  <Paper key={item._id} variant="outlined" sx={{ p: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                      <Typography variant="subtitle2" fontWeight={700}>
+                        {item.phase === 'group' ? 'تقييم جماعي' : 'تقييم فردي'} - محاولة #{item.attemptNumber}
+                      </Typography>
+                      <Chip
+                        label={item.evaluationSource || 'manual'}
+                        size="small"
+                        color={String(item.evaluationSource || '').startsWith('ai') ? 'secondary' : 'default'}
+                      />
+                    </Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                      {new Date(item.createdAt).toLocaleString('ar-EG')} | بواسطة: {item.evaluator?.name || 'غير معروف'}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap', mb: 1.5 }}>
+                      {feedbackText || 'لا يوجد فيدباك محفوظ في هذه المحاولة.'}
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      color="secondary"
+                      size="small"
+                      startIcon={<FeedbackIcon />}
+                      disabled={!feedbackText || teamFeedbackApplying}
+                      onClick={() => handleApplyTeamFeedbackBulk(item)}
+                    >
+                      {teamFeedbackApplying ? 'جاري الاعتماد...' : 'اعتماد الفيدباك على كل تسليمات الفريق'}
+                    </Button>
+                    {index === 0 && <Chip label="الأحدث" color="success" size="small" sx={{ ml: 1 }} />}
+                  </Paper>
+                );
+              })}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setTeamAIHistoryDialog({ open: false, team: null, project: null });
+            setTeamAIHistoryState({ loading: false, data: [] });
+          }}>
+            {t('close')}
+          </Button>
         </DialogActions>
       </Dialog>
     </Container>
