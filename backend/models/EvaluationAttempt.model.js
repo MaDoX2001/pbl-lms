@@ -89,7 +89,7 @@ const evaluationAttemptSchema = new mongoose.Schema({
   },
   evaluationSource: {
     type: String,
-    enum: ['manual', 'ai-assisted', 'ai-batch'],
+    enum: ['manual', 'ai-assisted', 'ai-batch', 'ai-single', 'ai-batch-individual-only'],
     default: 'manual'
   },
   aiApproval: {
