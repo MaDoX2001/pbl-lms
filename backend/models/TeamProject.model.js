@@ -56,6 +56,16 @@ const teamProjectSchema = new mongoose.Schema({
   retryAllowed: {
     type: Boolean,
     default: false
+  },
+
+  // Final delivery accepted by all team members
+  isFinalized: {
+    type: Boolean,
+    default: false
+  },
+  finalizedAt: {
+    type: Date,
+    default: null
   }
 
 }, { timestamps: true });

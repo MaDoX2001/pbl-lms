@@ -143,6 +143,7 @@ const TeamProjectPage = () => {
   const [completedMilestoneIds, setCompletedMilestoneIds] = useState(new Set());
   const [milestoneProgressMap, setMilestoneProgressMap] = useState({});
   const [stageProgress, setStageProgress] = useState(null);
+  const [finalVoteSubmittingBySubmission, setFinalVoteSubmittingBySubmission] = useState({});
 
   useEffect(() => {
     fetchData();
@@ -254,6 +255,27 @@ const TeamProjectPage = () => {
       .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
     const index = sameStageSubmissions.findIndex((s) => String(s._id) === String(targetSubmission._id));
     return index >= 0 ? index + 1 : null;
+  };
+
+  const latestFinalDeliverySubmission = useMemo(() => {
+    return [...submissions]
+      .filter((submission) => submission.stageKey === 'final_delivery')
+      .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0] || null;
+  }, [submissions]);
+
+  const handleVoteFinalDelivery = async (submission) => {
+    if (!submission?._id) return;
+
+    try {
+      setFinalVoteSubmittingBySubmission((prev) => ({ ...prev, [submission._id]: true }));
+      await api.put(`/team-submissions/${submission._id}/final-vote`);
+      toast.success('تم تسجيل موافقتك على التسليم النهائي');
+      await fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'فشل تسجيل الموافقة النهائية');
+    } finally {
+      setFinalVoteSubmittingBySubmission((prev) => ({ ...prev, [submission._id]: false }));
+    }
   };
 
   const openWokwiInSimulator = (wokwiLink) => {
@@ -705,6 +727,35 @@ const TeamProjectPage = () => {
                         </Typography>
                       )}
                     </Alert>
+                  )}
+
+                  {submission.stageKey === 'final_delivery' && String(submission._id) === String(latestFinalDeliverySubmission?._id) && (
+                    <Box sx={{ mb: 2 }}>
+                      {teamEnrollment?.isFinalized ? (
+                        <Alert severity="success">
+                          تم اعتماد التسليم النهائي من الفريق وإغلاق المشروع.
+                        </Alert>
+                      ) : (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            الموافقات النهائية: {(submission.finalVotes || []).length}/{team?.members?.length || 3}
+                          </Typography>
+                          <Button
+                            variant="contained"
+                            color="success"
+                            size="small"
+                            onClick={() => handleVoteFinalDelivery(submission)}
+                            disabled={Boolean(finalVoteSubmittingBySubmission[submission._id]) || (submission.finalVotes || []).some((vote) => String(vote.student || '') === String(currentUserId))}
+                          >
+                            {finalVoteSubmittingBySubmission[submission._id]
+                              ? 'جاري تسجيل الموافقة...'
+                              : (submission.finalVotes || []).some((vote) => String(vote.student || '') === String(currentUserId))
+                                ? 'تمت الموافقة'
+                                : 'موافقة نهائية على التسليم'}
+                          </Button>
+                        </Box>
+                      )}
+                    </Box>
                   )}
 
                   {/* Grade */}

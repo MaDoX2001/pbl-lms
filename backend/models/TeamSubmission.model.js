@@ -124,6 +124,19 @@ const teamSubmissionSchema = new mongoose.Schema({
     default: null
   },
 
+  // Final delivery approval votes from the three team members
+  finalVotes: [{
+    student: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    votedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+
   // ---- Common fields ----
   submittedBy: {
     type: mongoose.Schema.Types.ObjectId,

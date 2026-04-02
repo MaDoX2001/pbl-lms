@@ -3,6 +3,7 @@ const Team = require('../models/Team.model');
 const Project = require('../models/Project.model');
 const TeamProject = require('../models/TeamProject.model');
 const EvaluationAttempt = require('../models/EvaluationAttempt.model');
+const Progress = require('../models/Progress.model');
 const cloudinary = require('../services/cloudinary.service');
 const multer = require('multer');
 const {
@@ -218,7 +219,8 @@ const canSubmitAfterFinalDelivery = async (projectId, studentId, teamId) => {
     const teamProject = await TeamProject.findOne({
       team: teamId,
       project: projectId,
-      retryAllowed: true
+      retryAllowed: true,
+      isFinalized: { $ne: true }
     }).select('_id');
     return Boolean(teamProject);
   }
@@ -232,6 +234,39 @@ const canSubmitAfterFinalDelivery = async (projectId, studentId, teamId) => {
   }).select('_id');
 
   return Boolean(retryAttempt);
+};
+
+const clearSubmissionTeacherFeedback = async ({ projectId }) => {
+  await TeamSubmission.updateMany(
+    { project: projectId },
+    {
+      $set: {
+        feedback: null,
+        feedbackBy: null,
+        feedbackAt: null
+      }
+    }
+  );
+
+  await Progress.updateMany(
+    { project: projectId },
+    {
+      $set: {
+        feedback: null,
+        feedbackHistory: [],
+        resubmissionAllowed: false
+      }
+    }
+  );
+
+  await EvaluationAttempt.updateMany(
+    { project: projectId },
+    {
+      $set: {
+        feedbackSummary: ''
+      }
+    }
+  );
 };
 
 const isTeacherReviewedVersion = (submission) => {
@@ -762,6 +797,143 @@ exports.addGrade = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'حدث خطأ في إضافة الدرجة',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Cast final delivery vote for a team's final submission
+// @route   PUT /api/team-submissions/:id/final-vote
+// @access  Private (team members only)
+exports.castFinalDeliveryVote = async (req, res) => {
+  try {
+    const submission = await TeamSubmission.findById(req.params.id)
+      .populate({ path: 'team', select: 'members' })
+      .populate('project', 'title isTeamProject');
+
+    if (!submission) {
+      return res.status(404).json({ success: false, message: 'التسليم غير موجود' });
+    }
+
+    if (submission.stageKey !== 'final_delivery') {
+      return res.status(400).json({ success: false, message: 'التصويت متاح فقط على التسليم النهائي' });
+    }
+
+    if (req.user.role !== 'student') {
+      return res.status(403).json({ success: false, message: 'التصويت متاح لأعضاء الفريق فقط' });
+    }
+
+    const isMember = (submission.team?.members || []).some(
+      (m) => (m.user?._id || m.user || m).toString() === req.user._id.toString()
+    );
+    if (!isMember) {
+      return res.status(403).json({ success: false, message: 'غير مصرح لك بالتصويت على هذا التسليم' });
+    }
+
+    const teamMemberIds = (submission.team?.members || [])
+      .map((member) => String(member.user?._id || member.user || member || ''))
+      .filter(Boolean);
+
+    const teamProject = await TeamProject.findOne({ team: submission.team._id, project: submission.project._id });
+    if (teamProject?.isFinalized) {
+      return res.status(400).json({ success: false, message: 'تم اعتماد التسليم النهائي وإغلاق المشروع بالفعل' });
+    }
+
+    submission.finalVotes = Array.isArray(submission.finalVotes) ? submission.finalVotes : [];
+    const existingVoteIndex = submission.finalVotes.findIndex(
+      (vote) => String(vote.student || '') === String(req.user._id)
+    );
+
+    if (existingVoteIndex === -1) {
+      submission.finalVotes.push({ student: req.user._id, votedAt: new Date() });
+    } else {
+      submission.finalVotes[existingVoteIndex].votedAt = new Date();
+    }
+
+    const uniqueVotes = Array.from(new Set(
+      submission.finalVotes.map((vote) => String(vote.student || '')).filter(Boolean)
+    ));
+
+    const hasAllVotes = teamMemberIds.length > 0 && teamMemberIds.every((memberId) => uniqueVotes.includes(memberId));
+
+    if (hasAllVotes) {
+      if (teamProject) {
+        teamProject.isFinalized = true;
+        teamProject.finalizedAt = new Date();
+        teamProject.retryAllowed = false;
+        await teamProject.save();
+      }
+
+      const project = await Project.findById(submission.project._id);
+      if (project) {
+        const memberIds = teamMemberIds;
+        const existingCompleted = new Set((project.completedBy || []).map((id) => String(id)));
+        let changed = false;
+        for (const memberId of memberIds) {
+          if (!existingCompleted.has(String(memberId))) {
+            project.completedBy.push(memberId);
+            changed = true;
+          }
+        }
+        if (changed) {
+          await project.save();
+        }
+      }
+
+      submission.status = 'reviewed';
+    }
+
+    await submission.save();
+    await submission.populate([
+      { path: 'submittedBy', select: 'name email' },
+      { path: 'team', populate: { path: 'members.user', select: 'name email' } }
+    ]);
+
+    return res.json({
+      success: true,
+      message: hasAllVotes ? 'تم اعتماد التسليم النهائي من الفريق وإغلاق المشروع' : 'تم تسجيل موافقتك على التسليم النهائي',
+      data: {
+        submission,
+        hasAllVotes,
+        voteCount: uniqueVotes.length,
+        requiredVotes: teamMemberIds.length
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'حدث خطأ في تسجيل التصويت النهائي',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Clear AI / teacher feedback for a project
+// @route   DELETE /api/team-submissions/project/:projectId/feedback
+// @access  Teacher/Admin
+exports.clearProjectFeedback = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    if (req.user.role === 'student') {
+      return res.status(403).json({ success: false, message: 'غير مصرح لك' });
+    }
+
+    const canAccess = await canTeacherAccessProject(projectId, req.user);
+    if (!canAccess) {
+      return res.status(403).json({ success: false, message: 'غير مصرح لك بإدارة هذا المشروع' });
+    }
+
+    await clearSubmissionTeacherFeedback({ projectId });
+
+    return res.json({
+      success: true,
+      message: 'تم حذف كل الفيدباك من التسليمات الخاصة بهذا المشروع'
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'حدث خطأ في حذف الفيدباك',
       error: error.message
     });
   }

@@ -586,6 +586,19 @@ const ProjectSubmissionsManagement = () => {
     }
   };
 
+  const handleClearProjectFeedback = async () => {
+    const confirmed = window.confirm('سيتم حذف كل الفيدباك الحالي من تسليمات هذا المشروع. هل تريد المتابعة؟');
+    if (!confirmed) return;
+
+    try {
+      await api.delete(`/team-submissions/project/${projectId}/feedback`);
+      toast.success('تم حذف كل الفيدباك الحالي بنجاح');
+      fetchData(true);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'فشل حذف الفيدباك الحالي');
+    }
+  };
+
   const draftToSectionEvaluations = (cardDraft) => {
     return (cardDraft?.sectionEvaluations || []).map((section) => ({
       sectionName: section.sectionName,
@@ -1269,6 +1282,14 @@ const ProjectSubmissionsManagement = () => {
               disabled={bulkAIRunning || bulkRetryRunning}
             >
               {bulkAIRunning ? 'جاري تقييم الطلاب...' : 'تقييم AI لكل الطلاب'}
+            </Button>
+            <Button
+              variant="outlined"
+              color="warning"
+              onClick={handleClearProjectFeedback}
+              disabled={bulkAIRunning || bulkRetryRunning}
+            >
+              مسح الفيدباك الحالي
             </Button>
           </Box>
         </Box>

@@ -11,7 +11,9 @@ const {
   uploadMiddleware,
   uploadWokwiFilesMiddleware,
   getStageProgress,
-  acknowledgeWokwiHandoff
+  acknowledgeWokwiHandoff,
+  castFinalDeliveryVote,
+  clearProjectFeedback
 } = require('../controllers/teamSubmission.controller');
 const {
   submitWokwiLink,
@@ -40,6 +42,9 @@ router.get('/wokwi/:teamId/:projectId', protect, getWokwiHistory);
 // Team member acknowledges receiving a teammate Wokwi version
 router.put('/:id/handoff-ack', protect, acknowledgeWokwiHandoff);
 
+// Team member approves the final delivery
+router.put('/:id/final-vote', protect, castFinalDeliveryVote);
+
 // Get all submissions for a specific team's project
 router.get('/team/:teamId/project/:projectId', protect, getTeamProjectSubmissions);
 
@@ -48,6 +53,9 @@ router.get('/progress/:teamId/:projectId', protect, getStageProgress);
 
 // Get all submissions for a project (all teams) - Teacher/Admin
 router.get('/project/:projectId', protect, getProjectSubmissions);
+
+// Clear feedback for all submissions in a project - Teacher/Admin
+router.delete('/project/:projectId/feedback', protect, clearProjectFeedback);
 
 // Get/Delete specific submission
 router.route('/:id')
