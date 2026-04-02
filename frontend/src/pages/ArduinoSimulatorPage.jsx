@@ -31,6 +31,16 @@ function ArduinoSimulatorPage() {
   const [wokwiLink, setWokwiLink] = useState('');
   const [simulatorUrl, setSimulatorUrl] = useState('https://wokwi.com/projects/new/arduino-uno');
   const [notes, setNotes] = useState('');
+  const [designNarrative, setDesignNarrative] = useState('');
+  const [wiringDiagramDetails, setWiringDiagramDetails] = useState('');
+  const [programmingCode, setProgrammingCode] = useState('');
+  const [testingReport, setTestingReport] = useState('');
+  const [finalAutoFillPreview, setFinalAutoFillPreview] = useState({
+    designNarrative: '',
+    wiringDiagramDetails: '',
+    programmingEntries: [],
+    testingReport: ''
+  });
   const [selectedProject, setSelectedProject] = useState('');
   const [selectedStage, setSelectedStage] = useState('design');
   const [projects, setProjects] = useState([]);   // team enrollments
@@ -172,6 +182,42 @@ function ArduinoSimulatorPage() {
     }) || null;
   };
 
+  const getLatestProgrammingSubmissionByStudent = (studentId) => {
+    const target = String(studentId || '');
+    if (!target) return null;
+    return currentHistory.find((submission) => {
+      if (submission.stageKey !== 'programming') return false;
+      const submitterId = String(submission.submittedBy?._id || submission.submittedBy || '');
+      return submitterId === target;
+    }) || null;
+  };
+
+  const buildFinalAutoFillPreview = () => {
+    const latestDesign = getLatestStageSubmission('design', 'system_designer');
+    const latestWiringSubmission = getLatestStageSubmission('wiring', 'hardware_engineer');
+    const latestTestingSubmission = getLatestStageSubmission('testing', 'tester');
+
+    const programmingEntries = (teamMembers || []).map((member) => {
+      const memberId = member?.user?._id || member?.user || member?._id || null;
+      const memberName = member?.user?.name || member?.name || 'طالب';
+      const latestProgramming = getLatestProgrammingSubmissionByStudent(memberId);
+      const extractedCode = latestProgramming?.stageInputs?.programmingCode || latestProgramming?.notes || '';
+
+      return {
+        studentId: memberId,
+        studentName: memberName,
+        code: extractedCode
+      };
+    });
+
+    return {
+      designNarrative: latestDesign?.stageInputs?.designNarrative || latestDesign?.notes || '',
+      wiringDiagramDetails: latestWiringSubmission?.stageInputs?.wiringDiagramDetails || latestWiringSubmission?.notes || '',
+      programmingEntries,
+      testingReport: latestTestingSubmission?.stageInputs?.testingReport || latestTestingSubmission?.notes || ''
+    };
+  };
+
   const latestDesigner = getLatestStageSubmission(quickLinkStage, 'system_designer');
   const latestWiring = getLatestStageSubmission(quickLinkStage, 'hardware_engineer');
   const latestTesting = getLatestStageSubmission(quickLinkStage, 'tester');
@@ -300,11 +346,20 @@ function ArduinoSimulatorPage() {
   useEffect(() => {
     setWokwiLink('');
     setNotes('');
+    setDesignNarrative('');
+    setWiringDiagramDetails('');
+    setProgrammingCode('');
+    setTestingReport('');
     setAttachments([]);
     if (isValidWokwiProjectLink(lastKnownProjectLink)) {
       setWokwiLink(lastKnownProjectLink);
     }
   }, [selectedProject]);
+
+  useEffect(() => {
+    if (selectedStage !== 'final_delivery') return;
+    setFinalAutoFillPreview(buildFinalAutoFillPreview());
+  }, [selectedStage, currentHistory, teamMembers]);
 
   // Fetch team's enrolled projects for the dropdown
   useEffect(() => {
@@ -381,6 +436,26 @@ function ArduinoSimulatorPage() {
       return;
     }
 
+    if (selectedStage === 'design' && !designNarrative.trim()) {
+      setSnack({ open: true, msg: 'يرجى إدخال وصف المصمم قبل التسليم', severity: 'warning' });
+      return;
+    }
+
+    if (selectedStage === 'wiring' && !wiringDiagramDetails.trim()) {
+      setSnack({ open: true, msg: 'يرجى إدخال تفاصيل الـ Diagram قبل التسليم', severity: 'warning' });
+      return;
+    }
+
+    if (selectedStage === 'programming' && !programmingCode.trim()) {
+      setSnack({ open: true, msg: 'يرجى إدخال الكود البرمجي قبل التسليم', severity: 'warning' });
+      return;
+    }
+
+    if (selectedStage === 'testing' && !testingReport.trim()) {
+      setSnack({ open: true, msg: 'يرجى إدخال تقرير المختبر قبل التسليم', severity: 'warning' });
+      return;
+    }
+
     setSubmitting(true);
     try {
       const myTeam = await api.get('/teams/my-team');
@@ -390,6 +465,32 @@ function ArduinoSimulatorPage() {
       formData.append('stageKey', selectedStage);
       formData.append('wokwiLink', wokwiLink.trim());
       formData.append('notes', notes.trim());
+
+      if (selectedStage === 'design') {
+        formData.append('designNarrative', designNarrative.trim());
+      }
+      if (selectedStage === 'wiring') {
+        formData.append('wiringDiagramDetails', wiringDiagramDetails.trim());
+      }
+      if (selectedStage === 'programming') {
+        formData.append('programmingCode', programmingCode.trim());
+      }
+      if (selectedStage === 'testing') {
+        formData.append('testingReport', testingReport.trim());
+      }
+      if (selectedStage === 'final_delivery') {
+        formData.append('designNarrative', finalAutoFillPreview.designNarrative || '');
+        formData.append('wiringDiagramDetails', finalAutoFillPreview.wiringDiagramDetails || '');
+        formData.append(
+          'programmingCode',
+          (finalAutoFillPreview.programmingEntries || [])
+            .map((entry) => `/* ${entry.studentName || 'طالب'} */\n${entry.code || ''}`)
+            .join('\n\n')
+            .trim()
+        );
+        formData.append('testingReport', finalAutoFillPreview.testingReport || '');
+      }
+
       attachments.forEach((file) => formData.append('attachments', file));
 
       await api.post('/team-submissions/wokwi', formData, {
@@ -400,6 +501,10 @@ function ArduinoSimulatorPage() {
       setOpen(false);
       setWokwiLink('');
       setNotes('');
+      setDesignNarrative('');
+      setWiringDiagramDetails('');
+      setProgrammingCode('');
+      setTestingReport('');
       setAttachments([]);
       const [progressRes, historyRes] = await Promise.all([
         api.get(`/team-submissions/progress/${myTeam.data.data._id}/${selectedProject}`),
@@ -666,6 +771,105 @@ function ArduinoSimulatorPage() {
             inputProps={{ maxLength: 500 }}
             helperText={`${notes.length}/500`}
           />
+
+          {selectedStage === 'design' && (
+            <TextField
+              fullWidth
+              multiline
+              minRows={4}
+              label="مدخل المصمم"
+              placeholder="اكتب وصف النظام، الفكرة، المدخلات والمخرجات، ومنطق التصميم"
+              value={designNarrative}
+              onChange={(e) => setDesignNarrative(e.target.value)}
+              disabled={submitting}
+            />
+          )}
+
+          {selectedStage === 'wiring' && (
+            <TextField
+              fullWidth
+              multiline
+              minRows={5}
+              label="محتوى الـ Diagram"
+              placeholder="اكتب كل ما بداخل الـ Diagram من المحاكي: التوصيلات، أسماء العناصر، الأرجل، الملاحظات"
+              value={wiringDiagramDetails}
+              onChange={(e) => setWiringDiagramDetails(e.target.value)}
+              disabled={submitting}
+            />
+          )}
+
+          {selectedStage === 'programming' && (
+            <TextField
+              fullWidth
+              multiline
+              minRows={8}
+              label="الكود البرمجي"
+              placeholder="الصق الكود البرمجي الخاص بك هنا"
+              value={programmingCode}
+              onChange={(e) => setProgrammingCode(e.target.value)}
+              disabled={submitting}
+            />
+          )}
+
+          {selectedStage === 'testing' && (
+            <TextField
+              fullWidth
+              multiline
+              minRows={6}
+              label="تقرير المختبر"
+              placeholder="اكتب تقرير اختبار الأكواد الثلاثة: حالة كل كود، النتائج، الأخطاء، والملاحظات"
+              value={testingReport}
+              onChange={(e) => setTestingReport(e.target.value)}
+              disabled={submitting}
+            />
+          )}
+
+          {selectedStage === 'final_delivery' && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Alert severity="info">
+                خانات النهائي يتم تعبئتها تلقائياً من آخر نسخة مرفوعة في كل مرحلة، وهي للعرض فقط.
+              </Alert>
+
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                label="مدخل المصمم (تلقائي)"
+                value={finalAutoFillPreview.designNarrative || 'لا يوجد مدخل محفوظ'}
+                InputProps={{ readOnly: true }}
+              />
+
+              <TextField
+                fullWidth
+                multiline
+                minRows={4}
+                label="مدخل الموصل - تفاصيل Diagram (تلقائي)"
+                value={finalAutoFillPreview.wiringDiagramDetails || 'لا يوجد مدخل محفوظ'}
+                InputProps={{ readOnly: true }}
+              />
+
+              {(finalAutoFillPreview.programmingEntries || []).map((entry, index) => (
+                <TextField
+                  key={`${entry.studentId || index}`}
+                  fullWidth
+                  multiline
+                  minRows={5}
+                  label={`كود برمجة الطالب: ${entry.studentName || `طالب ${index + 1}`} (تلقائي)`}
+                  value={entry.code || 'لا يوجد كود محفوظ'}
+                  InputProps={{ readOnly: true }}
+                />
+              ))}
+
+              <TextField
+                fullWidth
+                multiline
+                minRows={4}
+                label="تقرير المختبر (تلقائي)"
+                value={finalAutoFillPreview.testingReport || 'لا يوجد تقرير محفوظ'}
+                InputProps={{ readOnly: true }}
+              />
+            </Box>
+          )}
 
           <Box>
             <Button

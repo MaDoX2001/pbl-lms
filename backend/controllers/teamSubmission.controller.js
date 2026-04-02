@@ -112,6 +112,106 @@ const enforceStagePermissions = ({ stageKey, enrollment, userId, completed }) =>
   return { allowed: true };
 };
 
+const normalizeStageInputText = (value, max = 40000) => String(value || '').trim().slice(0, max);
+
+const buildStageInputsFromRequest = ({ stageKey, body }) => {
+  const designNarrative = normalizeStageInputText(body.designNarrative, 4000);
+  const wiringDiagramDetails = normalizeStageInputText(body.wiringDiagramDetails, 8000);
+  const programmingCode = normalizeStageInputText(body.programmingCode, 40000);
+  const testingReport = normalizeStageInputText(body.testingReport, 12000);
+
+  const stageInputs = {
+    designNarrative: '',
+    wiringDiagramDetails: '',
+    programmingCode: '',
+    testingReport: '',
+    finalAutoFill: null
+  };
+
+  if (stageKey === 'design') {
+    stageInputs.designNarrative = designNarrative;
+  }
+  if (stageKey === 'wiring') {
+    stageInputs.wiringDiagramDetails = wiringDiagramDetails;
+  }
+  if (stageKey === 'programming') {
+    stageInputs.programmingCode = programmingCode;
+  }
+  if (stageKey === 'testing') {
+    stageInputs.testingReport = testingReport;
+  }
+
+  return stageInputs;
+};
+
+const buildFinalStageAutoFill = async ({ teamId, projectId, team, enrollment }) => {
+  const roleToUsers = (enrollment?.memberRoles || []).reduce((acc, item) => {
+    const role = String(item?.role || '');
+    const userId = String(item?.user || '');
+    if (!role || !userId) return acc;
+    if (!acc[role]) acc[role] = [];
+    acc[role].push(userId);
+    return acc;
+  }, {});
+
+  const findLatestByStageAndUsers = async (stageKey, userIds = []) => {
+    const query = {
+      team: teamId,
+      project: projectId,
+      stageKey
+    };
+
+    if (Array.isArray(userIds) && userIds.length > 0) {
+      query.submittedBy = { $in: userIds };
+    }
+
+    return TeamSubmission.findOne(query)
+      .populate('submittedBy', 'name')
+      .sort({ submittedAt: -1, createdAt: -1 });
+  };
+
+  const designerSubmission = await findLatestByStageAndUsers('design', roleToUsers.system_designer || []);
+  const wiringSubmission = await findLatestByStageAndUsers('wiring', roleToUsers.hardware_engineer || []);
+  const testingSubmission = await findLatestByStageAndUsers('testing', roleToUsers.tester || []);
+
+  const teamMemberIds = getTeamMemberIds(team);
+  const programmingLatestByStudent = await Promise.all(
+    teamMemberIds.map(async (studentId) => {
+      const submission = await TeamSubmission.findOne({
+        team: teamId,
+        project: projectId,
+        stageKey: 'programming',
+        submittedBy: studentId
+      })
+        .populate('submittedBy', 'name')
+        .sort({ submittedAt: -1, createdAt: -1 });
+
+      return {
+        studentId,
+        studentName: submission?.submittedBy?.name || 'طالب',
+        code: normalizeStageInputText(submission?.stageInputs?.programmingCode || submission?.notes || '', 40000),
+        sourceSubmissionId: submission?._id || null
+      };
+    })
+  );
+
+  const sourceSubmissionIds = [
+    designerSubmission?._id,
+    wiringSubmission?._id,
+    testingSubmission?._id,
+    ...programmingLatestByStudent.map((item) => item.sourceSubmissionId)
+  ].filter(Boolean);
+
+  return {
+    designNarrative: normalizeStageInputText(designerSubmission?.stageInputs?.designNarrative || designerSubmission?.notes || '', 4000),
+    wiringDiagramDetails: normalizeStageInputText(wiringSubmission?.stageInputs?.wiringDiagramDetails || wiringSubmission?.notes || '', 8000),
+    programmingEntries: programmingLatestByStudent,
+    testingReport: normalizeStageInputText(testingSubmission?.stageInputs?.testingReport || testingSubmission?.notes || '', 12000),
+    sourceSubmissionIds,
+    generatedAt: new Date()
+  };
+};
+
 const canSubmitAfterFinalDelivery = async (projectId, studentId, teamId) => {
   // If team ID provided, check TeamProject retryAllowed flag
   if (teamId) {
@@ -708,7 +808,17 @@ exports.deleteSubmission = async (req, res) => {
   // @access  Private (team members only)
   exports.submitWokwiLink = async (req, res) => {
     try {
-      const { teamId, projectId, wokwiLink, notes, stageKey = 'wiring' } = req.body;
+      const {
+        teamId,
+        projectId,
+        wokwiLink,
+        notes,
+        stageKey = 'wiring',
+        designNarrative,
+        wiringDiagramDetails,
+        programmingCode,
+        testingReport
+      } = req.body;
       const attachedFiles = Array.isArray(req.files) ? req.files : [];
 
       if (!teamId || !projectId || !wokwiLink) {
@@ -721,7 +831,45 @@ exports.deleteSubmission = async (req, res) => {
       if (!WOKWI_ALLOWED_STAGES.has(stageKey)) {
         return res.status(400).json({
           success: false,
-          message: 'تسليم Wokwi مسموح فقط في مرحلة الموصل'
+          message: 'تسليم Wokwi مسموح فقط عبر مراحل المشروع المعتمدة'
+        });
+      }
+
+      const stagedInputsDraft = buildStageInputsFromRequest({
+        stageKey,
+        body: {
+          designNarrative,
+          wiringDiagramDetails,
+          programmingCode,
+          testingReport
+        }
+      });
+
+      if (stageKey === 'design' && !stagedInputsDraft.designNarrative) {
+        return res.status(400).json({
+          success: false,
+          message: 'يجب على المصمم كتابة وصفه في خانة التصميم قبل التسليم.'
+        });
+      }
+
+      if (stageKey === 'wiring' && !stagedInputsDraft.wiringDiagramDetails) {
+        return res.status(400).json({
+          success: false,
+          message: 'يجب إدخال تفاصيل ما بداخل Diagram من المحاكي قبل تسليم مرحلة الموصل.'
+        });
+      }
+
+      if (stageKey === 'programming' && !stagedInputsDraft.programmingCode) {
+        return res.status(400).json({
+          success: false,
+          message: 'يجب إدخال الكود البرمجي قبل تسليم مرحلة البرمجة.'
+        });
+      }
+
+      if (stageKey === 'testing' && !stagedInputsDraft.testingReport) {
+        return res.status(400).json({
+          success: false,
+          message: 'يجب على المختبر إدخال تقرير الاختبار الخاص بالأكواد قبل التسليم.'
         });
       }
 
@@ -790,6 +938,16 @@ exports.deleteSubmission = async (req, res) => {
         }
       }
 
+      let finalAutoFillPayload = null;
+      if (stageKey === 'final_delivery') {
+        finalAutoFillPayload = await buildFinalStageAutoFill({
+          teamId,
+          projectId,
+          team,
+          enrollment
+        });
+      }
+
       const submission = await TeamSubmission.create({
         team: teamId,
         project: projectId,
@@ -797,6 +955,10 @@ exports.deleteSubmission = async (req, res) => {
         submissionType: 'wokwi',
         wokwiLink,
         notes: notes || '',
+        stageInputs: {
+          ...stagedInputsDraft,
+          finalAutoFill: finalAutoFillPayload
+        },
         attachments: [],
         handoffAcceptedBy: null,
         handoffAcceptedAt: null,

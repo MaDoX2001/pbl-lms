@@ -74,6 +74,45 @@ const teamSubmissionSchema = new mongoose.Schema({
     maxlength: [500, 'الملاحظات يجب ألا تتجاوز 500 حرف']
   },
 
+  // Structured stage payloads (added on top of existing fields)
+  stageInputs: {
+    designNarrative: {
+      type: String,
+      trim: true,
+      maxlength: [4000, 'وصف المصمم يجب ألا يتجاوز 4000 حرف']
+    },
+    wiringDiagramDetails: {
+      type: String,
+      trim: true,
+      maxlength: [8000, 'تفاصيل مخطط التوصيل يجب ألا تتجاوز 8000 حرف']
+    },
+    programmingCode: {
+      type: String,
+      trim: true,
+      maxlength: [40000, 'الكود البرمجي يجب ألا يتجاوز 40000 حرف']
+    },
+    testingReport: {
+      type: String,
+      trim: true,
+      maxlength: [12000, 'تقرير الاختبار يجب ألا يتجاوز 12000 حرف']
+    },
+    finalAutoFill: {
+      designNarrative: { type: String, trim: true, default: '' },
+      wiringDiagramDetails: { type: String, trim: true, default: '' },
+      programmingEntries: [
+        {
+          studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+          studentName: { type: String, trim: true, default: '' },
+          code: { type: String, trim: true, default: '' },
+          sourceSubmissionId: { type: mongoose.Schema.Types.ObjectId, ref: 'TeamSubmission' }
+        }
+      ],
+      testingReport: { type: String, trim: true, default: '' },
+      sourceSubmissionIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'TeamSubmission' }],
+      generatedAt: { type: Date }
+    }
+  },
+
   // Teammate acknowledgement for the latest handed-off Wokwi version
   handoffAcceptedBy: {
     type: mongoose.Schema.Types.ObjectId,
