@@ -323,16 +323,17 @@ const ProjectSubmissionsManagement = () => {
   }, [projectEnrollments]);
 
   const hasFinalDeliverySubmission = (teamSubmissions = []) => {
-    return teamSubmissions.some((submission) => submission.stageKey === 'final_delivery');
+    return (teamSubmissions || []).filter(Boolean).some((submission) => submission.stageKey === 'final_delivery');
   };
 
   const buildTeamAICandidates = () => {
     const candidates = [];
 
     Object.values(submissionsByTeam).forEach(({ team, submissions: teamSubmissions }) => {
-      const latestFinal = getLatestSubmission(teamSubmissions.filter((s) => s.stageKey === 'final_delivery'));
+      const safeTeamSubmissions = (teamSubmissions || []).filter(Boolean);
+      const latestFinal = getLatestSubmission(safeTeamSubmissions.filter((s) => s.stageKey === 'final_delivery'));
 
-      const programmingSubmissions = teamSubmissions.filter((s) => s.stageKey === 'programming');
+      const programmingSubmissions = safeTeamSubmissions.filter((s) => s.stageKey === 'programming');
       if (!programmingSubmissions.length) return;
 
       const memberIds = (team?.members || [])
@@ -841,6 +842,8 @@ const ProjectSubmissionsManagement = () => {
   };
 
   const getTeamSubmissionButtons = (teamSubmissions = [], team = {}) => {
+    const safeTeamSubmissions = (teamSubmissions || []).filter(Boolean);
+
     // استخرج قائمة أعضاء الفريق
     const members = [...(team?.members || [])].sort((a, b) => {
       const aName = a?.user?.name || a?.name || '';
@@ -851,7 +854,7 @@ const ProjectSubmissionsManagement = () => {
     // لكل عضو، جيب آخر تسليمة برمجية
     const programmingByStudent = {};
 
-    teamSubmissions
+    safeTeamSubmissions
       .filter((submission) => submission.stageKey === 'programming')
       .forEach((submission) => {
         const studentId = submission.submittedBy?._id || submission.submittedBy;
@@ -881,7 +884,7 @@ const ProjectSubmissionsManagement = () => {
       });
 
     // جيب آخر التسليم النهائي
-    const latestFinalDelivery = [...teamSubmissions]
+    const latestFinalDelivery = [...safeTeamSubmissions]
       .filter((submission) => submission.stageKey === 'final_delivery')
       .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0] || null;
 
@@ -1079,131 +1082,119 @@ const ProjectSubmissionsManagement = () => {
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               {visibleTeams.map(({ team, submissions: teamSubmissions }) => {
-            const stageRow = stageBoard.find((row) => row.team._id === team._id);
-            const completed = stageRow?.progress?.completed || {};
-            const stageChips = [
-              { key: 'design', label: 'التصميم' },
-              { key: 'wiring', label: 'الموصل' },
-              { key: 'programming', label: 'البرمجة' },
-              { key: 'testing', label: 'المختبر' },
-              { key: 'final_delivery', label: 'النهائي' }
-            ];
-            const submissionButtons = getTeamSubmissionButtons(teamSubmissions, team);
-            const teamScoreRow = teamScoresByTeamId[String(team._id)] || null;
-            const memberScoreById = (teamScoreRow?.members || []).reduce((acc, m) => {
-              acc[String(m.studentId)] = m;
-              return acc;
-            }, {});
+                const safeTeamSubmissions = (teamSubmissions || []).filter(Boolean);
+                const stageRow = stageBoard.find((row) => row.team._id === team._id);
+                const completed = stageRow?.progress?.completed || {};
+                const stageChips = [
+                  { key: 'design', label: 'التصميم' },
+                  { key: 'wiring', label: 'الموصل' },
+                  { key: 'programming', label: 'البرمجة' },
+                  { key: 'testing', label: 'المختبر' },
+                  { key: 'final_delivery', label: 'النهائي' }
+                ];
+                const submissionButtons = getTeamSubmissionButtons(safeTeamSubmissions, team);
+                const teamScoreRow = teamScoresByTeamId[String(team._id)] || null;
+                const memberScoreById = (teamScoreRow?.members || []).reduce((acc, m) => {
+                  acc[String(m.studentId)] = m;
+                  return acc;
+                }, {});
 
-            return (
-              <Card key={team._id} variant="outlined">
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 1 }}>
-                    <Typography variant="h6">{team.name}</Typography>
-                    <Chip label={t('teamSubmissionsCount', { count: teamSubmissions.length })} size="small" />
-                    <Typography variant="caption" color="text.secondary">
-                      برمجة: {stageRow?.progress?.programmingSubmittedCount || 0}/{stageRow?.progress?.programmingRequiredCount || 0}
-                    </Typography>
-                    <Chip
-                      size="small"
-                      color={teamScoreRow?.groupScore !== null && teamScoreRow?.groupScore !== undefined ? 'success' : 'default'}
-                      variant={teamScoreRow?.groupScore !== null && teamScoreRow?.groupScore !== undefined ? 'filled' : 'outlined'}
-                      label={`درجة الجماعي: ${teamScoreRow?.groupScore !== null && teamScoreRow?.groupScore !== undefined ? Number(teamScoreRow.groupScore).toFixed(2) : '-'}`}
-                    />
-                    <Box sx={{ flex: 1 }} />
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={() => handleOpenTeamRetryDialog(team)}
-                      disabled={bulkRetryRunning || bulkAIRunning}
-                    >
-                      فتح إعادة المحاولة للفريق
-                    </Button>
-                    <Button
-                      variant="contained"
-                      size="small"
-                      color="secondary"
-                              onClick={() => navigate(`/evaluate/individual/${projectId}/${submissionDetailsDialog.submission.submittedBy?._id}/${submissionDetailsDialog.submission._id}?ai=1`)}
-                      disabled={bulkAIRunning || Boolean(teamAIRunningById[String(team._id)])}
-                      onClick={() => runAIEvaluationForTeam(team)}
-                    >
-                      {teamAIRunningById[String(team._id)] ? 'جاري تقييم الفريق...' : 'تقييم AI للفريق'}
-                          {submissionDetailsDialog.submission.stageKey === 'final_delivery' && submissionDetailsDialog.submission.team?._id && (
-                            <Button
-                              variant="outlined"
-                              color="secondary"
-                              startIcon={<AutoAwesomeIcon />}
-                              onClick={() => navigate(`/evaluate/group/${projectId}/${submissionDetailsDialog.submission.team._id}/${submissionDetailsDialog.submission._id}?ai=1`)}
-                              size="small"
-                            >
-                              {t('aiReview')}
-                            </Button>
-                          )}
-                    </Button>
-                  </Box>
-
-                  <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 0.8 }}>
-                    {getTeamMembersWithRoles(team).map((member) => {
-                      const meta = roleMeta[member.role] || null;
-                      const RoleIcon = meta?.icon;
-                      const individualScore = memberScoreById[String(member.userId)]?.individualProgrammingScore;
-                      return (
+                return (
+                  <Card key={team._id} variant="outlined">
+                    <CardContent>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 1 }}>
+                        <Typography variant="h6">{team.name}</Typography>
+                        <Chip label={t('teamSubmissionsCount', { count: safeTeamSubmissions.length })} size="small" />
+                        <Typography variant="caption" color="text.secondary">
+                          برمجة: {stageRow?.progress?.programmingSubmittedCount || 0}/{stageRow?.progress?.programmingRequiredCount || 0}
+                        </Typography>
                         <Chip
-                          key={member.userId}
                           size="small"
+                          color={teamScoreRow?.groupScore !== null && teamScoreRow?.groupScore !== undefined ? 'success' : 'default'}
+                          variant={teamScoreRow?.groupScore !== null && teamScoreRow?.groupScore !== undefined ? 'filled' : 'outlined'}
+                          label={`درجة الجماعي: ${teamScoreRow?.groupScore !== null && teamScoreRow?.groupScore !== undefined ? Number(teamScoreRow.groupScore).toFixed(2) : '-'}`}
+                        />
+                        <Box sx={{ flex: 1 }} />
+                        <Button
                           variant="outlined"
-                          color={meta?.color || 'default'}
-                          icon={RoleIcon ? <RoleIcon fontSize="small" /> : undefined}
-                          label={meta ? `${member.name} - ${meta.label}` : member.name}
-                        />
-                      );
-                    })}
-                  </Box>
-
-                  <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 1.2 }}>
-                    {getTeamMembersWithRoles(team).map((member) => {
-                      const individualScore = memberScoreById[String(member.userId)]?.individualProgrammingScore;
-                      return (
-                        <Chip
-                          key={`score-${member.userId}`}
                           size="small"
-                          color={individualScore !== null && individualScore !== undefined ? 'primary' : 'default'}
-                          variant={individualScore !== null && individualScore !== undefined ? 'filled' : 'outlined'}
-                          label={`برمجة ${member.name}: ${individualScore !== null && individualScore !== undefined ? Number(individualScore).toFixed(2) : '-'}`}
-                        />
-                      );
-                    })}
-                  </Box>
+                          onClick={() => handleOpenTeamRetryDialog(team)}
+                          disabled={bulkRetryRunning || bulkAIRunning}
+                        >
+                          فتح إعادة المحاولة للفريق
+                        </Button>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          color="secondary"
+                          disabled={bulkAIRunning || Boolean(teamAIRunningById[String(team._id)])}
+                          onClick={() => runAIEvaluationForTeam(team)}
+                        >
+                          {teamAIRunningById[String(team._id)] ? 'جاري تقييم الفريق...' : 'تقييم AI للفريق'}
+                        </Button>
+                      </Box>
 
-                  <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 1.2 }}>
-                    {stageChips.map((s) => (
-                      <Chip
-                        key={s.key}
-                        label={`${s.label}: ${completed[s.key] ? 'مكتمل' : 'غير مكتمل'}`}
-                        color={completed[s.key] ? 'success' : 'default'}
-                        variant={completed[s.key] ? 'filled' : 'outlined'}
-                        size="small"
-                      />
-                    ))}
-                  </Box>
+                      <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 0.8 }}>
+                        {getTeamMembersWithRoles(team).map((member) => {
+                          const meta = roleMeta[member.role] || null;
+                          const RoleIcon = meta?.icon;
+                          return (
+                            <Chip
+                              key={member.userId}
+                              size="small"
+                              variant="outlined"
+                              color={meta?.color || 'default'}
+                              icon={RoleIcon ? <RoleIcon fontSize="small" /> : undefined}
+                              label={meta ? `${member.name} - ${meta.label}` : member.name}
+                            />
+                          );
+                        })}
+                      </Box>
 
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    {submissionButtons.map((item) => (
-                      <Button
-                        key={item.key}
-                        variant={item.submission ? 'contained' : 'outlined'}
-                        size="small"
-                        disabled={!item.submission}
-                        onClick={() => handleOpenSubmissionDetails(item.submission, item.label)}
-                      >
-                        {item.label}
-                      </Button>
-                    ))}
-                  </Box>
-                </CardContent>
-              </Card>
-              );
-            })}
+                      <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 1.2 }}>
+                        {getTeamMembersWithRoles(team).map((member) => {
+                          const individualScore = memberScoreById[String(member.userId)]?.individualProgrammingScore;
+                          return (
+                            <Chip
+                              key={`score-${member.userId}`}
+                              size="small"
+                              color={individualScore !== null && individualScore !== undefined ? 'primary' : 'default'}
+                              variant={individualScore !== null && individualScore !== undefined ? 'filled' : 'outlined'}
+                              label={`برمجة ${member.name}: ${individualScore !== null && individualScore !== undefined ? Number(individualScore).toFixed(2) : '-'}`}
+                            />
+                          );
+                        })}
+                      </Box>
+
+                      <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 1.2 }}>
+                        {stageChips.map((s) => (
+                          <Chip
+                            key={s.key}
+                            label={`${s.label}: ${completed[s.key] ? 'مكتمل' : 'غير مكتمل'}`}
+                            color={completed[s.key] ? 'success' : 'default'}
+                            variant={completed[s.key] ? 'filled' : 'outlined'}
+                            size="small"
+                          />
+                        ))}
+                      </Box>
+
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        {submissionButtons.map((item) => (
+                          <Button
+                            key={item.key}
+                            variant={item.submission ? 'contained' : 'outlined'}
+                            size="small"
+                            disabled={!item.submission}
+                            onClick={() => handleOpenSubmissionDetails(item.submission, item.label)}
+                          >
+                            {item.label}
+                          </Button>
+                        ))}
+                      </Box>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </Box>
           )}
         </Box>
