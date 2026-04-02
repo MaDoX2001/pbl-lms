@@ -393,6 +393,21 @@ const ProjectSubmissionsManagement = () => {
       final_delivery: latestFinalDelivery ? { submission: latestFinalDelivery, feedback: finalDeliveryFeedback } : null
     };
 
+    const approvedByKey = {
+      'prog-1': feedbackData.programming[0] && String(feedbackData.programming[0]?.submission?.feedback || '').trim() === String(feedbackData.programming[0]?.feedback || '').trim()
+        ? String(feedbackData.programming[0]?.feedback || '').trim()
+        : '',
+      'prog-2': feedbackData.programming[1] && String(feedbackData.programming[1]?.submission?.feedback || '').trim() === String(feedbackData.programming[1]?.feedback || '').trim()
+        ? String(feedbackData.programming[1]?.feedback || '').trim()
+        : '',
+      'prog-3': feedbackData.programming[2] && String(feedbackData.programming[2]?.submission?.feedback || '').trim() === String(feedbackData.programming[2]?.feedback || '').trim()
+        ? String(feedbackData.programming[2]?.feedback || '').trim()
+        : '',
+      final: feedbackData.final_delivery && String(feedbackData.final_delivery?.submission?.feedback || '').trim() === String(feedbackData.final_delivery?.feedback || '').trim()
+        ? String(feedbackData.final_delivery?.feedback || '').trim()
+        : ''
+    };
+
     setTeamAIFeedbackSelection(feedbackData);
     setTeamAIFeedbackEditingByKey({
       'prog-1': feedbackData.programming[0]?.feedback || '',
@@ -400,6 +415,7 @@ const ProjectSubmissionsManagement = () => {
       'prog-3': feedbackData.programming[2]?.feedback || '',
       'final': feedbackData.final_delivery?.feedback || ''
     });
+    setTeamAIFeedbackApprovedTextByKey(approvedByKey);
 
     setTeamAIFeedbackLoading(false);
   };
@@ -471,6 +487,14 @@ const ProjectSubmissionsManagement = () => {
     const currentText = String(teamAIFeedbackEditingByKey[submissionKey] || '').trim();
     const approvedText = String(teamAIFeedbackApprovedTextByKey[submissionKey] || '').trim();
     return Boolean(currentText) && currentText === approvedText;
+  };
+
+  const getFeedbackStatusMeta = (submissionKey) => {
+    if (isFeedbackApproved(submissionKey)) {
+      return { label: 'تم الاعتماد', color: 'success' };
+    }
+
+    return { label: 'غير معتمد', color: 'warning' };
   };
 
   const handleApproveAllTeamFeedback = async () => {
@@ -1719,6 +1743,7 @@ const ProjectSubmissionsManagement = () => {
                 <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#1976d2' }}>
                   برمجة الطالب: {teamAIFeedbackSelection.programming[0]?.submission?.submittedBy?.name || 'غير معروف'}
                 </Typography>
+                <Chip size="small" color={getFeedbackStatusMeta('prog-1').color} label={getFeedbackStatusMeta('prog-1').label} />
               </Box>
               <TextField
                 fullWidth
@@ -1767,6 +1792,7 @@ const ProjectSubmissionsManagement = () => {
                 <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#1976d2' }}>
                   برمجة الطالب: {teamAIFeedbackSelection.programming[1]?.submission?.submittedBy?.name || 'غير معروف'}
                 </Typography>
+                <Chip size="small" color={getFeedbackStatusMeta('prog-2').color} label={getFeedbackStatusMeta('prog-2').label} />
               </Box>
               <TextField
                 fullWidth
@@ -1815,6 +1841,7 @@ const ProjectSubmissionsManagement = () => {
                 <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#1976d2' }}>
                   برمجة الطالب: {teamAIFeedbackSelection.programming[2]?.submission?.submittedBy?.name || 'غير معروف'}
                 </Typography>
+                <Chip size="small" color={getFeedbackStatusMeta('prog-3').color} label={getFeedbackStatusMeta('prog-3').label} />
               </Box>
               <TextField
                 fullWidth
@@ -1863,7 +1890,10 @@ const ProjectSubmissionsManagement = () => {
                 <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#d32f2f' }}>
                   التسليمة النهائية
                 </Typography>
-                <Chip label="Final" size="small" color="error" />
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <Chip size="small" color={getFeedbackStatusMeta('final').color} label={getFeedbackStatusMeta('final').label} />
+                  <Chip label="Final" size="small" color="error" />
+                </Box>
               </Box>
               <TextField
                 fullWidth
