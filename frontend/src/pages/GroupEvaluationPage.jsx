@@ -22,7 +22,7 @@ import {
   Link
 } from '@mui/material';
 import { NavigateNext as NavigateNextIcon, ArrowBack as ArrowBackIcon } from '@mui/icons-material';
-import axios from 'axios';
+import api from '../services/api';
 import { useAppSettings } from '../context/AppSettingsContext';
 
 const GroupEvaluationPage = () => {
@@ -48,22 +48,16 @@ const GroupEvaluationPage = () => {
       setLoading(true);
       
       // Fetch observation card
-      const cardRes = await axios.get(`/api/assessment/observation-card/${projectId}/group`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+      const cardRes = await api.get(`/assessment/observation-card/${projectId}/group`);
       const cardData = cardRes.data.data;
       setObservationCard(cardData);
 
       // Fetch project details
-      const projectRes = await axios.get(`/api/projects/${projectId}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+      const projectRes = await api.get(`/projects/${projectId}`);
       setProject(projectRes.data.data);
 
       // Fetch team details
-      const teamRes = await axios.get(`/api/teams/${teamId}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+      const teamRes = await api.get(`/teams/${teamId}`);
       setTeam(teamRes.data.data);
 
       // Initialize selections
@@ -164,14 +158,12 @@ const GroupEvaluationPage = () => {
         return;
       }
 
-      await axios.post('/api/assessment/evaluate-group', {
+      await api.post('/assessment/evaluate-group', {
         projectId,
         teamId,
         submissionId,
         sectionEvaluations,
         feedbackSummary
-      }, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
 
       alert(t('groupEvaluationSavedSuccess'));
