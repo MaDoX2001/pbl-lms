@@ -11,6 +11,7 @@ const TeamProject = require('../models/TeamProject.model');
 const TeamSubmission = require('../models/TeamSubmission.model');
 const AssessmentRetryArchive = require('../models/AssessmentRetryArchive.model');
 const mongoose = require('mongoose');
+const axios = require('axios');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const geminiClient = process.env.GEMINI_API_KEY
@@ -26,6 +27,171 @@ const extractWokwiLink = (text) => {
   if (!text || typeof text !== 'string') return null;
   const match = text.match(/https:\/\/wokwi\.com\/projects\/[a-zA-Z0-9_-]+/);
   return match ? match[0] : null;
+};
+
+const extractWokwiProjectId = (wokwiLink) => {
+  if (!wokwiLink || typeof wokwiLink !== 'string') return null;
+  const match = wokwiLink.match(/https:\/\/wokwi\.com\/projects\/([a-zA-Z0-9_-]+)/i);
+  return match ? match[1] : null;
+};
+
+const isLikelyWokwiCodeFile = (fileName = '') => {
+  const normalized = String(fileName || '').trim().toLowerCase();
+  if (!normalized) return false;
+  if (normalized === 'diagram.json') return false;
+  return /\.(ino|cpp|c|h|hpp|py|js|ts|java|rs|go|txt|json)$/.test(normalized)
+    || ['sketch.ino', 'main.py', 'main.ino', 'code.ino'].includes(normalized);
+};
+
+const collectWokwiCodeArtifacts = (payload) => {
+  const artifacts = [];
+  const seenObjects = new WeakSet();
+
+  const walk = (value) => {
+    if (!value || typeof value !== 'object') return;
+    if (seenObjects.has(value)) return;
+    seenObjects.add(value);
+
+    if (Array.isArray(value)) {
+      value.forEach(walk);
+      return;
+    }
+
+    const fileName = value.name || value.fileName || value.filename || value.path || value.title || '';
+    const content = typeof value.content === 'string'
+      ? value.content
+      : typeof value.code === 'string'
+        ? value.code
+        : typeof value.text === 'string'
+          ? value.text
+          : typeof value.source === 'string'
+            ? value.source
+            : null;
+
+    if (content && isLikelyWokwiCodeFile(fileName)) {
+      artifacts.push({
+        fileName: String(fileName || 'wokwi-code').trim() || 'wokwi-code',
+        content: String(content).trim()
+      });
+    }
+
+    for (const [key, nestedValue] of Object.entries(value)) {
+      if (nestedValue && typeof nestedValue === 'object') {
+        walk(nestedValue);
+        continue;
+      }
+
+      if (typeof nestedValue === 'string') {
+        const normalizedKey = String(key || '').toLowerCase();
+        if (['code', 'content', 'source', 'text'].includes(normalizedKey) && normalizedKey !== 'text') {
+          const fallbackName = fileName || normalizedKey;
+          if (isLikelyWokwiCodeFile(fallbackName) || normalizedKey === 'code' || normalizedKey === 'source') {
+            const trimmed = nestedValue.trim();
+            if (trimmed) {
+              artifacts.push({
+                fileName: String(fallbackName || 'wokwi-code').trim() || 'wokwi-code',
+                content: trimmed
+              });
+            }
+          }
+        }
+      }
+    }
+  };
+
+  walk(payload);
+
+  const uniqueByContent = [];
+  const seenContent = new Set();
+  for (const item of artifacts) {
+    const contentKey = normalizeFeedbackText(item.content).toLowerCase();
+    if (!contentKey || seenContent.has(contentKey)) continue;
+    seenContent.add(contentKey);
+    uniqueByContent.push(item);
+  }
+
+  return uniqueByContent;
+};
+
+const extractWokwiTextPayloads = (rawText) => {
+  if (!rawText || typeof rawText !== 'string') return [];
+  const matches = [];
+
+  const scriptRegex = /<script[^>]*type=["']application\/json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let scriptMatch;
+  while ((scriptMatch = scriptRegex.exec(rawText)) !== null) {
+    if (scriptMatch[1]) matches.push(scriptMatch[1].trim());
+  }
+
+  const nextDataRegex = /<script[^>]*id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i;
+  const nextDataMatch = rawText.match(nextDataRegex);
+  if (nextDataMatch?.[1]) {
+    matches.push(nextDataMatch[1].trim());
+  }
+
+  const jsonLike = safeJsonParse(rawText);
+  if (jsonLike) {
+    matches.push(jsonLike);
+  }
+
+  return matches;
+};
+
+const extractWokwiCodeBundle = async (wokwiLink) => {
+  const projectId = extractWokwiProjectId(wokwiLink);
+  if (!projectId) {
+    return {
+      ok: false,
+      reason: 'رابط Wokwi غير صالح أو لا يحتوي على معرف مشروع واضح.'
+    };
+  }
+
+  const candidateUrls = [
+    `https://wokwi.com/api/projects/${projectId}`,
+    `https://wokwi.com/projects/${projectId}.json`,
+    `https://wokwi.com/projects/${projectId}`
+  ];
+
+  for (const url of candidateUrls) {
+    try {
+      const response = await axios.get(url, {
+        timeout: 15000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; CopilotBot/1.0)'
+        },
+        responseType: 'text'
+      });
+
+      const rawBody = response.data;
+      const parsedCandidates = [];
+
+      if (typeof rawBody === 'string') {
+        parsedCandidates.push(...extractWokwiTextPayloads(rawBody));
+      } else if (rawBody && typeof rawBody === 'object') {
+        parsedCandidates.push(rawBody);
+      }
+
+      for (const candidate of parsedCandidates) {
+        const artifacts = collectWokwiCodeArtifacts(candidate);
+        if (artifacts.length > 0) {
+          return {
+            ok: true,
+            projectId,
+            sourceUrl: url,
+            files: artifacts,
+            codeText: artifacts.map((item) => `// File: ${item.fileName}\n${item.content}`).join('\n\n')
+          };
+        }
+      }
+    } catch (_) {
+      // Try the next candidate URL.
+    }
+  }
+
+  return {
+    ok: false,
+    reason: 'تعذر استخراج كود فعلي من رابط Wokwi.'
+  };
 };
 
 const STANDARD_OBSERVATION_PERCENTAGES = [0, 50, 100];
@@ -1559,25 +1725,41 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         ? 'تم العثور على رابط Wokwi مطابق في تسليمات فرق أخرى بالمشروع.'
         : 'لا يوجد تطابق مباشر واضح في رابط Wokwi مع تسليمات فرق أخرى.';
 
+      if (!individualWokwiLink) {
+        return res.status(422).json({
+          success: false,
+          message: 'لا يمكن تقييم البرمجة لأن رابط Wokwi غير موجود في تسليم هذا الطالب.'
+        });
+      }
+
+      const wokwiBundle = await extractWokwiCodeBundle(individualWokwiLink);
+      if (!wokwiBundle.ok || !wokwiBundle.codeText) {
+        return res.status(422).json({
+          success: false,
+          message: 'تعذر استخراج كود Wokwi الفعلي لهذا الطالب، لذلك تم إيقاف التقييم.'
+        });
+      }
+
       const promptPayload = {
         language: 'Arabic',
         task: latestFinalSubmission
-          ? 'Evaluate one team-project student for individual programming card and evaluate team final delivery for group card. Return structured JSON only.'
-          : 'Evaluate one team-project student for individual programming card only based on the student programming evidence. Return structured JSON only.',
+          ? 'Evaluate one team-project student for individual programming card and evaluate team final delivery for group card. Return structured JSON only. Base the individual card only on the extracted Wokwi code.'
+          : 'Evaluate one team-project student for individual programming card only based on the extracted Wokwi code. Return structured JSON only.',
         strictRules: [
           'Return JSON only without markdown fences.',
           'For every criterion in both cards, choose only one allowed percentage from allowedPercentages.',
-          'Individual card MUST be based primarily on student programming submission evidence.',
+          'Individual card MUST be based only on the extracted Wokwi code evidence.',
           ...(latestFinalSubmission
             ? ['Group card MUST be based primarily on team final delivery evidence only.']
             : ['If groupPrimary is null, return empty groupRecommendations and focus on individualRecommendations only.']),
-          'Use ONLY the provided supportArtifacts list as evidence context.',
+          'Use ONLY the provided extracted Wokwi code evidence and supportArtifacts list as evidence context.',
           latestFinalSubmission
-            ? 'supportArtifacts may include final_delivery and available programming submissions; prioritize the target student submission for individual card.'
-            : 'supportArtifacts may not include final_delivery; prioritize the target student submission for individual card.',
-          'Evaluation priority must be: 1) Wokwi link evidence, 2) report/notes text, 3) files/images/attachments/code text.',
+            ? 'supportArtifacts may include final_delivery and available programming submissions; prioritize the extracted code from the target student submission for individual card.'
+            : 'supportArtifacts may not include final_delivery; prioritize the extracted code from the target student submission for individual card.',
+          'Evaluation priority must be: 1) extracted Wokwi code, 2) nothing else. If code is unavailable, do not invent a result.',
           'All generated textual fields MUST be in Arabic only (rationale and feedbackSuggestion).',
           'feedbackSuggestion MUST be written in clear Egyptian Arabic (لهجة مصرية بسيطة ومهنية).',
+          'feedbackSuggestion MUST mention concrete observations from the extracted code and the student name.',
           'Keep rationale concise and actionable for teacher review.',
           'Include feedbackSuggestion for the student in Arabic.'
         ],
@@ -1603,10 +1785,12 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         },
         submission: {
           source: 'team-submission-model',
-          evidencePriority: ['wokwiLink', 'reportText', 'otherArtifacts'],
+          evidencePriority: ['extractedWokwiCode'],
           individualPrimary,
           groupPrimary,
-          supportArtifacts
+          supportArtifacts,
+          extractedWokwiCode: wokwiBundle.codeText,
+          extractedWokwiFiles: wokwiBundle.files
         },
         plagiarismSignal: {
           similarityPercent: plagiarismSimilarityPercent,
@@ -1656,17 +1840,20 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       }
 
       if (!parsed) {
-        parsed = {
-          groupRecommendations: latestFinalSubmission ? buildNeutralRecommendationsFromCard(groupCard) : [],
-          individualRecommendations: buildNeutralRecommendationsFromCard(individualCard),
-          rationale: 'تعذر استخراج رد AI صالح في هذه المحاولة، فتم إنشاء تقييم احتياطي قابل للمراجعة.',
-          feedbackSuggestion: `يا ${studentProgrammingSubmission.submittedBy?.name || 'طالب'}، شغلك كويس كبداية. حاول توضح منطق الكود أكتر وتوثق خطوات الاختبار قبل التسليم الجاي.`,
-          confidence: 0
-        };
+        return res.status(502).json({
+          success: false,
+          message: 'تعذر على AI إخراج تقييم صالح بعد تحليل كود Wokwi. لن يتم حفظ تقييم لهذا الطالب.'
+        });
       }
 
-      const normalizedFeedbackSuggestion = normalizeFeedbackText(parsed.feedbackSuggestion || '')
-        || `يا ${studentProgrammingSubmission.submittedBy?.name || 'طالب'}، محتاج توضح منطق الكود أكتر وتراجع خطوات الاختبار قبل التسليم الجاي.`;
+      const normalizedFeedbackSuggestion = normalizeFeedbackText(parsed.feedbackSuggestion || '');
+
+      if (!hasEnoughFeedbackSpecificity(normalizedFeedbackSuggestion, studentProgrammingSubmission.submittedBy?.name || '')) {
+        return res.status(502).json({
+          success: false,
+          message: 'تعذر على AI تقديم فيدباك محدد لهذا الطالب بعد تحليل الكود. لن يتم إنشاء تقييم.'
+        });
+      }
 
       const groupDraft = buildSectionEvaluationsFromCard({
         card: groupCard,
