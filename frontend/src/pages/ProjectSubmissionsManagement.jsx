@@ -405,34 +405,34 @@ const ProjectSubmissionsManagement = () => {
 
         const hasFinalDelivery = Boolean(teamCandidates[0]?.finalSubmissionId);
 
-        if (!hasFinalDelivery) {
-          for (const candidate of teamCandidates) {
-            totalStudents += 1;
-            try {
-              const aiRes = await api.post('/assessment/ai-evaluate-individual', {
-                projectId,
-                studentId: candidate.studentId,
-                submissionId: candidate.programmingSubmissionId
-              });
+        let groupSaved = false;
 
-              const aiData = aiRes.data?.data;
-              if (!aiData?.individualCard) {
-                throw new Error('لم يتم استلام تقييم فردي صالح من AI');
-              }
+        for (const candidate of teamCandidates) {
+          totalStudents += 1;
+          try {
+            const aiRes = await api.post('/assessment/ai-evaluate-individual', {
+              projectId,
+              studentId: candidate.studentId,
+              submissionId: candidate.programmingSubmissionId
+            });
 
-              const evidenceSubmissionIds = [
-                aiData.evidenceSummary?.groupSubmissionId,
-                ...(aiData.evidenceSummary?.programmingSubmissionIds || [])
-              ].filter(Boolean);
+            const aiData = aiRes.data?.data;
+            if (!aiData?.individualCard) {
+              throw new Error('لم يتم استلام تقييم فردي صالح من AI');
+            }
 
-              await api.post('/assessment/evaluate-individual', {
+            const evidenceSubmissionIds = [
+              aiData.evidenceSummary?.groupSubmissionId,
+              ...(aiData.evidenceSummary?.programmingSubmissionIds || [])
+            ].filter(Boolean);
+
+            if (hasFinalDelivery && !groupSaved && aiData?.groupCard) {
+              await api.post('/assessment/evaluate-group', {
                 projectId,
                 teamId,
-                studentId: candidate.studentId,
-                studentRole: aiData.studentRole || 'programmer',
-                submissionId: aiData.basedOnIndividualSubmissionId || aiData.basedOnSubmissionId || candidate.programmingSubmissionId,
-                sectionEvaluations: draftToSectionEvaluations(aiData.individualCard),
-                feedbackSummary: aiData.feedbackSuggestion || '',
+                submissionId: aiData.basedOnGroupSubmissionId || candidate.finalSubmissionId,
+                sectionEvaluations: draftToSectionEvaluations(aiData.groupCard),
+                feedbackSummary: aiData.groupFeedbackSuggestion || aiData.teamFeedbackSuggestion || aiData.feedbackSuggestion || '',
                 evaluationSource: 'ai-batch-individual-only',
                 aiApproval: {
                   confidence: aiData.confidence,
@@ -442,163 +442,81 @@ const ProjectSubmissionsManagement = () => {
                   evidenceScope: aiData.evidenceSummary?.scope,
                   evidenceCount: aiData.evidenceSummary?.totalArtifacts || evidenceSubmissionIds.length,
                   evidenceSubmissionIds,
-                  evidenceSummary: 'تم تقييم الطالب فردياً من آخر تسليمة برمجة متاحة.'
+                  evidenceSummary: 'تم حفظ التقييم الجماعي من التسليم النهائي، وتقييم البرمجة لكل طالب تم برسالة AI مستقلة.'
                 }
               });
 
-              successCount += 1;
-              toast.success(`تم تقييم ${candidate.studentName} بنجاح`);
-            } catch (studentErr) {
-              failedCount += 1;
-              const studentMessage = studentErr?.response?.data?.message || studentErr?.message || 'فشل تقييم AI لهذا الطالب';
-              toast.error(`${candidate.studentName}: ${studentMessage}`);
+              groupSaved = true;
             }
-          }
 
-          continue;
+            await api.post('/assessment/evaluate-individual', {
+              projectId,
+              teamId,
+              studentId: candidate.studentId,
+              studentRole: aiData.studentRole || 'programmer',
+              submissionId: aiData.basedOnIndividualSubmissionId || aiData.basedOnSubmissionId || candidate.programmingSubmissionId,
+              sectionEvaluations: draftToSectionEvaluations(aiData.individualCard),
+              feedbackSummary: aiData.feedbackSuggestion || '',
+              evaluationSource: 'ai-batch-individual-only',
+              aiApproval: {
+                confidence: aiData.confidence,
+                plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
+                plagiarismLevel: aiData.plagiarism?.level,
+                rationale: aiData.rationale,
+                evidenceScope: aiData.evidenceSummary?.scope,
+                evidenceCount: aiData.evidenceSummary?.totalArtifacts || evidenceSubmissionIds.length,
+                evidenceSubmissionIds,
+                evidenceSummary: 'تم تقييم الطالب فردياً برسالة AI مستقلة من آخر تسليمة برمجة متاحة.'
+              }
+            });
+
+            successCount += 1;
+            toast.success(`تم تقييم ${candidate.studentName} بنجاح`);
+          } catch (studentErr) {
+            failedCount += 1;
+            const studentMessage = studentErr?.response?.data?.message || studentErr?.message || 'فشل تقييم AI لهذا الطالب';
+            toast.error(`${candidate.studentName}: ${studentMessage}`);
+          }
         }
 
-        const requestTeamAIDraft = async () => api.post('/assessment/ai-evaluate-team', {
-          projectId,
-          teamId
-        });
-
-        let aiRes = null;
-        let lastErr = null;
-        for (let attempt = 1; attempt <= 3; attempt += 1) {
+        if (hasFinalDelivery && !groupSaved) {
           try {
-            aiRes = await requestTeamAIDraft();
-            break;
-          } catch (err) {
-            lastErr = err;
-            const status = err?.response?.status;
-            const isTransient = !status || status >= 500 || status === 429;
-            if (!isTransient || attempt === 3) break;
-            await new Promise((resolve) => setTimeout(resolve, attempt * 1200));
-          }
-        }
+            const teamDraftRes = await api.post('/assessment/ai-evaluate-team', {
+              projectId,
+              teamId
+            });
 
-        if (!aiRes) {
-          throw lastErr || new Error('فشل استدعاء تقييم AI للفريق');
-        }
+            const teamDraft = teamDraftRes?.data?.data;
+            if (teamDraft?.groupCard) {
+              const teamEvidenceSubmissionIds = [
+                teamDraft.evidenceSummary?.groupSubmissionId,
+                ...(teamDraft.evidenceSummary?.programmingSubmissionIds || [])
+              ].filter(Boolean);
 
-        const aiData = aiRes.data?.data;
-        if (!aiData?.groupCard || !Array.isArray(aiData.individualCards)) {
-          throw new Error('لم يتم استلام نتيجة تقييم AI للفريق بصيغة صالحة');
-        }
-
-        const evidenceSubmissionIds = [
-          aiData.evidenceSummary?.groupSubmissionId,
-          ...(aiData.evidenceSummary?.programmingSubmissionIds || [])
-        ].filter(Boolean);
-
-        await api.post('/assessment/evaluate-group', {
-          projectId,
-          teamId,
-          submissionId: aiData.basedOnGroupSubmissionId,
-          sectionEvaluations: draftToSectionEvaluations(aiData.groupCard),
-          feedbackSummary: aiData.groupFeedbackSuggestion || aiData.teamFeedbackSuggestion || '',
-          evaluationSource: 'ai-batch',
-          aiApproval: {
-            confidence: aiData.confidence,
-            plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
-            plagiarismLevel: aiData.plagiarism?.level,
-            rationale: aiData.rationale,
-            evidenceScope: aiData.evidenceSummary?.scope,
-            evidenceCount: aiData.evidenceSummary?.totalArtifacts || evidenceSubmissionIds.length,
-            evidenceSubmissionIds,
-            evidenceSummary: 'تم التقييم اعتمادا على 4 أدلة ثابتة: 3 برمجة + 1 نهائي.'
-          }
-        });
-
-        const studentsCountForTeam = aiData.individualCards.length;
-        totalStudents += studentsCountForTeam;
-
-        for (const studentCard of aiData.individualCards) {
-          await api.post('/assessment/evaluate-individual', {
-            projectId,
-            teamId,
-            studentId: studentCard.studentId,
-            studentRole: studentCard.studentRole || 'programmer',
-            submissionId: studentCard.submissionId,
-            sectionEvaluations: draftToSectionEvaluations(studentCard.individualCard),
-            feedbackSummary: studentCard.feedbackSuggestion || '',
-            evaluationSource: 'ai-batch',
-            aiApproval: {
-              confidence: aiData.confidence,
-              plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
-              plagiarismLevel: aiData.plagiarism?.level,
-              rationale: aiData.rationale,
-              evidenceScope: aiData.evidenceSummary?.scope,
-              evidenceCount: aiData.evidenceSummary?.totalArtifacts || evidenceSubmissionIds.length,
-              evidenceSubmissionIds,
-              evidenceSummary: 'تم التقييم اعتمادا على 4 أدلة ثابتة: 3 برمجة + 1 نهائي.'
+              await api.post('/assessment/evaluate-group', {
+                projectId,
+                teamId,
+                submissionId: teamDraft.basedOnGroupSubmissionId || teamCandidates[0]?.finalSubmissionId,
+                sectionEvaluations: draftToSectionEvaluations(teamDraft.groupCard),
+                feedbackSummary: teamDraft.groupFeedbackSuggestion || teamDraft.teamFeedbackSuggestion || '',
+                evaluationSource: 'ai-batch-individual-only',
+                aiApproval: {
+                  confidence: teamDraft.confidence,
+                  plagiarismSimilarityPercent: teamDraft.plagiarism?.similarityPercent,
+                  plagiarismLevel: teamDraft.plagiarism?.level,
+                  rationale: teamDraft.rationale,
+                  evidenceScope: teamDraft.evidenceSummary?.scope,
+                  evidenceCount: teamDraft.evidenceSummary?.totalArtifacts || teamEvidenceSubmissionIds.length,
+                  evidenceSubmissionIds: teamEvidenceSubmissionIds,
+                  evidenceSummary: 'تم حفظ التقييم الجماعي كبديل احتياطي بعد التقييمات الفردية.'
+                }
+              });
             }
-          });
-          successCount += 1;
+          } catch (groupErr) {
+            console.warn('Group AI fallback failed after individual evaluations', team, groupErr);
+          }
         }
       } catch (err) {
-        if (teamCandidates.length) {
-          let fallbackSuccess = 0;
-          let fallbackFailed = 0;
-
-          for (const candidate of teamCandidates) {
-            totalStudents += 1;
-            try {
-              const aiRes = await api.post('/assessment/ai-evaluate-individual', {
-                projectId,
-                studentId: candidate.studentId,
-                submissionId: candidate.programmingSubmissionId
-              });
-
-              const aiData = aiRes.data?.data;
-              if (!aiData?.individualCard) {
-                throw new Error('لم يتم استلام تقييم فردي صالح من AI');
-              }
-
-              const evidenceSubmissionIds = [
-                aiData.evidenceSummary?.groupSubmissionId,
-                ...(aiData.evidenceSummary?.programmingSubmissionIds || [])
-              ].filter(Boolean);
-
-              await api.post('/assessment/evaluate-individual', {
-                projectId,
-                teamId,
-                studentId: candidate.studentId,
-                studentRole: aiData.studentRole || 'programmer',
-                submissionId: aiData.basedOnIndividualSubmissionId || aiData.basedOnSubmissionId || candidate.programmingSubmissionId,
-                sectionEvaluations: draftToSectionEvaluations(aiData.individualCard),
-                feedbackSummary: aiData.feedbackSuggestion || '',
-                evaluationSource: 'ai-batch-individual-only',
-                aiApproval: {
-                  confidence: aiData.confidence,
-                  plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
-                  plagiarismLevel: aiData.plagiarism?.level,
-                  rationale: aiData.rationale,
-                  evidenceScope: aiData.evidenceSummary?.scope,
-                  evidenceCount: aiData.evidenceSummary?.totalArtifacts || evidenceSubmissionIds.length,
-                  evidenceSubmissionIds,
-                  evidenceSummary: 'تم تقييم الطالب فردياً من آخر تسليمة برمجة متاحة.'
-                }
-              });
-
-              fallbackSuccess += 1;
-              successCount += 1;
-              toast.success(`تم تقييم ${candidate.studentName} بنجاح`);
-            } catch (studentErr) {
-              fallbackFailed += 1;
-              failedCount += 1;
-              const studentMessage = studentErr?.response?.data?.message || studentErr?.message || 'فشل تقييم AI لهذا الطالب';
-              toast.error(`${candidate.studentName}: ${studentMessage}`);
-            }
-          }
-
-          if (fallbackSuccess > 0 || fallbackFailed > 0) {
-            console.warn('Team AI draft failed; fallback to individual-only mode', team, err);
-            continue;
-          }
-        }
-
         const teamMembersCount = (team?.members || []).length || (teamCandidates.length || 1);
         failedCount += teamMembersCount;
         totalStudents += teamMembersCount;
@@ -676,7 +594,7 @@ const ProjectSubmissionsManagement = () => {
     const teamCandidates = buildTeamAICandidates().filter((candidate) => String(candidate.teamId) === teamId);
     const hasFinalDelivery = Boolean(teamCandidates[0]?.finalSubmissionId);
     const confirmMessage = hasFinalDelivery
-      ? `سيتم تقييم ${team.name} بالكامل في طلب AI واحد (التقييم الجماعي + كل الطلاب). المتابعة؟`
+      ? `يوجد تسليم نهائي للفريق ${team.name}. سيتم حفظ تقييم جماعي، وتقييم البرمجة لكل طالب سيتم برسالة AI مستقلة. المتابعة؟`
       : `لا يوجد تسليم نهائي للفريق ${team.name}. سيتم تقييم كل طالب فردياً من تسليم البرمجة (رسالة لكل طالب). المتابعة؟`;
 
     const confirmRun = window.confirm(confirmMessage);
@@ -709,7 +627,7 @@ const ProjectSubmissionsManagement = () => {
       return;
     }
 
-    const confirmRun = window.confirm(`سيتم تقييم ${teams.length} فريقًا تلقائيًا (طلب AI واحد لكل فريق). المتابعة؟`);
+    const confirmRun = window.confirm(`سيتم تقييم ${teams.length} فريقًا تلقائيًا، مع رسالة AI منفصلة لكل طالب في البرمجة. المتابعة؟`);
     if (!confirmRun) return;
 
     setBulkAIRunning(true);
