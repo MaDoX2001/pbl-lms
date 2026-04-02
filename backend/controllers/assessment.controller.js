@@ -1665,6 +1665,9 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         };
       }
 
+      const normalizedFeedbackSuggestion = normalizeFeedbackText(parsed.feedbackSuggestion || '')
+        || `يا ${studentProgrammingSubmission.submittedBy?.name || 'طالب'}، محتاج توضح منطق الكود أكتر وتراجع خطوات الاختبار قبل التسليم الجاي.`;
+
       const groupDraft = buildSectionEvaluationsFromCard({
         card: groupCard,
         recommendations: parsed.groupRecommendations || [],
@@ -1699,7 +1702,7 @@ exports.generateAIEvaluationDraft = async (req, res) => {
           individualCard: individualDraft,
           overallScore,
           rationale: parsed.rationale || 'لم يتم توفير مبرر مفصل من AI.',
-          feedbackSuggestion: parsed.feedbackSuggestion || '',
+          feedbackSuggestion: normalizedFeedbackSuggestion,
           confidence: Number(parsed.confidence || 0),
           plagiarism: {
             similarityPercent: plagiarismSimilarityPercent,
@@ -2407,7 +2410,8 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
       };
     });
 
-    const groupFeedbackSuggestion = normalizeFeedbackText(parsed.groupFeedbackSuggestion || parsed.teamFeedbackSuggestion || '');
+      const groupFeedbackSuggestion = normalizeFeedbackText(parsed.groupFeedbackSuggestion || parsed.teamFeedbackSuggestion || '')
+        || 'الفريق محتاج يوضح خطوات العمل بشكل أفضل ويربط كل خطوة بنتيجة الاختبار بشكل أوضح.';
 
     const uniqueFeedbackCount = new Set(individualCards.map((c) => normalizeFeedbackText(c.feedbackSuggestion).toLowerCase())).size;
     if (uniqueFeedbackCount !== individualCards.length) {
@@ -2430,7 +2434,8 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
         individualCards,
         rationale: parsed.rationale || 'لم يتم توفير مبرر مفصل من AI.',
         groupFeedbackSuggestion,
-        teamFeedbackSuggestion: parsed.teamFeedbackSuggestion || '',
+          teamFeedbackSuggestion: normalizeFeedbackText(parsed.teamFeedbackSuggestion || '')
+            || 'الفريق محتاج يراجع تنظيم التنفيذ وتفاصيل التوثيق قبل التسليم النهائي.',
         confidence: Number(parsed.confidence || 0),
         plagiarism: {
           similarityPercent: plagiarismSimilarityPercent,
@@ -2488,6 +2493,47 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'حدث خطأ أثناء توليد تقييم AI للفريق',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get AI evaluation history for a team in a project
+// @route   GET /api/assessment/team-history/:projectId/:teamId
+// @access  Private (Teacher/Admin)
+exports.getTeamEvaluationHistory = async (req, res) => {
+  try {
+    const { projectId, teamId } = req.params;
+
+    const project = await Project.findById(projectId).select('instructor isTeamProject');
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'المشروع غير موجود' });
+    }
+
+    if (req.user.role !== 'admin' && project.instructor?.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'غير مصرح لك بعرض هذا السجل' });
+    }
+
+    const enrollment = await TeamProject.findOne({ project: projectId, team: teamId }).select('_id');
+    if (!enrollment) {
+      return res.status(404).json({ success: false, message: 'الفريق غير مرتبط بهذا المشروع' });
+    }
+
+    const attempts = await EvaluationAttempt.find({ project: projectId, team: teamId })
+      .sort({ createdAt: -1, attemptNumber: -1 })
+      .populate('evaluator', 'name email')
+      .populate('student', 'name email')
+      .populate('submission')
+      .populate('observationCard');
+
+    return res.json({
+      success: true,
+      data: attempts.map((attempt) => serializeEvaluationAttemptSnapshot(attempt))
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'خطأ في جلب سجل تقييم الفريق',
       error: error.message
     });
   }

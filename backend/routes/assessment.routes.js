@@ -23,7 +23,8 @@ const {
   getStudentBadges,
   createOrUpdateBadge,
   getProjectBadge,
-  getEvaluation
+  getEvaluation,
+  getTeamEvaluationHistory
 } = require('../controllers/assessment.controller');
 
 // ============================================================================
@@ -48,6 +49,7 @@ router.get('/individual-status/:projectId/:studentId', protect, getIndividualSta
 router.get('/team-scores/:projectId', protect, authorize('teacher', 'admin'), getProjectTeamScores);
 router.post('/ai-evaluate-individual', protect, authorize('teacher', 'admin'), generateAIEvaluationDraft);
 router.post('/ai-evaluate-team', protect, authorize('teacher', 'admin'), generateAITeamEvaluationDraft);
+router.get('/team-history/:projectId/:teamId', protect, authorize('teacher', 'admin'), getTeamEvaluationHistory);
 
 // ============================================================================
 // FINAL EVALUATION ROUTES
