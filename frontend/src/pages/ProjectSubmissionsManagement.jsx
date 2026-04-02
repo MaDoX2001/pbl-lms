@@ -87,6 +87,17 @@ const ProjectSubmissionsManagement = () => {
   const [teamSearchTerm, setTeamSearchTerm] = useState('');
   const [finalDeliveryFilter, setFinalDeliveryFilter] = useState('all');
 
+  const openDialogSafely = (setDialogState) => {
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement) {
+      activeElement.blur();
+    }
+
+    window.requestAnimationFrame(() => {
+      setDialogState();
+    });
+  };
+
   useEffect(() => {
     fetchData();
   }, [projectId]);
@@ -173,10 +184,12 @@ const ProjectSubmissionsManagement = () => {
   };
 
   const handleOpenFeedbackDialog = (submission) => {
-    setFeedbackDialog({
-      open: true,
-      submission,
-      feedback: submission.feedback || ''
+    openDialogSafely(() => {
+      setFeedbackDialog({
+        open: true,
+        submission,
+        feedback: submission.feedback || ''
+      });
     });
   };
 
@@ -194,10 +207,12 @@ const ProjectSubmissionsManagement = () => {
   };
 
   const handleOpenGradeDialog = (submission) => {
-    setGradeDialog({
-      open: true,
-      submission,
-      score: submission.score !== null ? submission.score : ''
+    openDialogSafely(() => {
+      setGradeDialog({
+        open: true,
+        submission,
+        score: submission.score !== null ? submission.score : ''
+      });
     });
   };
 
@@ -241,9 +256,11 @@ const ProjectSubmissionsManagement = () => {
   };
 
   const handleOpenTeamRetryDialog = (team) => {
-    setTeamRetryDialog({
-      open: true,
-      team
+    openDialogSafely(() => {
+      setTeamRetryDialog({
+        open: true,
+        team
+      });
     });
   };
 
@@ -870,10 +887,12 @@ const ProjectSubmissionsManagement = () => {
 
   const handleOpenSubmissionDetails = async (submission, title) => {
     if (!submission) return;
-    setSubmissionDetailsDialog({
-      open: true,
-      submission,
-      title
+    openDialogSafely(() => {
+      setSubmissionDetailsDialog({
+        open: true,
+        submission,
+        title
+      });
     });
     setSubmissionEvaluationState({ loading: true, data: null });
 
