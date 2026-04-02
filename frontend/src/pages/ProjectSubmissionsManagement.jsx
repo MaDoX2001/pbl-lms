@@ -372,9 +372,9 @@ const ProjectSubmissionsManagement = () => {
     for (let i = 0; i < teams.length; i += 1) {
       const team = teams[i];
       const teamId = String(team?._id || '');
+      const teamCandidates = candidatesByTeamId[teamId] || [];
 
       try {
-        const teamCandidates = candidatesByTeamId[teamId] || [];
         if (!teamCandidates.length) {
           throw new Error('لا توجد تسليمات برمجة مكتملة لكل أعضاء الفريق');
         }
@@ -514,7 +514,68 @@ const ProjectSubmissionsManagement = () => {
           successCount += 1;
         }
       } catch (err) {
-        const teamMembersCount = (team?.members || []).length || (candidatesByTeamId[teamId]?.length || 1);
+        if (teamCandidates.length) {
+          let fallbackSuccess = 0;
+          let fallbackFailed = 0;
+
+          for (const candidate of teamCandidates) {
+            totalStudents += 1;
+            try {
+              const aiRes = await api.post('/assessment/ai-evaluate-individual', {
+                projectId,
+                studentId: candidate.studentId,
+                submissionId: candidate.programmingSubmissionId
+              });
+
+              const aiData = aiRes.data?.data;
+              if (!aiData?.individualCard) {
+                throw new Error('لم يتم استلام تقييم فردي صالح من AI');
+              }
+
+              const evidenceSubmissionIds = [
+                aiData.evidenceSummary?.groupSubmissionId,
+                ...(aiData.evidenceSummary?.programmingSubmissionIds || [])
+              ].filter(Boolean);
+
+              await api.post('/assessment/evaluate-individual', {
+                projectId,
+                teamId,
+                studentId: candidate.studentId,
+                studentRole: aiData.studentRole || 'programmer',
+                submissionId: aiData.basedOnIndividualSubmissionId || aiData.basedOnSubmissionId || candidate.programmingSubmissionId,
+                sectionEvaluations: draftToSectionEvaluations(aiData.individualCard),
+                feedbackSummary: aiData.feedbackSuggestion || '',
+                evaluationSource: 'ai-batch-individual-only',
+                aiApproval: {
+                  confidence: aiData.confidence,
+                  plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
+                  plagiarismLevel: aiData.plagiarism?.level,
+                  rationale: aiData.rationale,
+                  evidenceScope: aiData.evidenceSummary?.scope,
+                  evidenceCount: aiData.evidenceSummary?.totalArtifacts || evidenceSubmissionIds.length,
+                  evidenceSubmissionIds,
+                  evidenceSummary: 'تم تقييم الطالب فردياً من آخر تسليمة برمجة متاحة.'
+                }
+              });
+
+              fallbackSuccess += 1;
+              successCount += 1;
+              toast.success(`تم تقييم ${candidate.studentName} بنجاح`);
+            } catch (studentErr) {
+              fallbackFailed += 1;
+              failedCount += 1;
+              const studentMessage = studentErr?.response?.data?.message || studentErr?.message || 'فشل تقييم AI لهذا الطالب';
+              toast.error(`${candidate.studentName}: ${studentMessage}`);
+            }
+          }
+
+          if (fallbackSuccess > 0 || fallbackFailed > 0) {
+            console.warn('Team AI draft failed; fallback to individual-only mode', team, err);
+            continue;
+          }
+        }
+
+        const teamMembersCount = (team?.members || []).length || (teamCandidates.length || 1);
         failedCount += teamMembersCount;
         totalStudents += teamMembersCount;
         console.error('Team AI evaluation failed', team, err);
