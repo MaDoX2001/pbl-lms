@@ -936,7 +936,7 @@ exports.evaluateIndividual = async (req, res) => {
     }
 
     // Verify permission
-    if (project.instructor.toString() !== req.user.id && req.user.role !== 'admin') {
+    if (project.instructor?.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'غير مصرح لك بتقييم هذا المشروع'
@@ -948,18 +948,34 @@ exports.evaluateIndividual = async (req, res) => {
       let teamEnrollment = null;
 
       if (teamId) {
-        teamEnrollment = await TeamProject.findOne({
+        const enrollmentByTeam = await TeamProject.findOne({
           project: projectId,
-          team: teamId,
-          'memberRoles.user': studentId
+          team: teamId
+        }).populate({
+          path: 'team',
+          populate: { path: 'members.user', select: 'name email' }
         });
+
+        const isStudentInTeam = (enrollmentByTeam?.team?.members || []).some(
+          (m) => String(m.user?._id || m.user || '') === String(studentId)
+        );
+
+        if (isStudentInTeam) {
+          teamEnrollment = enrollmentByTeam;
+        }
       }
 
       if (!teamEnrollment) {
-        teamEnrollment = await TeamProject.findOne({
-          project: projectId,
-          'memberRoles.user': studentId
+        const enrollments = await TeamProject.find({ project: projectId }).populate({
+          path: 'team',
+          populate: { path: 'members.user', select: 'name email' }
         });
+
+        teamEnrollment = enrollments.find((enrollment) =>
+          (enrollment?.team?.members || []).some(
+            (m) => String(m.user?._id || m.user || '') === String(studentId)
+          )
+        ) || null;
       }
 
       if (!teamEnrollment) {
@@ -1368,13 +1384,18 @@ exports.generateAIEvaluationDraft = async (req, res) => {
     }
 
     if (project.isTeamProject) {
-      const teamEnrollment = await TeamProject.findOne({
-        project: projectId,
-        'memberRoles.user': studentId
+      const enrollments = await TeamProject.find({
+        project: projectId
       }).populate({
         path: 'team',
         populate: { path: 'members.user', select: 'name email' }
       });
+
+      const teamEnrollment = enrollments.find((enrollment) =>
+        (enrollment?.team?.members || []).some(
+          (m) => String(m.user?._id || m.user || '') === String(studentId)
+        )
+      ) || null;
 
       if (!teamEnrollment?.team?._id) {
         return res.status(404).json({
@@ -1390,13 +1411,6 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       })).filter((m) => Boolean(m.id));
       const teamMemberIds = teamMembers.map((m) => m.id);
 
-      if (teamMembers.length !== 3) {
-        return res.status(400).json({
-          success: false,
-          message: `تقييم AI مضبوط على 4 أدلة فقط (3 برمجة + 1 نهائي). عدد أعضاء الفريق الحالي: ${teamMembers.length}`
-        });
-      }
-
       const latestFinalSubmission = await TeamSubmission.findOne({
         team: teamId,
         project: projectId,
@@ -1404,25 +1418,6 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       })
         .populate('submittedBy', 'name email')
         .sort({ submittedAt: -1, createdAt: -1 });
-
-      const programmingSubmitters = await TeamSubmission.distinct('submittedBy', {
-        team: teamId,
-        project: projectId,
-        stageKey: 'programming'
-      });
-      const programmingSubmitterSet = new Set(programmingSubmitters.map((id) => String(id)));
-      const hasProgrammingForAllMembers = teamMemberIds.every((memberId) => programmingSubmitterSet.has(memberId));
-
-      if (!hasProgrammingForAllMembers) {
-        const missingMembers = teamMembers
-          .filter((m) => !programmingSubmitterSet.has(m.id))
-          .map((m) => m.name);
-
-        return res.status(400).json({
-          success: false,
-          message: `لا يمكن تشغيل تقييم AI قبل اكتمال تسليمات البرمجة لكل أعضاء الفريق. الطلاب الناقصون: ${missingMembers.join('، ') || 'غير محدد'}`
-        });
-      }
 
       let studentProgrammingSubmission = null;
       if (submissionId) {
@@ -1510,22 +1505,14 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         .filter((id) => Boolean(id) && programmingByMember.has(id))
         .map((id) => toEvidenceItem(programmingByMember.get(id)));
 
-      if (selectedProgrammingArtifacts.length !== 3) {
-        const existingProgrammers = new Set(selectedProgrammingArtifacts.map((item) => String(item.submittedBy?.id || '')));
-        const missingMembers = teamMembers
-          .filter((m) => !existingProgrammers.has(m.id))
-          .map((m) => m.name);
-
-        return res.status(400).json({
-          success: false,
-          message: `تقييم AI يتطلب 3 تسليمات برمجة (آخر تسليمة لكل طالب). الطلاب الناقصون: ${missingMembers.join('، ') || 'غير محدد'}`
-        });
-      }
-
       const supportArtifacts = [
         ...(groupPrimary ? [groupPrimary] : []),
         ...selectedProgrammingArtifacts
       ];
+
+      if (!supportArtifacts.some((item) => String(item.id) === String(individualPrimary.id))) {
+        supportArtifacts.unshift(individualPrimary);
+      }
 
       const individualWokwiLink = studentProgrammingSubmission.wokwiLink
         || extractWokwiLink(studentProgrammingSubmission.notes)
@@ -1586,8 +1573,8 @@ exports.generateAIEvaluationDraft = async (req, res) => {
             : ['If groupPrimary is null, return empty groupRecommendations and focus on individualRecommendations only.']),
           'Use ONLY the provided supportArtifacts list as evidence context.',
           latestFinalSubmission
-            ? 'supportArtifacts contains exactly 4 items only: 1 final_delivery and 3 programming submissions (latest per student).'
-            : 'supportArtifacts contains 3 programming submissions (latest per student) and may not include final_delivery.',
+            ? 'supportArtifacts may include final_delivery and available programming submissions; prioritize the target student submission for individual card.'
+            : 'supportArtifacts may not include final_delivery; prioritize the target student submission for individual card.',
           'Evaluation priority must be: 1) Wokwi link evidence, 2) report/notes text, 3) files/images/attachments/code text.',
           'All generated textual fields MUST be in Arabic only (rationale and feedbackSuggestion).',
           'feedbackSuggestion MUST be written in clear Egyptian Arabic (لهجة مصرية بسيطة ومهنية).',
