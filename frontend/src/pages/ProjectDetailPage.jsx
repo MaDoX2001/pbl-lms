@@ -440,6 +440,9 @@ const ProjectDetailPage = () => {
 
   const handleOpenTeamRegister = async () => {
     await fetchTeams();
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     setSelectedTeams([]);
     setSelectAllTeams(false);
     setTeamRegisterDialogOpen(true);
@@ -457,6 +460,9 @@ const ProjectDetailPage = () => {
 
   const handleOpenTeamUnregister = async () => {
     await fetchEnrolledTeamsForProject();
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     setSelectedTeamEnrollments([]);
     setSelectAllEnrolledTeams(false);
     setTeamUnregisterDialogOpen(true);
