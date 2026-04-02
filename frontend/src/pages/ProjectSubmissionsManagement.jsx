@@ -33,6 +33,7 @@ import {
   Architecture as ArchitectureIcon,
   Memory as MemoryIcon,
   Science as ScienceIcon,
+  Edit as EditIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../services/api';
@@ -75,10 +76,11 @@ const ProjectSubmissionsManagement = () => {
     open: false,
     team: null
   });
-  const [teamAIHistoryState, setTeamAIHistoryState] = useState({
-    loading: false,
-    data: []
+  const [teamAIFeedbackSelection, setTeamAIFeedbackSelection] = useState({
+    programming: [null, null, null],
+    final_delivery: null
   });
+  const [teamAIFeedbackEditingByKey, setTeamAIFeedbackEditingByKey] = useState({});
   const [teamAIFeedbackApplyingById, setTeamAIFeedbackApplyingById] = useState({});
   const [submissionDetailsDialog, setSubmissionDetailsDialog] = useState({
     open: false,
@@ -313,58 +315,115 @@ const ProjectSubmissionsManagement = () => {
     });
   };
 
-  const handleOpenTeamAIHistory = async (team) => {
+  const handleOpenTeamAIHistory = (team) => {
     if (!team?._id) return;
+
+    const teamId = String(team._id);
+    const teamSubmissions = (submissions || [])
+      .filter((s) => String(s.team?._id || s.team) === teamId)
+      .filter(Boolean);
+
+    if (!teamSubmissions.length) {
+      toast.warning('لا توجد تسليمات لهذا الفريق');
+      return;
+    }
+
+    // استخراج البرمجات الثلاث (آخر 3 تسليمات برمجة)
+    const programmingSubmissions = teamSubmissions
+      .filter((s) => s.stageKey === 'programming')
+      .sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt));
+
+    const last3Programming = [
+      programmingSubmissions[programmingSubmissions.length - 3] || null,
+      programmingSubmissions[programmingSubmissions.length - 2] || null,
+      programmingSubmissions[programmingSubmissions.length - 1] || null
+    ];
+
+    // استخراج آخر تسليمة نهائية
+    const finalDeliverySubmissions = teamSubmissions
+      .filter((s) => s.stageKey === 'final_delivery')
+      .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+
+    const latestFinalDelivery = finalDeliverySubmissions[0] || null;
+
+    // تهيئة الـ feedback من التسليمات الموجودة
+    const feedbackData = {
+      programming: [
+        last3Programming[0] ? { submission: last3Programming[0], feedback: last3Programming[0].feedback || '' } : null,
+        last3Programming[1] ? { submission: last3Programming[1], feedback: last3Programming[1].feedback || '' } : null,
+        last3Programming[2] ? { submission: last3Programming[2], feedback: last3Programming[2].feedback || '' } : null
+      ],
+      final_delivery: latestFinalDelivery ? { submission: latestFinalDelivery, feedback: latestFinalDelivery.feedback || '' } : null
+    };
+
+    setTeamAIFeedbackSelection(feedbackData);
+    setTeamAIFeedbackEditingByKey({
+      'prog-1': feedbackData.programming[0]?.feedback || '',
+      'prog-2': feedbackData.programming[1]?.feedback || '',
+      'prog-3': feedbackData.programming[2]?.feedback || '',
+      'final': feedbackData.final_delivery?.feedback || ''
+    });
 
     openDialogSafely(() => {
       setTeamAIHistoryDialog({ open: true, team });
-      setTeamAIHistoryState({ loading: true, data: [] });
     });
-
-    try {
-      const historyRes = await api.get(`/assessment/team-history/${projectId}/${team._id}`);
-      setTeamAIHistoryState({ loading: false, data: historyRes.data?.data || [] });
-    } catch (err) {
-      setTeamAIHistoryState({ loading: false, data: [] });
-      toast.error(err.response?.data?.message || 'فشل تحميل سجل AI للفريق');
-    }
   };
 
-  const handleApplyTeamAIFeedback = async (team, historyEntry) => {
-    const teamId = String(team?._id || teamAIHistoryDialog.team?._id || '');
-    const feedbackText = String(historyEntry?.feedbackSummary || '').trim();
-
-    if (!teamId) {
-      toast.error('معرف الفريق غير متوفر');
-      return;
-    }
+  const handleApproveFeedbackForSubmission = async (submissionKey) => {
+    const feedbackText = teamAIFeedbackEditingByKey[submissionKey]?.trim();
 
     if (!feedbackText) {
-      toast.error('لا يوجد فيدباك AI صالح لاعتماده');
+      toast.warning('الفيدباك فارغ. لا يمكن اعتمادها.');
       return;
     }
 
-    const teamSubmissions = submissions.filter((submission) => String(submission.team?._id || submission.team) === teamId);
-    if (!teamSubmissions.length) {
-      toast.error('لا توجد تسليمات للفريق لتطبيق الفيدباك عليها');
+    let submission = null;
+
+    if (submissionKey === 'prog-1') {
+      submission = teamAIFeedbackSelection.programming[0]?.submission;
+    } else if (submissionKey === 'prog-2') {
+      submission = teamAIFeedbackSelection.programming[1]?.submission;
+    } else if (submissionKey === 'prog-3') {
+      submission = teamAIFeedbackSelection.programming[2]?.submission;
+    } else if (submissionKey === 'final') {
+      submission = teamAIFeedbackSelection.final_delivery?.submission;
+    }
+
+    if (!submission?._id) {
+      toast.error('بيانات التسليم غير متوفرة');
       return;
     }
 
-    setTeamAIFeedbackApplyingById((prev) => ({ ...prev, [teamId]: true }));
+    setTeamAIFeedbackApplyingById((prev) => ({ ...prev, [submissionKey]: true }));
+
     try {
-      for (const submission of teamSubmissions) {
-        await api.put(`/team-submissions/${submission._id}/feedback`, {
-          feedback: feedbackText,
-          source: 'ai-assisted'
-        });
-      }
+      await api.put(`/team-submissions/${submission._id}/feedback`, {
+        feedback: feedbackText,
+        source: 'ai-assisted'
+      });
 
-      toast.success('تم اعتماد فيدباك AI على كل تسليمات الفريق');
+      toast.success(`تم اعتماد الفيدباك وحفظه في السجل`);
+
+      // تحديث الـ state
+      setTeamAIFeedbackSelection((prev) => {
+        const updated = { ...prev };
+        if (submissionKey === 'prog-1') {
+          updated.programming[0] = { ...updated.programming[0], feedback: feedbackText };
+        } else if (submissionKey === 'prog-2') {
+          updated.programming[1] = { ...updated.programming[1], feedback: feedbackText };
+        } else if (submissionKey === 'prog-3') {
+          updated.programming[2] = { ...updated.programming[2], feedback: feedbackText };
+        } else if (submissionKey === 'final') {
+          updated.final_delivery = { ...updated.final_delivery, feedback: feedbackText };
+        }
+        return updated;
+      });
+
       fetchData(true);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'فشل اعتماد فيدباك AI على الفريق');
+      toast.error(err.response?.data?.message || 'فشل اعتماد الفيدباك');
     } finally {
-      setTeamAIFeedbackApplyingById((prev) => ({ ...prev, [teamId]: false }));
+      setTeamAIFeedbackApplyingById((prev) => ({ ...prev, [submissionKey]: false }));
     }
   };
 
@@ -1500,78 +1559,200 @@ const ProjectSubmissionsManagement = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Team AI History Dialog */}
+      {/* Team AI Feedback Dialog - الفيدباك الحالي من الـ 4 تسليمات */}
       <Dialog
         open={teamAIHistoryDialog.open}
         onClose={() => {
           setTeamAIHistoryDialog({ open: false, team: null });
-          setTeamAIHistoryState({ loading: false, data: [] });
+          setTeamAIFeedbackSelection({ programming: [null, null, null], final_delivery: null });
+          setTeamAIFeedbackEditingByKey({});
         }}
         maxWidth="md"
         fullWidth
       >
         <DialogTitle>
-          سجل AI للفريق: {teamAIHistoryDialog.team?.name || ''}
+          تقييم الفيدباك - {teamAIHistoryDialog.team?.name || ''}
         </DialogTitle>
-        <DialogContent dividers>
-          {teamAIHistoryState.loading ? (
-            <Alert severity="info">جاري تحميل سجل AI...</Alert>
-          ) : teamAIHistoryState.data.length === 0 ? (
-            <Alert severity="info">لا يوجد سجل AI لهذا الفريق حتى الآن.</Alert>
+        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          {/* البرمجة 1 */}
+          {teamAIFeedbackSelection.programming[0] ? (
+            <Paper variant="outlined" sx={{ p: 2, border: '1px solid #e0e0e0' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#1976d2' }}>
+                  البرمجة 1
+                </Typography>
+              </Box>
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                placeholder="لا يوجد فيدباك حالياً"
+                value={teamAIFeedbackEditingByKey['prog-1'] || ''}
+                onChange={(e) => setTeamAIFeedbackEditingByKey((prev) => ({ ...prev, 'prog-1': e.target.value }))}
+                sx={{ mb: 1.5 }}
+                InputProps={{
+                  endAdornment: (
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      title="رمز التعديل اليدوي"
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  )
+                }}
+              />
+              <Button
+                variant="contained"
+                color="success"
+                size="small"
+                fullWidth
+                disabled={!teamAIFeedbackEditingByKey['prog-1']?.trim() || Boolean(teamAIFeedbackApplyingById['prog-1'])}
+                onClick={() => handleApproveFeedbackForSubmission('prog-1')}
+              >
+                {teamAIFeedbackApplyingById['prog-1'] ? 'جاري الحفظ...' : 'اعتماد الفيدباك'}
+              </Button>
+            </Paper>
           ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {teamAIHistoryState.data.map((attempt, index) => {
-                const isLatest = index === 0;
-                const feedbackText = attempt.feedbackSummary || attempt.aiApproval?.rationale || '';
-                const teamId = String(teamAIHistoryDialog.team?._id || '');
+            <Alert severity="info">لا توجد تسليمة برمجة 1 حتى الآن</Alert>
+          )}
 
-                return (
-                  <Paper key={attempt._id} variant="outlined" sx={{ p: 2 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap', mb: 1 }}>
-                      <Box>
-                        <Typography variant="subtitle1" fontWeight={700}>
-                          {attempt.phase === 'group' ? 'بطاقة جماعية' : 'بطاقة فردية'}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          المحاولة #{attempt.attemptNumber} | {attempt.evaluator?.name || 'غير معروف'} | {new Date(attempt.createdAt).toLocaleString('ar-EG')}
-                        </Typography>
-                      </Box>
-                      <Chip
-                        size="small"
-                        color={attempt.evaluationSource?.startsWith('ai') ? 'secondary' : 'default'}
-                        label={attempt.evaluationSource || 'manual'}
-                      />
-                    </Box>
+          {/* البرمجة 2 */}
+          {teamAIFeedbackSelection.programming[1] ? (
+            <Paper variant="outlined" sx={{ p: 2, border: '1px solid #e0e0e0' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#1976d2' }}>
+                  البرمجة 2
+                </Typography>
+              </Box>
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                placeholder="لا يوجد فيدباك حالياً"
+                value={teamAIFeedbackEditingByKey['prog-2'] || ''}
+                onChange={(e) => setTeamAIFeedbackEditingByKey((prev) => ({ ...prev, 'prog-2': e.target.value }))}
+                sx={{ mb: 1.5 }}
+                InputProps={{
+                  endAdornment: (
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      title="رمز التعديل اليدوي"
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  )
+                }}
+              />
+              <Button
+                variant="contained"
+                color="success"
+                size="small"
+                fullWidth
+                disabled={!teamAIFeedbackEditingByKey['prog-2']?.trim() || Boolean(teamAIFeedbackApplyingById['prog-2'])}
+                onClick={() => handleApproveFeedbackForSubmission('prog-2')}
+              >
+                {teamAIFeedbackApplyingById['prog-2'] ? 'جاري الحفظ...' : 'اعتماد الفيدباك'}
+              </Button>
+            </Paper>
+          ) : (
+            <Alert severity="info">لا توجد تسليمة برمجة 2 حتى الآن</Alert>
+          )}
 
-                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mb: 1.5 }} color="text.secondary">
-                      {feedbackText || 'لا يوجد فيدباك محفوظ لهذه المحاولة.'}
-                    </Typography>
+          {/* البرمجة 3 */}
+          {teamAIFeedbackSelection.programming[2] ? (
+            <Paper variant="outlined" sx={{ p: 2, border: '1px solid #e0e0e0' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#1976d2' }}>
+                  البرمجة 3
+                </Typography>
+              </Box>
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                placeholder="لا يوجد فيدباك حالياً"
+                value={teamAIFeedbackEditingByKey['prog-3'] || ''}
+                onChange={(e) => setTeamAIFeedbackEditingByKey((prev) => ({ ...prev, 'prog-3': e.target.value }))}
+                sx={{ mb: 1.5 }}
+                InputProps={{
+                  endAdornment: (
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      title="رمز التعديل اليدوي"
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  )
+                }}
+              />
+              <Button
+                variant="contained"
+                color="success"
+                size="small"
+                fullWidth
+                disabled={!teamAIFeedbackEditingByKey['prog-3']?.trim() || Boolean(teamAIFeedbackApplyingById['prog-3'])}
+                onClick={() => handleApproveFeedbackForSubmission('prog-3')}
+              >
+                {teamAIFeedbackApplyingById['prog-3'] ? 'جاري الحفظ...' : 'اعتماد الفيدباك'}
+              </Button>
+            </Paper>
+          ) : (
+            <Alert severity="info">لا توجد تسليمة برمجة 3 حتى الآن</Alert>
+          )}
 
-                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                      <Button
-                        variant="contained"
-                        color="secondary"
-                        size="small"
-                        disabled={!feedbackText || Boolean(teamAIFeedbackApplyingById[teamId])}
-                        onClick={() => handleApplyTeamAIFeedback(teamAIHistoryDialog.team, attempt)}
-                      >
-                        {teamAIFeedbackApplyingById[teamId] ? 'جاري الاعتماد...' : 'اعتماد هذا الفيدباك على كل الفريق'}
-                      </Button>
-                      {isLatest && (
-                        <Chip size="small" color="success" label="الأحدث" />
-                      )}
-                    </Box>
-                  </Paper>
-                );
-              })}
-            </Box>
+          {/* التسليمة النهائية */}
+          {teamAIFeedbackSelection.final_delivery ? (
+            <Paper variant="outlined" sx={{ p: 2, border: '1px solid #e0e0e0', backgroundColor: '#f9f7f4' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#d32f2f' }}>
+                  التسليمة النهائية
+                </Typography>
+                <Chip label="Final" size="small" color="error" />
+              </Box>
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                placeholder="لا يوجد فيدباك حالياً"
+                value={teamAIFeedbackEditingByKey['final'] || ''}
+                onChange={(e) => setTeamAIFeedbackEditingByKey((prev) => ({ ...prev, 'final': e.target.value }))}
+                sx={{ mb: 1.5 }}
+                InputProps={{
+                  endAdornment: (
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      title="رمز التعديل اليدوي"
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  )
+                }}
+              />
+              <Button
+                variant="contained"
+                color="success"
+                size="small"
+                fullWidth
+                disabled={!teamAIFeedbackEditingByKey['final']?.trim() || Boolean(teamAIFeedbackApplyingById['final'])}
+                onClick={() => handleApproveFeedbackForSubmission('final')}
+              >
+                {teamAIFeedbackApplyingById['final'] ? 'جاري الحفظ...' : 'اعتماد الفيدباك'}
+              </Button>
+            </Paper>
+          ) : (
+            <Alert severity="info">لا توجد تسليمة نهائية حتى الآن</Alert>
           )}
         </DialogContent>
         <DialogActions>
           <Button
             onClick={() => {
               setTeamAIHistoryDialog({ open: false, team: null });
-              setTeamAIHistoryState({ loading: false, data: [] });
+              setTeamAIFeedbackSelection({ programming: [null, null, null], final_delivery: null });
+              setTeamAIFeedbackEditingByKey({});
             }}
           >
             إغلاق
