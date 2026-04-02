@@ -746,7 +746,7 @@ exports.evaluateGroup = async (req, res) => {
     }
 
     // Verify permission
-    if (project.instructor.toString() !== req.user.id && req.user.role !== 'admin') {
+    if (project.instructor?.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'غير مصرح لك بتقييم هذا المشروع'
@@ -971,19 +971,28 @@ exports.evaluateIndividual = async (req, res) => {
 
       resolvedTeamId = teamEnrollment.team;
 
-      // Check if group evaluation exists
-      const groupEval = await EvaluationAttempt.findOne({
+      // Require group evaluation only when final delivery exists.
+      // If there is no final delivery, allow individual-only AI/manual evaluation.
+      const latestFinalSubmission = await TeamSubmission.findOne({
         project: projectId,
         team: resolvedTeamId,
-        phase: 'group',
-        isLatestAttempt: true
-      });
+        stageKey: 'final_delivery'
+      }).select('_id');
 
-      if (!groupEval) {
-        return res.status(400).json({
-          success: false,
-          message: 'يجب إكمال التقييم الجماعي (المرحلة الأولى) أولاً'
+      if (latestFinalSubmission?._id) {
+        const groupEval = await EvaluationAttempt.findOne({
+          project: projectId,
+          team: resolvedTeamId,
+          phase: 'group',
+          isLatestAttempt: true
         });
+
+        if (!groupEval) {
+          return res.status(400).json({
+            success: false,
+            message: 'يجب إكمال التقييم الجماعي (المرحلة الأولى) أولاً'
+          });
+        }
       }
     }
 
@@ -1022,8 +1031,8 @@ exports.evaluateIndividual = async (req, res) => {
 
         const isRequired = criterionTemplate && (
           !project.isTeamProject ||
-          criterionTemplate.applicableRoles.includes('all') ||
-          criterionTemplate.applicableRoles.includes(studentRole)
+          (criterionTemplate.applicableRoles || []).includes('all') ||
+          (criterionTemplate.applicableRoles || []).includes(studentRole)
         );
 
         if (isRequired) {
