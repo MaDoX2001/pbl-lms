@@ -82,6 +82,7 @@ const ProjectSubmissionsManagement = () => {
   });
   const [teamAIFeedbackLoading, setTeamAIFeedbackLoading] = useState(false);
   const [teamAIFeedbackEditingByKey, setTeamAIFeedbackEditingByKey] = useState({});
+  const [teamAIFeedbackApprovedTextByKey, setTeamAIFeedbackApprovedTextByKey] = useState({});
   const [teamAIFeedbackApplyingById, setTeamAIFeedbackApplyingById] = useState({});
   const [submissionDetailsDialog, setSubmissionDetailsDialog] = useState({
     open: false,
@@ -354,6 +355,7 @@ const ProjectSubmissionsManagement = () => {
       setTeamAIFeedbackLoading(true);
       setTeamAIFeedbackSelection({ programming: [null, null, null], final_delivery: null });
       setTeamAIFeedbackEditingByKey({});
+      setTeamAIFeedbackApprovedTextByKey({});
     });
 
     // استخراج البرمجات الثلاث (آخر 3 تسليمات برمجة)
@@ -452,11 +454,90 @@ const ProjectSubmissionsManagement = () => {
         return updated;
       });
 
+      setTeamAIFeedbackApprovedTextByKey((prev) => ({
+        ...prev,
+        [submissionKey]: feedbackText
+      }));
+
       fetchData(true);
     } catch (err) {
       toast.error(err.response?.data?.message || 'فشل اعتماد الفيدباك');
     } finally {
       setTeamAIFeedbackApplyingById((prev) => ({ ...prev, [submissionKey]: false }));
+    }
+  };
+
+  const isFeedbackApproved = (submissionKey) => {
+    const currentText = String(teamAIFeedbackEditingByKey[submissionKey] || '').trim();
+    const approvedText = String(teamAIFeedbackApprovedTextByKey[submissionKey] || '').trim();
+    return Boolean(currentText) && currentText === approvedText;
+  };
+
+  const handleApproveAllTeamFeedback = async () => {
+    const entries = [
+      { key: 'prog-1', submission: teamAIFeedbackSelection.programming[0]?.submission },
+      { key: 'prog-2', submission: teamAIFeedbackSelection.programming[1]?.submission },
+      { key: 'prog-3', submission: teamAIFeedbackSelection.programming[2]?.submission },
+      { key: 'final', submission: teamAIFeedbackSelection.final_delivery?.submission }
+    ];
+
+    const targets = entries.filter((entry) => {
+      const feedbackText = String(teamAIFeedbackEditingByKey[entry.key] || '').trim();
+      return Boolean(entry?.submission?._id) && Boolean(feedbackText);
+    });
+
+    if (!targets.length) {
+      toast.warning('لا يوجد فيدباك صالح لاعتماده حالياً');
+      return;
+    }
+
+    const applyingState = targets.reduce((acc, entry) => {
+      acc[entry.key] = true;
+      return acc;
+    }, {});
+    setTeamAIFeedbackApplyingById((prev) => ({ ...prev, ...applyingState }));
+
+    let successCount = 0;
+    let failedCount = 0;
+
+    try {
+      for (const entry of targets) {
+        const feedbackText = String(teamAIFeedbackEditingByKey[entry.key] || '').trim();
+
+        try {
+          await api.put(`/team-submissions/${entry.submission._id}/feedback`, {
+            feedback: feedbackText,
+            source: 'ai-assisted'
+          });
+          successCount += 1;
+          setTeamAIFeedbackApprovedTextByKey((prev) => ({
+            ...prev,
+            [entry.key]: feedbackText
+          }));
+        } catch (_) {
+          failedCount += 1;
+        }
+      }
+
+      if (successCount > 0 && failedCount === 0) {
+        toast.success('تم اعتماد كل الفيدباك بنجاح');
+      } else if (successCount > 0 && failedCount > 0) {
+        toast.warning(`تم اعتماد ${successCount} وفشل ${failedCount}`);
+      } else {
+        toast.error('فشل اعتماد كل الفيدباك');
+      }
+
+      if (successCount > 0) {
+        fetchData(true);
+      }
+    } finally {
+      setTeamAIFeedbackApplyingById((prev) => {
+        const next = { ...prev };
+        targets.forEach((entry) => {
+          next[entry.key] = false;
+        });
+        return next;
+      });
     }
   };
 
@@ -1600,12 +1681,33 @@ const ProjectSubmissionsManagement = () => {
           setTeamAIFeedbackLoading(false);
           setTeamAIFeedbackSelection({ programming: [null, null, null], final_delivery: null });
           setTeamAIFeedbackEditingByKey({});
+          setTeamAIFeedbackApprovedTextByKey({});
         }}
         maxWidth="md"
         fullWidth
       >
         <DialogTitle>
-          تقييم الفيدباك - {teamAIHistoryDialog.team?.name || ''}
+          <Box sx={{ position: 'relative', minHeight: 40 }}>
+            <Typography variant="h6" sx={{ textAlign: 'center' }}>
+              تقييم الفيدباك - {teamAIHistoryDialog.team?.name || ''}
+            </Typography>
+            <Button
+              variant="contained"
+              color="secondary"
+              size="small"
+              sx={{ position: 'absolute', top: 4, left: 0 }}
+              onClick={handleApproveAllTeamFeedback}
+              disabled={
+                teamAIFeedbackLoading ||
+                Boolean(teamAIFeedbackApplyingById['prog-1']) ||
+                Boolean(teamAIFeedbackApplyingById['prog-2']) ||
+                Boolean(teamAIFeedbackApplyingById['prog-3']) ||
+                Boolean(teamAIFeedbackApplyingById['final'])
+              }
+            >
+              اعتماد الكل
+            </Button>
+          </Box>
         </DialogTitle>
         <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
           {teamAIFeedbackLoading && <Alert severity="info">جاري تحميل فيدباك AI...</Alert>}
@@ -1621,7 +1723,7 @@ const ProjectSubmissionsManagement = () => {
               <TextField
                 fullWidth
                 multiline
-                rows={3}
+                minRows={4}
                 placeholder="لا يوجد فيدباك حالياً"
                 value={teamAIFeedbackEditingByKey['prog-1'] || ''}
                 onChange={(e) => setTeamAIFeedbackEditingByKey((prev) => ({ ...prev, 'prog-1': e.target.value }))}
@@ -1643,10 +1745,15 @@ const ProjectSubmissionsManagement = () => {
                 color="success"
                 size="small"
                 fullWidth
-                disabled={teamAIFeedbackLoading || !teamAIFeedbackEditingByKey['prog-1']?.trim() || Boolean(teamAIFeedbackApplyingById['prog-1'])}
+                disabled={
+                  teamAIFeedbackLoading ||
+                  !teamAIFeedbackEditingByKey['prog-1']?.trim() ||
+                  Boolean(teamAIFeedbackApplyingById['prog-1']) ||
+                  isFeedbackApproved('prog-1')
+                }
                 onClick={() => handleApproveFeedbackForSubmission('prog-1')}
               >
-                {teamAIFeedbackApplyingById['prog-1'] ? 'جاري الحفظ...' : 'اعتماد الفيدباك'}
+                {teamAIFeedbackApplyingById['prog-1'] ? 'جاري الحفظ...' : isFeedbackApproved('prog-1') ? 'تم الاعتماد' : 'اعتماد الفيدباك'}
               </Button>
             </Paper>
           ) : (
@@ -1664,7 +1771,7 @@ const ProjectSubmissionsManagement = () => {
               <TextField
                 fullWidth
                 multiline
-                rows={3}
+                minRows={4}
                 placeholder="لا يوجد فيدباك حالياً"
                 value={teamAIFeedbackEditingByKey['prog-2'] || ''}
                 onChange={(e) => setTeamAIFeedbackEditingByKey((prev) => ({ ...prev, 'prog-2': e.target.value }))}
@@ -1686,10 +1793,15 @@ const ProjectSubmissionsManagement = () => {
                 color="success"
                 size="small"
                 fullWidth
-                disabled={teamAIFeedbackLoading || !teamAIFeedbackEditingByKey['prog-2']?.trim() || Boolean(teamAIFeedbackApplyingById['prog-2'])}
+                disabled={
+                  teamAIFeedbackLoading ||
+                  !teamAIFeedbackEditingByKey['prog-2']?.trim() ||
+                  Boolean(teamAIFeedbackApplyingById['prog-2']) ||
+                  isFeedbackApproved('prog-2')
+                }
                 onClick={() => handleApproveFeedbackForSubmission('prog-2')}
               >
-                {teamAIFeedbackApplyingById['prog-2'] ? 'جاري الحفظ...' : 'اعتماد الفيدباك'}
+                {teamAIFeedbackApplyingById['prog-2'] ? 'جاري الحفظ...' : isFeedbackApproved('prog-2') ? 'تم الاعتماد' : 'اعتماد الفيدباك'}
               </Button>
             </Paper>
           ) : (
@@ -1707,7 +1819,7 @@ const ProjectSubmissionsManagement = () => {
               <TextField
                 fullWidth
                 multiline
-                rows={3}
+                minRows={4}
                 placeholder="لا يوجد فيدباك حالياً"
                 value={teamAIFeedbackEditingByKey['prog-3'] || ''}
                 onChange={(e) => setTeamAIFeedbackEditingByKey((prev) => ({ ...prev, 'prog-3': e.target.value }))}
@@ -1729,10 +1841,15 @@ const ProjectSubmissionsManagement = () => {
                 color="success"
                 size="small"
                 fullWidth
-                disabled={teamAIFeedbackLoading || !teamAIFeedbackEditingByKey['prog-3']?.trim() || Boolean(teamAIFeedbackApplyingById['prog-3'])}
+                disabled={
+                  teamAIFeedbackLoading ||
+                  !teamAIFeedbackEditingByKey['prog-3']?.trim() ||
+                  Boolean(teamAIFeedbackApplyingById['prog-3']) ||
+                  isFeedbackApproved('prog-3')
+                }
                 onClick={() => handleApproveFeedbackForSubmission('prog-3')}
               >
-                {teamAIFeedbackApplyingById['prog-3'] ? 'جاري الحفظ...' : 'اعتماد الفيدباك'}
+                {teamAIFeedbackApplyingById['prog-3'] ? 'جاري الحفظ...' : isFeedbackApproved('prog-3') ? 'تم الاعتماد' : 'اعتماد الفيدباك'}
               </Button>
             </Paper>
           ) : (
@@ -1751,7 +1868,7 @@ const ProjectSubmissionsManagement = () => {
               <TextField
                 fullWidth
                 multiline
-                rows={3}
+                minRows={4}
                 placeholder="لا يوجد فيدباك حالياً"
                 value={teamAIFeedbackEditingByKey['final'] || ''}
                 onChange={(e) => setTeamAIFeedbackEditingByKey((prev) => ({ ...prev, 'final': e.target.value }))}
@@ -1773,10 +1890,15 @@ const ProjectSubmissionsManagement = () => {
                 color="success"
                 size="small"
                 fullWidth
-                disabled={teamAIFeedbackLoading || !teamAIFeedbackEditingByKey['final']?.trim() || Boolean(teamAIFeedbackApplyingById['final'])}
+                disabled={
+                  teamAIFeedbackLoading ||
+                  !teamAIFeedbackEditingByKey['final']?.trim() ||
+                  Boolean(teamAIFeedbackApplyingById['final']) ||
+                  isFeedbackApproved('final')
+                }
                 onClick={() => handleApproveFeedbackForSubmission('final')}
               >
-                {teamAIFeedbackApplyingById['final'] ? 'جاري الحفظ...' : 'اعتماد الفيدباك'}
+                {teamAIFeedbackApplyingById['final'] ? 'جاري الحفظ...' : isFeedbackApproved('final') ? 'تم الاعتماد' : 'اعتماد الفيدباك'}
               </Button>
             </Paper>
           ) : (
@@ -1790,6 +1912,7 @@ const ProjectSubmissionsManagement = () => {
               setTeamAIFeedbackLoading(false);
               setTeamAIFeedbackSelection({ programming: [null, null, null], final_delivery: null });
               setTeamAIFeedbackEditingByKey({});
+              setTeamAIFeedbackApprovedTextByKey({});
             }}
           >
             إغلاق
