@@ -404,7 +404,7 @@ const StudentProjectsManagement = () => {
                                 startIcon={<HistoryIcon />}
                                 onClick={() => handleOpenTeamAIHistory(team, project)}
                               >
-                                سجل AI
+                                فيدباك AI
                               </Button>
                             </Box>
 
@@ -617,7 +617,7 @@ const StudentProjectsManagement = () => {
         fullWidth
       >
         <DialogTitle>
-          سجل AI: {teamAIHistoryDialog.team?.name || ''} - {teamAIHistoryDialog.project?.title || ''}
+          تقييم الفيدباك - {teamAIHistoryDialog.team?.name || ''} | {teamAIHistoryDialog.project?.title || ''}
         </DialogTitle>
         <DialogContent dividers>
           {teamAIHistoryState.loading ? (

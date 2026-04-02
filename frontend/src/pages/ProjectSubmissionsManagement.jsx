@@ -1247,7 +1247,7 @@ const ProjectSubmissionsManagement = () => {
                           startIcon={<HistoryIcon />}
                           onClick={() => handleOpenTeamAIHistory(team)}
                         >
-                          سجل AI
+                          فيدباك AI
                         </Button>
                       </Box>
 
