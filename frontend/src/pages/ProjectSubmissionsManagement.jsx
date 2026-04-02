@@ -308,7 +308,6 @@ const ProjectSubmissionsManagement = () => {
 
     Object.values(submissionsByTeam).forEach(({ team, submissions: teamSubmissions }) => {
       const latestFinal = getLatestSubmission(teamSubmissions.filter((s) => s.stageKey === 'final_delivery'));
-      if (!latestFinal) return;
 
       const programmingSubmissions = teamSubmissions.filter((s) => s.stageKey === 'programming');
       if (!programmingSubmissions.length) return;
@@ -332,10 +331,11 @@ const ProjectSubmissionsManagement = () => {
       });
 
       const hasProgrammingForAllMembers = memberIds.every((studentId) => Boolean(latestProgrammingByStudent[studentId]));
-      if (!hasProgrammingForAllMembers) return;
+      if (latestFinal && !hasProgrammingForAllMembers) return;
 
       memberIds.forEach((studentId) => {
         const studentProgrammingSubmission = latestProgrammingByStudent[studentId];
+        if (!studentProgrammingSubmission) return;
         candidates.push({
           projectId,
           teamId: team._id,
@@ -343,7 +343,7 @@ const ProjectSubmissionsManagement = () => {
           studentId,
           studentName: studentProgrammingSubmission?.submittedBy?.name || 'طالب',
           programmingSubmissionId: studentProgrammingSubmission?._id,
-          finalSubmissionId: latestFinal._id
+          finalSubmissionId: latestFinal?._id || null
         });
       });
     });
@@ -356,6 +356,15 @@ const ProjectSubmissionsManagement = () => {
 
     setBulkAIProgress({ done: 0, total: teams.length });
 
+    const allCandidates = buildTeamAICandidates();
+    const candidatesByTeamId = allCandidates.reduce((acc, item) => {
+      const teamId = String(item.teamId || '');
+      if (!teamId) return acc;
+      if (!acc[teamId]) acc[teamId] = [];
+      acc[teamId].push(item);
+      return acc;
+    }, {});
+
     let successCount = 0;
     let failedCount = 0;
     let totalStudents = 0;
@@ -365,6 +374,66 @@ const ProjectSubmissionsManagement = () => {
       const teamId = String(team?._id || '');
 
       try {
+        const teamCandidates = candidatesByTeamId[teamId] || [];
+        if (!teamCandidates.length) {
+          throw new Error('لا توجد تسليمات برمجة مكتملة لكل أعضاء الفريق');
+        }
+
+        const hasFinalDelivery = Boolean(teamCandidates[0]?.finalSubmissionId);
+
+        if (!hasFinalDelivery) {
+          for (const candidate of teamCandidates) {
+            totalStudents += 1;
+            try {
+              const aiRes = await api.post('/assessment/ai-evaluate-individual', {
+                projectId,
+                studentId: candidate.studentId,
+                submissionId: candidate.programmingSubmissionId
+              });
+
+              const aiData = aiRes.data?.data;
+              if (!aiData?.individualCard) {
+                throw new Error('لم يتم استلام تقييم فردي صالح من AI');
+              }
+
+              const evidenceSubmissionIds = [
+                aiData.evidenceSummary?.groupSubmissionId,
+                ...(aiData.evidenceSummary?.programmingSubmissionIds || [])
+              ].filter(Boolean);
+
+              await api.post('/assessment/evaluate-individual', {
+                projectId,
+                teamId,
+                studentId: candidate.studentId,
+                studentRole: aiData.studentRole || 'programmer',
+                submissionId: aiData.basedOnIndividualSubmissionId || aiData.basedOnSubmissionId || candidate.programmingSubmissionId,
+                sectionEvaluations: draftToSectionEvaluations(aiData.individualCard),
+                feedbackSummary: aiData.feedbackSuggestion || '',
+                evaluationSource: 'ai-batch-individual-only',
+                aiApproval: {
+                  confidence: aiData.confidence,
+                  plagiarismSimilarityPercent: aiData.plagiarism?.similarityPercent,
+                  plagiarismLevel: aiData.plagiarism?.level,
+                  rationale: aiData.rationale,
+                  evidenceScope: aiData.evidenceSummary?.scope,
+                  evidenceCount: aiData.evidenceSummary?.totalArtifacts || evidenceSubmissionIds.length,
+                  evidenceSubmissionIds,
+                  evidenceSummary: 'تم تقييم الطالب فردياً من آخر تسليمة برمجة متاحة.'
+                }
+              });
+
+              successCount += 1;
+              toast.success(`تم تقييم ${candidate.studentName} بنجاح`);
+            } catch (studentErr) {
+              failedCount += 1;
+              const studentMessage = studentErr?.response?.data?.message || studentErr?.message || 'فشل تقييم AI لهذا الطالب';
+              toast.error(`${candidate.studentName}: ${studentMessage}`);
+            }
+          }
+
+          continue;
+        }
+
         const requestTeamAIDraft = async () => api.post('/assessment/ai-evaluate-team', {
           projectId,
           teamId
@@ -445,7 +514,7 @@ const ProjectSubmissionsManagement = () => {
           successCount += 1;
         }
       } catch (err) {
-        const teamMembersCount = (team?.members || []).length || 1;
+        const teamMembersCount = (team?.members || []).length || (candidatesByTeamId[teamId]?.length || 1);
         failedCount += teamMembersCount;
         totalStudents += teamMembersCount;
         console.error('Team AI evaluation failed', team, err);
@@ -519,7 +588,13 @@ const ProjectSubmissionsManagement = () => {
     const teamId = String(team?._id || '');
     if (!teamId || bulkAIRunning || bulkRetryRunning || teamAIRunningById[teamId]) return;
 
-    const confirmRun = window.confirm(`سيتم تقييم ${team.name} بالكامل في طلب AI واحد (التقييم الجماعي + كل الطلاب). المتابعة؟`);
+    const teamCandidates = buildTeamAICandidates().filter((candidate) => String(candidate.teamId) === teamId);
+    const hasFinalDelivery = Boolean(teamCandidates[0]?.finalSubmissionId);
+    const confirmMessage = hasFinalDelivery
+      ? `سيتم تقييم ${team.name} بالكامل في طلب AI واحد (التقييم الجماعي + كل الطلاب). المتابعة؟`
+      : `لا يوجد تسليم نهائي للفريق ${team.name}. سيتم تقييم كل طالب فردياً من تسليم البرمجة (رسالة لكل طالب). المتابعة؟`;
+
+    const confirmRun = window.confirm(confirmMessage);
     if (!confirmRun) return;
 
     setTeamAIRunningById((prev) => ({ ...prev, [teamId]: true }));
@@ -545,7 +620,7 @@ const ProjectSubmissionsManagement = () => {
       .map((teamId) => submissionsByTeam[teamId]?.team)
       .filter(Boolean);
     if (!teams.length) {
-      toast.info('لا توجد فرق مكتملة الشروط لتقييم AI (تسليم نهائي + برمجة لكل أعضاء الفريق).');
+      toast.info('لا توجد فرق لديها تسليمات برمجة قابلة للتقييم حالياً.');
       return;
     }
 

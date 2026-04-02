@@ -1396,13 +1396,6 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         .populate('submittedBy', 'name email')
         .sort({ submittedAt: -1, createdAt: -1 });
 
-      if (!latestFinalSubmission) {
-        return res.status(400).json({
-          success: false,
-          message: 'لا يمكن تقييم AI قبل التسليم النهائي للفريق وإكمال المشروع'
-        });
-      }
-
       const programmingSubmitters = await TeamSubmission.distinct('submittedBy', {
         team: teamId,
         project: projectId,
@@ -1431,6 +1424,13 @@ exports.generateAIEvaluationDraft = async (req, res) => {
           stageKey: 'programming',
           submittedBy: studentId
         }).populate('submittedBy', 'name email');
+
+        if (!studentProgrammingSubmission) {
+          return res.status(404).json({
+            success: false,
+            message: 'لم يتم العثور على تسليمة البرمجة المحددة لهذا الطالب'
+          });
+        }
       }
 
       if (!studentProgrammingSubmission) {
@@ -1474,7 +1474,7 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       });
 
       const individualPrimary = toEvidenceItem(studentProgrammingSubmission);
-      const groupPrimary = toEvidenceItem(latestFinalSubmission);
+      const groupPrimary = latestFinalSubmission ? toEvidenceItem(latestFinalSubmission) : null;
 
       // Build exactly one latest programming artifact per team member.
       const programmingByMember = new Map();
@@ -1513,22 +1513,23 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         });
       }
 
-      const supportArtifacts = [groupPrimary, ...selectedProgrammingArtifacts];
-      if (supportArtifacts.length !== 4) {
-        return res.status(400).json({
-          success: false,
-          message: `تقييم AI يتطلب 4 أدلة فقط (3 برمجة + 1 نهائي). الأدلة المتاحة حالياً: ${supportArtifacts.length}`
-        });
-      }
+      const supportArtifacts = [
+        ...(groupPrimary ? [groupPrimary] : []),
+        ...selectedProgrammingArtifacts
+      ];
 
       const individualWokwiLink = studentProgrammingSubmission.wokwiLink
         || extractWokwiLink(studentProgrammingSubmission.notes)
         || extractWokwiLink(studentProgrammingSubmission.description)
         || '';
-      const groupWokwiLink = latestFinalSubmission.wokwiLink
-        || extractWokwiLink(latestFinalSubmission.notes)
-        || extractWokwiLink(latestFinalSubmission.description)
-        || '';
+      const groupWokwiLink = latestFinalSubmission
+        ? (
+          latestFinalSubmission.wokwiLink
+          || extractWokwiLink(latestFinalSubmission.notes)
+          || extractWokwiLink(latestFinalSubmission.description)
+          || ''
+        )
+        : '';
 
       const chosenSimilarityLink = individualWokwiLink || groupWokwiLink || '';
       const matchedStudents = [];
@@ -1564,15 +1565,20 @@ exports.generateAIEvaluationDraft = async (req, res) => {
 
       const promptPayload = {
         language: 'Arabic',
-        task: 'Evaluate one team-project student for individual programming card and evaluate team final delivery for group card. Return structured JSON only.',
+        task: latestFinalSubmission
+          ? 'Evaluate one team-project student for individual programming card and evaluate team final delivery for group card. Return structured JSON only.'
+          : 'Evaluate one team-project student for individual programming card only based on the student programming evidence. Return structured JSON only.',
         strictRules: [
           'Return JSON only without markdown fences.',
           'For every criterion in both cards, choose only one allowed percentage from allowedPercentages.',
           'Individual card MUST be based primarily on student programming submission evidence.',
-          'Group card MUST be based primarily on team final delivery evidence only.',
-          'AI evaluation is allowed only because team final delivery exists and project stages are completed.',
+          ...(latestFinalSubmission
+            ? ['Group card MUST be based primarily on team final delivery evidence only.']
+            : ['If groupPrimary is null, return empty groupRecommendations and focus on individualRecommendations only.']),
           'Use ONLY the provided supportArtifacts list as evidence context.',
-          'supportArtifacts contains exactly 4 items only: 1 final_delivery and 3 programming submissions (latest per student).',
+          latestFinalSubmission
+            ? 'supportArtifacts contains exactly 4 items only: 1 final_delivery and 3 programming submissions (latest per student).'
+            : 'supportArtifacts contains 3 programming submissions (latest per student) and may not include final_delivery.',
           'Evaluation priority must be: 1) Wokwi link evidence, 2) report/notes text, 3) files/images/attachments/code text.',
           'All generated textual fields MUST be in Arabic only (rationale and feedbackSuggestion).',
           'feedbackSuggestion MUST be written in clear Egyptian Arabic (لهجة مصرية بسيطة ومهنية).',
@@ -1661,18 +1667,21 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         enforceAllCriteria: true
       });
 
-      const overallScore = Number((((groupDraft.calculatedScore + individualDraft.calculatedScore) / 2)).toFixed(2));
+      const effectiveGroupDraft = latestFinalSubmission ? groupDraft : null;
+      const overallScore = latestFinalSubmission
+        ? Number((((groupDraft.calculatedScore + individualDraft.calculatedScore) / 2)).toFixed(2))
+        : Number(individualDraft.calculatedScore.toFixed(2));
 
       return res.json({
         success: true,
         data: {
           teamId,
-          basedOnGroupSubmissionId: latestFinalSubmission._id,
+          basedOnGroupSubmissionId: latestFinalSubmission?._id || null,
           basedOnIndividualSubmissionId: studentProgrammingSubmission._id,
           basedOnSubmissionId: studentProgrammingSubmission._id,
           basedOnSubmissionSource: 'team-submission-model',
           studentRole: 'programmer',
-          groupCard: groupDraft,
+          groupCard: effectiveGroupDraft,
           individualCard: individualDraft,
           overallScore,
           rationale: parsed.rationale || 'لم يتم توفير مبرر مفصل من AI.',
@@ -1685,9 +1694,9 @@ exports.generateAIEvaluationDraft = async (req, res) => {
             matchedStudents
           },
           evidenceSummary: {
-            scope: 'team-final-plus-latest-programming-per-student',
+            scope: latestFinalSubmission ? 'team-final-plus-latest-programming-per-student' : 'latest-programming-per-student',
             totalArtifacts: supportArtifacts.length,
-            groupSubmissionId: String(groupPrimary.id),
+            groupSubmissionId: groupPrimary ? String(groupPrimary.id) : null,
             programmingSubmissionIds: selectedProgrammingArtifacts.map((item) => String(item.id)),
             evidenceSubmissionIds: supportArtifacts.map((item) => String(item.id))
           },
@@ -1701,9 +1710,16 @@ exports.generateAIEvaluationDraft = async (req, res) => {
 
     if (submissionId) {
       submissionRecord = await Submission.findById(submissionId).populate('student', 'name email');
+
+      if (!submissionRecord || String(submissionRecord.student?._id || submissionRecord.student) !== String(studentId)) {
+        return res.status(404).json({
+          success: false,
+          message: 'التسليمة المحددة غير موجودة لهذا الطالب'
+        });
+      }
     }
 
-    if (!submissionRecord || String(submissionRecord.student?._id || submissionRecord.student) !== String(studentId)) {
+    if (!submissionRecord) {
       submissionRecord = await Submission.findOne({
         'assignment.projectId': projectId,
         student: studentId
