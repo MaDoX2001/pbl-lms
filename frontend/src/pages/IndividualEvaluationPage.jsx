@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import {
   Box,
   Paper,
@@ -39,6 +40,8 @@ const IndividualEvaluationPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useAppSettings();
+  const { user } = useSelector((state) => state.auth);
+  const isEvaluator = user?.role === 'teacher' || user?.role === 'admin';
   const roleLabels = {
     system_designer: t('roleSystemDesigner'),
     hardware_engineer: t('roleHardwareEngineer'),
@@ -67,8 +70,13 @@ const IndividualEvaluationPage = () => {
   const canStartEvaluation = isAllRolesMode || Boolean(studentRole);
 
   useEffect(() => {
+    if (!isEvaluator) {
+      setError('غير مصرح لك بالوصول إلى صفحة التقييم');
+      navigate('/dashboard', { replace: true });
+      return;
+    }
     fetchData();
-  }, [projectId, studentId]);
+  }, [projectId, studentId, isEvaluator, navigate]);
 
   useEffect(() => {
     if (loading) return;
@@ -512,6 +520,10 @@ const IndividualEvaluationPage = () => {
         <CircularProgress />
       </Box>
     );
+  }
+
+  if (!isEvaluator) {
+    return null;
   }
 
   if (!observationCard) {

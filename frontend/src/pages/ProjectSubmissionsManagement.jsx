@@ -35,6 +35,7 @@ import {
   Science as ScienceIcon,
   Edit as EditIcon,
 } from '@mui/icons-material';
+import { useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import { useAppSettings } from '../context/AppSettingsContext';
@@ -50,6 +51,8 @@ const ProjectSubmissionsManagement = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const { t } = useAppSettings();
+  const { user } = useSelector((state) => state.auth);
+  const isEvaluator = user?.role === 'teacher' || user?.role === 'admin';
 
   const [project, setProject] = useState(null);
   const [submissions, setSubmissions] = useState([]);
@@ -113,8 +116,17 @@ const ProjectSubmissionsManagement = () => {
   };
 
   useEffect(() => {
+    if (!isEvaluator) {
+      toast.error('غير مصرح لك بالوصول إلى صفحة تقييمات التسليمات');
+      navigate('/dashboard', { replace: true });
+      return;
+    }
     fetchData();
-  }, [projectId]);
+  }, [projectId, isEvaluator, navigate]);
+
+  if (!isEvaluator) {
+    return null;
+  }
 
   const fetchData = async (forceRefresh = false) => {
     try {
