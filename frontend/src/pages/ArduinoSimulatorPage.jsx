@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Box, Container, Typography, Paper, Button, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, MenuItem, Select, FormControl,
-  InputLabel, Snackbar, Alert, CircularProgress, Tooltip, Chip
+  InputLabel, Snackbar, Alert, CircularProgress, Tooltip, Chip, InputAdornment, IconButton
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
+import PasteIcon from '@mui/icons-material/Paste';
 import { useSelector } from 'react-redux';
 import { useLocation } from 'react-router-dom';
 import api from '../services/api';
@@ -242,32 +243,29 @@ function ArduinoSimulatorPage() {
     setSnack({ open: true, msg: `تم فتح نسخة ${label} داخل المحاكي`, severity: 'info' });
   };
 
-  const syncWokwiLinkFromIframe = (showSuccessMessage = false) => {
-    const iframeCurrentSrc = String(iframeRef.current?.src || '').trim();
-    const simulatorCandidate = String(simulatorUrl || '').trim();
-    const manualCandidate = String(wokwiLink || '').trim();
-    const memoryCandidate = String(lastKnownProjectLink || '').trim();
+  const pasteWokwiLinkFromClipboard = async () => {
+    try {
+      const clipboardText = await navigator.clipboard.readText();
+      const normalized = String(clipboardText || '').trim();
 
-    const candidates = [
-      isValidWokwiProjectLink(iframeCurrentSrc) ? { link: iframeCurrentSrc, score: 4 } : null,
-      isValidWokwiProjectLink(simulatorCandidate) ? { link: simulatorCandidate, score: 3 } : null,
-      isValidWokwiProjectLink(manualCandidate) ? { link: manualCandidate, score: 2 } : null,
-      isValidWokwiProjectLink(memoryCandidate) ? { link: memoryCandidate, score: 1 } : null,
-    ].filter(Boolean);
-
-    if (candidates.length > 0) {
-      candidates.sort((a, b) => b.score - a.score);
-      const detectedLink = candidates[0].link;
-      setWokwiLink(detectedLink);
-      rememberProjectLink(detectedLink);
-      if (showSuccessMessage) {
-        setSnack({ open: true, msg: 'تم تحديث الرابط من الصفحة الحالية', severity: 'info' });
+      if (!normalized) {
+        setSnack({ open: true, msg: 'الحافظة فارغة، انسخ رابط المشروع أولاً', severity: 'warning' });
+        return false;
       }
-      return true;
-    }
 
-    setSnack({ open: true, msg: 'افتح مشروع Wokwi أولاً داخل المحاكي', severity: 'warning' });
-    return false;
+      setWokwiLink(normalized);
+      if (isValidWokwiProjectLink(normalized)) {
+        rememberProjectLink(normalized);
+        setSnack({ open: true, msg: 'تم لصق الرابط من الحافظة', severity: 'info' });
+        return true;
+      }
+
+      setSnack({ open: true, msg: 'تم اللصق لكن الرابط ليس رابط مشروع Wokwi صالح', severity: 'warning' });
+      return false;
+    } catch (error) {
+      setSnack({ open: true, msg: 'تعذر الوصول للحافظة. الصق الرابط يدوياً داخل الحقل', severity: 'warning' });
+      return false;
+    }
   };
 
   const openSubmitDialog = () => {
@@ -764,18 +762,23 @@ function ArduinoSimulatorPage() {
             onChange={e => setWokwiLink(e.target.value)}
             disabled={submitting}
             helperText={t('wokwiLinkHelper')}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <Tooltip title="لصق الرابط من المحاكي">
+                    <IconButton
+                      onClick={pasteWokwiLinkFromClipboard}
+                      disabled={submitting}
+                      edge="end"
+                      size="small"
+                    >
+                      <PasteIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </InputAdornment>
+              ),
+            }}
           />
-
-          <Box>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => syncWokwiLinkFromIframe(true)}
-              disabled={submitting}
-            >
-              استخدم الرابط الحالي
-            </Button>
-          </Box>
 
           {/* Notes */}
           <TextField

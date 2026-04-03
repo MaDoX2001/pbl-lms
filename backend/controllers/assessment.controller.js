@@ -23,6 +23,10 @@ const AI_EVAL_MODELS = (process.env.AI_MODELS || 'gemini-2.5-flash,gemini-1.5-fl
   .map((m) => m.trim())
   .filter(Boolean);
 
+const aiEvalDebugState = {
+  rawIndividualLogged: false
+};
+
 const extractWokwiLink = (text) => {
   if (!text || typeof text !== 'string') return null;
   const match = text.match(/https:\/\/wokwi\.com\/projects\/[a-zA-Z0-9_-]+/);
@@ -1899,11 +1903,25 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       };
 
       let parsed = null;
+      let rawResponse = '';
       try {
-        const rawResponse = await callGeminiForAssessment(JSON.stringify(promptPayload));
+        rawResponse = await callGeminiForAssessment(JSON.stringify(promptPayload));
         parsed = safeJsonParse(rawResponse);
       } catch (_) {
         parsed = null;
+      }
+
+      if (!aiEvalDebugState.rawIndividualLogged) {
+        aiEvalDebugState.rawIndividualLogged = true;
+        console.info('[AI_EVAL_RAW_ONCE][INDIVIDUAL]', {
+          projectId: String(project?._id || ''),
+          teamId: String(teamId || ''),
+          studentId: String(studentId || ''),
+          submissionId: String(studentProgrammingSubmission?._id || ''),
+          rawResponse,
+          parsedFeedbackSuggestion: parsed?.feedbackSuggestion || '',
+          parsedKeys: parsed && typeof parsed === 'object' ? Object.keys(parsed) : []
+        });
       }
 
       if (!parsed) {
