@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
 const { validate } = require('../middleware/validation.middleware');
-const { protect } = require('../middleware/auth.middleware');
+const { protect, authorize } = require('../middleware/auth.middleware');
 const { require2FASetup, allow2FASetupRoutes } = require('../middleware/twoFactor.middleware');
 const Invitation = require('../models/Invitation.model');
 const {
@@ -16,7 +16,8 @@ const {
   verify2FA,
   verify2FALogin,
   disable2FA,
-  get2FAStatus
+  get2FAStatus,
+  adminDisable2FAForUsers
 } = require('../controllers/twoFactor.controller');
 const {
   publicRegister
@@ -81,5 +82,6 @@ router.post('/2fa/verify', protect, verify2FA);
 router.post('/2fa/verify-login', verify2FALogin);
 router.post('/2fa/disable', protect, disable2FA);
 router.get('/2fa/status', protect, get2FAStatus);
+router.post('/2fa/admin-disable', protect, authorize('admin'), adminDisable2FAForUsers);
 
 module.exports = router;

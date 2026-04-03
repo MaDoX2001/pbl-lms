@@ -278,3 +278,70 @@ exports.get2FAStatus = async (req, res) => {
     });
   }
 };
+
+// @desc    Admin: disable 2FA for selected users by email
+// @route   POST /api/auth/2fa/admin-disable
+// @access  Private (Admin)
+exports.adminDisable2FAForUsers = async (req, res) => {
+  try {
+    const { emails } = req.body;
+
+    if (!Array.isArray(emails) || emails.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'يرجى إرسال قائمة emails صحيحة'
+      });
+    }
+
+    const normalizedEmails = emails
+      .map((email) => String(email || '').trim().toLowerCase())
+      .filter(Boolean);
+
+    if (!normalizedEmails.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'قائمة emails فارغة بعد التنسيق'
+      });
+    }
+
+    const users = await User.find({ email: { $in: normalizedEmails } }).select('_id email twoFactorEnabled twoFactorSetupRequired');
+
+    if (!users.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'لم يتم العثور على أي مستخدم مطابق'
+      });
+    }
+
+    const ids = users.map((u) => u._id);
+    await User.updateMany(
+      { _id: { $in: ids } },
+      {
+        $set: {
+          twoFactorEnabled: false,
+          twoFactorVerified: false,
+          twoFactorSetupRequired: false
+        },
+        $unset: {
+          twoFactorSecret: 1
+        }
+      }
+    );
+
+    const updatedUsers = await User.find({ _id: { $in: ids } }).select('_id email twoFactorEnabled twoFactorSetupRequired');
+
+    res.json({
+      success: true,
+      message: `تم تعطيل OTP لعدد ${updatedUsers.length} مستخدم`,
+      data: {
+        users: updatedUsers
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ أثناء تعطيل OTP للحسابات المحددة',
+      error: error.message
+    });
+  }
+};
