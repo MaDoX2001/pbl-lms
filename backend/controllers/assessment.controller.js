@@ -1553,6 +1553,14 @@ exports.getProjectTeamScores = async (req, res) => {
 // @access  Private (Teacher/Admin)
 exports.generateAIEvaluationDraft = async (req, res) => {
   try {
+    // Check GEMINI_API_KEY availability early
+    if (!geminiClient) {
+      return res.status(503).json({
+        success: false,
+        message: 'خدمة تقييم الذكاء الاصطناعي غير متاحة حالياً (GEMINI_API_KEY غير مضبوطة). اتصلوا بالمسؤول.'
+      });
+    }
+
     const { projectId, studentId, submissionId } = req.body;
 
     if (!projectId || !studentId) {
@@ -2313,6 +2321,14 @@ exports.generateAIEvaluationDraft = async (req, res) => {
 // @access  Private (Teacher/Admin)
 exports.generateAITeamEvaluationDraft = async (req, res) => {
   try {
+    // Check GEMINI_API_KEY availability early
+    if (!geminiClient) {
+      return res.status(503).json({
+        success: false,
+        message: 'خدمة تقييم الذكاء الاصطناعي غير متاحة حالياً (GEMINI_API_KEY غير مضبوطة). اتصلوا بالمسؤول.'
+      });
+    }
+
     const { projectId, teamId } = req.body;
 
     if (!projectId || !teamId) {
