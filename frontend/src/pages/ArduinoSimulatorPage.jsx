@@ -727,12 +727,6 @@ function ArduinoSimulatorPage() {
             title="Arduino Simulator"
             onLoad={() => {
               const currentSrc = iframeRef.current?.src || '';
-              if (
-                /^https:\/\/wokwi\.com\//.test(currentSrc)
-                && currentSrc !== simulatorUrl
-              ) {
-                setSimulatorUrl(currentSrc);
-              }
               rememberProjectLink(currentSrc);
             }}
             style={{

@@ -884,7 +884,9 @@ const ProjectDetailPage = () => {
   };
 
   useEffect(() => {
-    if (!id || !project || project.isTeamProject === true) return;
+    if (!id || !project) return;
+    if (String(project._id || project.id || '') !== String(id)) return;
+    if (project.isTeamProject !== false) return;
 
     if (user?.role === 'student') {
       fetchStudentProjectSubmission();
