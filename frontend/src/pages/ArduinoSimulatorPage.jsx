@@ -7,7 +7,7 @@ import {
 import SaveIcon from '@mui/icons-material/Save';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
-import PasteIcon from '@mui/icons-material/Paste';
+import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import { useSelector } from 'react-redux';
 import { useLocation } from 'react-router-dom';
 import api from '../services/api';
@@ -772,7 +772,7 @@ function ArduinoSimulatorPage() {
                       edge="end"
                       size="small"
                     >
-                      <PasteIcon fontSize="small" />
+                      <ContentPasteIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
                 </InputAdornment>
