@@ -215,6 +215,12 @@ function ArduinoSimulatorPage() {
     }) || null;
   };
 
+  const getLatestProjectWokwiLink = () => {
+    const latestWithLink = getLatestMatchingSubmission((submission) => isValidWokwiProjectLink(submission?.wokwiLink));
+    if (!latestWithLink?.wokwiLink) return '';
+    return String(latestWithLink.wokwiLink).trim();
+  };
+
   const buildFinalAutoFillPreview = () => {
     const latestDesign = getLatestStageSubmission('design', 'system_designer');
     const latestWiringSubmission = getLatestStageSubmission('wiring', 'hardware_engineer');
@@ -298,8 +304,11 @@ function ArduinoSimulatorPage() {
     const fallbackStage = allowedStageOptions[0]?.value || 'programming';
     setSelectedStage(autoStage || fallbackStage);
 
-    // Do not auto-overwrite with a potentially stale value; user can sync manually.
-    if (isValidWokwiProjectLink(lastKnownProjectLink)) {
+    const latestProjectLink = getLatestProjectWokwiLink();
+    if (isValidWokwiProjectLink(latestProjectLink)) {
+      setWokwiLink(latestProjectLink);
+      rememberProjectLink(latestProjectLink);
+    } else if (isValidWokwiProjectLink(lastKnownProjectLink)) {
       setWokwiLink(lastKnownProjectLink);
     }
 
@@ -371,10 +380,14 @@ function ArduinoSimulatorPage() {
     setProgrammingCode('');
     setTestingReport('');
     setAttachments([]);
-    if (isValidWokwiProjectLink(lastKnownProjectLink)) {
+    const latestProjectLink = getLatestProjectWokwiLink();
+    if (isValidWokwiProjectLink(latestProjectLink)) {
+      setWokwiLink(latestProjectLink);
+      rememberProjectLink(latestProjectLink);
+    } else if (isValidWokwiProjectLink(lastKnownProjectLink)) {
       setWokwiLink(lastKnownProjectLink);
     }
-  }, [selectedProject]);
+  }, [selectedProject, currentHistory]);
 
   useEffect(() => {
     if (selectedStage !== 'final_delivery') return;
@@ -532,9 +545,13 @@ function ArduinoSimulatorPage() {
 
       attachments.forEach((file) => formData.append('attachments', file));
 
+      const submittedLink = wokwiLink.trim();
       await api.post('/team-submissions/wokwi', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
+
+      rememberProjectLink(submittedLink);
+      setSimulatorUrl(submittedLink);
 
       setSnack({ open: true, msg: t('wokwiSubmitSuccess'), severity: 'success' });
       setOpen(false);
