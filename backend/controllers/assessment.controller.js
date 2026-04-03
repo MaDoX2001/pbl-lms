@@ -773,35 +773,6 @@ const buildRetryArchiveSnapshot = async ({ projectId, teamId = null, studentId =
 
 const normalizeFeedbackText = (text) => String(text || '').replace(/\s+/g, ' ').trim();
 
-const normalizeForNameMatch = (text) => String(text || '')
-  .normalize('NFKC')
-  .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
-  .replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, ' ')
-  .replace(/\s+/g, ' ')
-  .trim()
-  .toLowerCase();
-
-const hasEnoughFeedbackSpecificity = (text = '', studentName = '') => {
-  const clean = normalizeFeedbackText(text);
-  if (!clean || clean.length < 24) return false;
-  if (!studentName) return true;
-
-  const normalizedFeedback = normalizeForNameMatch(clean);
-  const normalizedStudentName = normalizeForNameMatch(studentName);
-  if (!normalizedStudentName) return true;
-
-  if (normalizedFeedback.includes(normalizedStudentName)) return true;
-
-  const nameTokens = normalizedStudentName
-    .split(' ')
-    .map((token) => token.trim())
-    .filter((token) => token.length >= 3);
-
-  if (nameTokens.some((token) => normalizedFeedback.includes(token))) return true;
-
-  return false;
-};
-
 // ============================================================================
 // OBSERVATION CARD MANAGEMENT
 // ============================================================================
@@ -1854,7 +1825,7 @@ exports.generateAIEvaluationDraft = async (req, res) => {
           'Evaluation priority for individual programming must be: 1) programmingCode input, 2) sharedWiringDiagramDetails, 3) notes and attachments metadata, 4) other stageInputs context.',
           'All generated textual fields MUST be in Arabic only (rationale and feedbackSuggestion).',
           'feedbackSuggestion MUST be written in clear Egyptian Arabic (لهجة مصرية بسيطة ومهنية).',
-          'feedbackSuggestion MUST mention concrete observations from the provided code evidence and the student name.',
+          'feedbackSuggestion MUST mention concrete observations from the provided code evidence and remain personalized.',
           'Keep rationale concise and actionable for teacher review.',
           'Include feedbackSuggestion for the student in Arabic.'
         ],
@@ -1934,14 +1905,8 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         });
       }
 
-      const normalizedFeedbackSuggestion = normalizeFeedbackText(parsed.feedbackSuggestion || '');
-
-      if (!hasEnoughFeedbackSpecificity(normalizedFeedbackSuggestion, studentProgrammingSubmission.submittedBy?.name || '')) {
-        return res.status(502).json({
-          success: false,
-          message: 'تعذر على AI تقديم فيدباك محدد لهذا الطالب بعد تحليل الكود. لن يتم إنشاء تقييم.'
-        });
-      }
+      const normalizedFeedbackSuggestion = normalizeFeedbackText(parsed.feedbackSuggestion || parsed.rationale || '');
+      const aiValidationWarnings = {};
 
       const individualValidation = validateAIRecommendationsAgainstCard({
         card: individualCard,
@@ -1952,14 +1917,10 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       });
 
       if (!individualValidation.ok) {
-        return res.status(502).json({
-          success: false,
-          message: 'لم يستطع النظام تقييم الطالب لأن توصيات AI الفردية كانت ناقصة أو غير صالحة.',
-          data: {
-            missingCriteria: individualValidation.missing,
-            invalidCriteria: individualValidation.invalid
-          }
-        });
+        aiValidationWarnings.individual = {
+          missingCriteria: individualValidation.missing,
+          invalidCriteria: individualValidation.invalid
+        };
       }
 
       if (latestFinalSubmission) {
@@ -1972,14 +1933,10 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         });
 
         if (!groupValidation.ok) {
-          return res.status(502).json({
-            success: false,
-            message: 'لم يستطع النظام تقييم الطالب لأن توصيات AI الجماعية كانت ناقصة أو غير صالحة.',
-            data: {
-              missingCriteria: groupValidation.missing,
-              invalidCriteria: groupValidation.invalid
-            }
-          });
+          aiValidationWarnings.group = {
+            missingCriteria: groupValidation.missing,
+            invalidCriteria: groupValidation.invalid
+          };
         }
       }
 
@@ -2018,6 +1975,7 @@ exports.generateAIEvaluationDraft = async (req, res) => {
           overallScore,
           rationale: parsed.rationale || 'لم يتم توفير مبرر مفصل من AI.',
           feedbackSuggestion: normalizedFeedbackSuggestion,
+          aiValidationWarnings,
           confidence: Number(parsed.confidence || 0),
           plagiarism: {
             similarityPercent: plagiarismSimilarityPercent,
@@ -2733,13 +2691,9 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
     });
 
     if (!groupValidation.ok) {
-      return res.status(502).json({
-        success: false,
-        message: 'تعذر على AI إكمال التقييم الجماعي لأن توصيات المجموعة ناقصة أو غير صالحة. لن يتم حفظ أي تقييم.',
-        data: {
-          missingCriteria: groupValidation.missing,
-          invalidCriteria: groupValidation.invalid
-        }
+      console.warn('[AI_EVAL_WARNING][GROUP_VALIDATION]', {
+        missingCriteria: groupValidation.missing,
+        invalidCriteria: groupValidation.invalid
       });
     }
 
@@ -2756,6 +2710,10 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
       : [];
 
     const seenFeedback = new Set();
+    const teamValidationWarnings = {
+      invalidRecommendationStudents: [],
+      duplicateFeedbackStudents: []
+    };
 
     const individualCards = teamProgrammingEvidenceWithCode.map((item) => {
       const hit = perStudentRecommendations.find((rec) => {
@@ -2793,9 +2751,6 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
       const overallScore = Number((((groupDraft.calculatedScore + individualDraft.calculatedScore) / 2)).toFixed(2));
 
       let feedbackSuggestion = normalizeFeedbackText(hit?.feedbackSuggestion || '');
-      if (!hasEnoughFeedbackSpecificity(feedbackSuggestion, item.student.name)) {
-        feedbackSuggestion = '';
-      }
 
       const dedupeKey = feedbackSuggestion.toLowerCase();
       if (feedbackSuggestion && seenFeedback.has(dedupeKey)) {
@@ -2822,10 +2777,7 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
       .map((entry) => entry.studentName);
 
     if (invalidRecommendationStudents.length > 0) {
-      return res.status(502).json({
-        success: false,
-        message: `تعذر على AI تقييم الطلاب التاليين بسبب توصيات ناقصة/غير صالحة: ${invalidRecommendationStudents.join('، ')}. لن يتم حفظ التقييم.`
-      });
+      teamValidationWarnings.invalidRecommendationStudents = invalidRecommendationStudents;
     }
 
     const invalidFeedbackStudents = individualCards
@@ -2833,10 +2785,7 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
       .map((entry) => entry.studentName);
 
     if (invalidFeedbackStudents.length > 0) {
-      return res.status(502).json({
-        success: false,
-        message: `تعذر على AI تقديم فيدباك فردي دقيق للطلاب: ${invalidFeedbackStudents.join('، ')}. لن يتم حفظ التقييم.`
-      });
+      teamValidationWarnings.duplicateFeedbackStudents = invalidFeedbackStudents;
     }
 
     const parsedCodeScores = Array.isArray(parsed.perStudentCodeScores) ? parsed.perStudentCodeScores : [];
@@ -2888,6 +2837,7 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
           teamFeedbackSuggestion: normalizeFeedbackText(parsed.teamFeedbackSuggestion || '')
             || 'الفريق محتاج يراجع تنظيم التنفيذ وتفاصيل التوثيق قبل التسليم النهائي.',
         confidence: Number(parsed.confidence || 0),
+        aiValidationWarnings: teamValidationWarnings,
         plagiarism: {
           similarityPercent: plagiarismSimilarityPercent,
           level: plagiarismLevel,
