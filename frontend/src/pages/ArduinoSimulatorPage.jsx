@@ -174,8 +174,30 @@ function ArduinoSimulatorPage() {
     return acc;
   }, {});
 
+  const getSubmissionTimestamp = (submission) => {
+    const candidate = submission?.submittedAt || submission?.createdAt || submission?.updatedAt;
+    const ts = new Date(candidate || 0).getTime();
+    return Number.isFinite(ts) ? ts : 0;
+  };
+
+  const getLatestMatchingSubmission = (matcher) => {
+    let latest = null;
+    let latestTs = -1;
+
+    for (const submission of currentHistory) {
+      if (!matcher(submission)) continue;
+      const ts = getSubmissionTimestamp(submission);
+      if (ts >= latestTs) {
+        latest = submission;
+        latestTs = ts;
+      }
+    }
+
+    return latest;
+  };
+
   const getLatestStageSubmission = (stageKey, role = null) => {
-    return currentHistory.find((submission) => {
+    return getLatestMatchingSubmission((submission) => {
       if (submission.stageKey !== stageKey) return false;
       if (!role) return true;
       const submitterId = String(submission.submittedBy?._id || submission.submittedBy || '');
@@ -186,7 +208,7 @@ function ArduinoSimulatorPage() {
   const getLatestProgrammingSubmissionByStudent = (studentId) => {
     const target = String(studentId || '');
     if (!target) return null;
-    return currentHistory.find((submission) => {
+    return getLatestMatchingSubmission((submission) => {
       if (submission.stageKey !== 'programming') return false;
       const submitterId = String(submission.submittedBy?._id || submission.submittedBy || '');
       return submitterId === target;
