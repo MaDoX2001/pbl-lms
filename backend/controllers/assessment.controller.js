@@ -23,10 +23,6 @@ const AI_EVAL_MODELS = (process.env.AI_MODELS || 'gemini-2.5-flash,gemini-1.5-fl
   .map((m) => m.trim())
   .filter(Boolean);
 
-const aiEvalDebugState = {
-  rawIndividualLogged: false
-};
-
 const extractWokwiLink = (text) => {
   if (!text || typeof text !== 'string') return null;
   const match = text.match(/https:\/\/wokwi\.com\/projects\/[a-zA-Z0-9_-]+/);
@@ -777,12 +773,33 @@ const buildRetryArchiveSnapshot = async ({ projectId, teamId = null, studentId =
 
 const normalizeFeedbackText = (text) => String(text || '').replace(/\s+/g, ' ').trim();
 
+const normalizeForNameMatch = (text) => String(text || '')
+  .normalize('NFKC')
+  .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
+  .replace(/[^a-zA-Z0-9\u0600-\u06FF\s]/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .toLowerCase();
+
 const hasEnoughFeedbackSpecificity = (text = '', studentName = '') => {
   const clean = normalizeFeedbackText(text);
   if (!clean || clean.length < 24) return false;
-  // Ensure the feedback is at least somewhat tailored to the student.
-  if (studentName && !clean.includes(studentName)) return false;
-  return true;
+  if (!studentName) return true;
+
+  const normalizedFeedback = normalizeForNameMatch(clean);
+  const normalizedStudentName = normalizeForNameMatch(studentName);
+  if (!normalizedStudentName) return true;
+
+  if (normalizedFeedback.includes(normalizedStudentName)) return true;
+
+  const nameTokens = normalizedStudentName
+    .split(' ')
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3);
+
+  if (nameTokens.some((token) => normalizedFeedback.includes(token))) return true;
+
+  return false;
 };
 
 // ============================================================================
@@ -1903,25 +1920,11 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       };
 
       let parsed = null;
-      let rawResponse = '';
       try {
-        rawResponse = await callGeminiForAssessment(JSON.stringify(promptPayload));
+        const rawResponse = await callGeminiForAssessment(JSON.stringify(promptPayload));
         parsed = safeJsonParse(rawResponse);
       } catch (_) {
         parsed = null;
-      }
-
-      if (!aiEvalDebugState.rawIndividualLogged) {
-        aiEvalDebugState.rawIndividualLogged = true;
-        console.info('[AI_EVAL_RAW_ONCE][INDIVIDUAL]', {
-          projectId: String(project?._id || ''),
-          teamId: String(teamId || ''),
-          studentId: String(studentId || ''),
-          submissionId: String(studentProgrammingSubmission?._id || ''),
-          rawResponse,
-          parsedFeedbackSuggestion: parsed?.feedbackSuggestion || '',
-          parsedKeys: parsed && typeof parsed === 'object' ? Object.keys(parsed) : []
-        });
       }
 
       if (!parsed) {
