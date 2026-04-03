@@ -4099,9 +4099,10 @@ exports.getEvaluation = async (req, res) => {
       .populate('observationCard');
 
     if (!evaluation) {
-      return res.status(404).json({
-        success: false,
-        message: 'التقييم غير موجود'
+      return res.json({
+        success: true,
+        data: null,
+        message: 'لا يوجد تقييم محفوظ لهذا التسليم بعد'
       });
     }
 

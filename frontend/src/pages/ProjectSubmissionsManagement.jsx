@@ -1588,6 +1588,112 @@ const ProjectSubmissionsManagement = () => {
                         </Box>
                       )}
 
+                      {!!(
+                        submissionDetailsDialog.submission.stageInputs?.designNarrative
+                        || submissionDetailsDialog.submission.stageInputs?.wiringDiagramDetails
+                        || submissionDetailsDialog.submission.stageInputs?.programmingCode
+                        || submissionDetailsDialog.submission.stageInputs?.testingReport
+                        || submissionDetailsDialog.submission.stageInputs?.finalAutoFill
+                      ) && (
+                        <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: 'grey.50' }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                            تفاصيل مدخلات الطالب في هذه المرحلة
+                          </Typography>
+
+                          {submissionDetailsDialog.submission.stageInputs?.designNarrative && (
+                            <Box sx={{ mb: 1.5 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>مدخل المصمم</Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
+                                {submissionDetailsDialog.submission.stageInputs.designNarrative}
+                              </Typography>
+                            </Box>
+                          )}
+
+                          {submissionDetailsDialog.submission.stageInputs?.wiringDiagramDetails && (
+                            <Box sx={{ mb: 1.5 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>تفاصيل Diagram</Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
+                                {submissionDetailsDialog.submission.stageInputs.wiringDiagramDetails}
+                              </Typography>
+                            </Box>
+                          )}
+
+                          {submissionDetailsDialog.submission.stageInputs?.programmingCode && (
+                            <Box sx={{ mb: 1.5 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>الكود البرمجي</Typography>
+                              <TextField
+                                fullWidth
+                                multiline
+                                minRows={4}
+                                maxRows={12}
+                                value={submissionDetailsDialog.submission.stageInputs.programmingCode}
+                                InputProps={{ readOnly: true }}
+                              />
+                            </Box>
+                          )}
+
+                          {submissionDetailsDialog.submission.stageInputs?.testingReport && (
+                            <Box sx={{ mb: 1.5 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>تقرير الاختبار</Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
+                                {submissionDetailsDialog.submission.stageInputs.testingReport}
+                              </Typography>
+                            </Box>
+                          )}
+
+                          {submissionDetailsDialog.submission.stageInputs?.finalAutoFill && (
+                            <Box>
+                              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>ملخص التسليم النهائي التلقائي</Typography>
+                              {!!submissionDetailsDialog.submission.stageInputs.finalAutoFill.designNarrative && (
+                                <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap', mb: 0.75 }}>
+                                  <strong>التصميم:</strong> {submissionDetailsDialog.submission.stageInputs.finalAutoFill.designNarrative}
+                                </Typography>
+                              )}
+                              {!!submissionDetailsDialog.submission.stageInputs.finalAutoFill.wiringDiagramDetails && (
+                                <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap', mb: 0.75 }}>
+                                  <strong>Diagram:</strong> {submissionDetailsDialog.submission.stageInputs.finalAutoFill.wiringDiagramDetails}
+                                </Typography>
+                              )}
+                              {!!submissionDetailsDialog.submission.stageInputs.finalAutoFill.testingReport && (
+                                <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap', mb: 0.75 }}>
+                                  <strong>الاختبار:</strong> {submissionDetailsDialog.submission.stageInputs.finalAutoFill.testingReport}
+                                </Typography>
+                              )}
+                              {Array.isArray(submissionDetailsDialog.submission.stageInputs.finalAutoFill.programmingEntries)
+                                && submissionDetailsDialog.submission.stageInputs.finalAutoFill.programmingEntries.length > 0 && (
+                                  <Typography variant="body2" color="text.secondary">
+                                    عدد أكواد الطلاب المجمعة: {submissionDetailsDialog.submission.stageInputs.finalAutoFill.programmingEntries.length}
+                                  </Typography>
+                                )}
+                            </Box>
+                          )}
+                        </Paper>
+                      )}
+
+                      {Array.isArray(submissionDetailsDialog.submission.attachments)
+                        && submissionDetailsDialog.submission.attachments.length > 0 && (
+                          <Box sx={{ mb: 2 }}>
+                            <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.75 }}>
+                              المرفقات المرفوعة مع التسليم
+                            </Typography>
+                            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                              {submissionDetailsDialog.submission.attachments.map((file, idx) => (
+                                <Button
+                                  key={`${file.url || file.fileName || 'attachment'}-${idx}`}
+                                  size="small"
+                                  variant="outlined"
+                                  startIcon={<OpenInNewIcon />}
+                                  href={file.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  {file.fileName || `مرفق ${idx + 1}`}
+                                </Button>
+                              ))}
+                            </Box>
+                          </Box>
+                        )}
+
                       <Divider sx={{ my: 2 }} />
 
                       <Box sx={{ mb: 2 }}>
