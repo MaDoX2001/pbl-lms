@@ -18,6 +18,13 @@ import {
   TextField,
   Divider,
   IconButton,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Checkbox,
+  ListItemText,
+  OutlinedInput,
 } from '@mui/material';
 import {
   Download as DownloadIcon,
@@ -48,6 +55,8 @@ import { useAppSettings } from '../context/AppSettingsContext';
  * Access: Teacher/Admin only
  */
 const ProjectSubmissionsManagement = () => {
+  const ALL_TEAMS_OPTION = '__ALL__';
+
   const { projectId } = useParams();
   const navigate = useNavigate();
   const { t } = useAppSettings();
@@ -103,6 +112,7 @@ const ProjectSubmissionsManagement = () => {
   const [bulkRetryProgress, setBulkRetryProgress] = useState({ done: 0, total: 0 });
   const [teamSearchTerm, setTeamSearchTerm] = useState('');
   const [finalDeliveryFilter, setFinalDeliveryFilter] = useState('all');
+  const [bulkSelectedTeamIds, setBulkSelectedTeamIds] = useState([ALL_TEAMS_OPTION]);
 
   const openDialogSafely = (setDialogState) => {
     const activeElement = document.activeElement;
@@ -318,6 +328,21 @@ const ProjectSubmissionsManagement = () => {
     }
 
     toast.error('تعذر فتح صفحة التقييم: بيانات الفريق/الطالب غير مكتملة');
+  };
+
+  const openSimulatorInNewTab = (wokwiLink) => {
+    const normalized = String(wokwiLink || '').trim();
+    if (!normalized) {
+      toast.error('رابط Wokwi غير متوفر');
+      return;
+    }
+
+    const query = new URLSearchParams({
+      wokwiLink: normalized,
+      projectId: String(projectId || '')
+    });
+
+    window.open(`/arduino-simulator?${query.toString()}`, '_blank', 'noopener,noreferrer');
   };
 
   const handleOpenTeamRetryDialog = (team) => {
@@ -973,15 +998,23 @@ const ProjectSubmissionsManagement = () => {
     if (bulkAIRunning || bulkRetryRunning) return;
 
     const readyTeamIds = Array.from(new Set(buildTeamAICandidates().map((candidate) => String(candidate.teamId))));
-    const teams = readyTeamIds
+    const scopedReadyTeamIds = isAllBulkTeamsSelected
+      ? readyTeamIds
+      : readyTeamIds.filter((teamId) => bulkSelectedTeamIds.includes(teamId));
+
+    const teams = scopedReadyTeamIds
       .map((teamId) => submissionsByTeam[teamId]?.team)
       .filter(Boolean);
+
     if (!teams.length) {
-      toast.info('لا توجد فرق لديها تسليمات برمجة قابلة للتقييم حالياً.');
+      toast.info(isAllBulkTeamsSelected
+        ? 'لا توجد فرق لديها تسليمات برمجة قابلة للتقييم حالياً.'
+        : 'الفرق المختارة لا تحتوي تسليمات برمجة قابلة للتقييم حالياً.');
       return;
     }
 
-    const confirmRun = window.confirm(`سيتم تقييم ${teams.length} فريقًا تلقائيًا، مع رسالة AI منفصلة لكل طالب في البرمجة. المتابعة؟`);
+    const scopeLabel = isAllBulkTeamsSelected ? 'كل الفرق' : 'الفرق المختارة';
+    const confirmRun = window.confirm(`سيتم تقييم ${scopeLabel} (${teams.length} فريقًا)، مع رسالة AI منفصلة لكل طالب في البرمجة. المتابعة؟`);
     if (!confirmRun) return;
 
     setBulkAIRunning(true);
@@ -1000,13 +1033,14 @@ const ProjectSubmissionsManagement = () => {
   const runBulkRetryForTeams = async () => {
     if (bulkRetryRunning || bulkAIRunning) return;
 
-    const teams = allProjectTeams.length ? allProjectTeams : Object.values(submissionsByTeam).map(({ team }) => team).filter(Boolean);
+    const teams = getBulkTargetTeams();
     if (!teams.length) {
       toast.info('لا توجد فرق متاحة لفتح إعادة المحاولة.');
       return;
     }
 
-    const confirmRun = window.confirm(`سيتم فتح إعادة المحاولة لكل الفرق في هذا المشروع (${teams.length} فريقًا) مع حفظ سجل كامل قبل الفتح. المتابعة؟`);
+    const scopeLabel = isAllBulkTeamsSelected ? 'كل الفرق' : 'الفرق المختارة';
+    const confirmRun = window.confirm(`سيتم فتح إعادة المحاولة لـ ${scopeLabel} في هذا المشروع (${teams.length} فريقًا) مع حفظ سجل كامل قبل الفتح. المتابعة؟`);
     if (!confirmRun) return;
 
     setBulkRetryRunning(true);
@@ -1198,6 +1232,48 @@ const ProjectSubmissionsManagement = () => {
     return acc;
   }, {}), [submissions]);
 
+  const bulkSelectableTeams = useMemo(() => {
+    if (allProjectTeams.length) return allProjectTeams;
+    return Object.values(submissionsByTeam).map(({ team }) => team).filter(Boolean);
+  }, [allProjectTeams, submissionsByTeam]);
+
+  const isAllBulkTeamsSelected = bulkSelectedTeamIds.includes(ALL_TEAMS_OPTION);
+
+  useEffect(() => {
+    const availableIds = new Set(bulkSelectableTeams.map((team) => String(team?._id || '')));
+
+    setBulkSelectedTeamIds((prev) => {
+      if (!prev.length || prev.includes(ALL_TEAMS_OPTION)) {
+        return [ALL_TEAMS_OPTION];
+      }
+
+      const kept = prev.filter((id) => availableIds.has(String(id)));
+      return kept.length ? kept : [ALL_TEAMS_OPTION];
+    });
+  }, [bulkSelectableTeams]);
+
+  const handleBulkTeamsSelectionChange = (event) => {
+    const value = event.target.value;
+    const selected = Array.isArray(value) ? value : [value];
+
+    if (selected.includes(ALL_TEAMS_OPTION)) {
+      setBulkSelectedTeamIds([ALL_TEAMS_OPTION]);
+      return;
+    }
+
+    const unique = [...new Set(selected.map((id) => String(id)).filter(Boolean))];
+    setBulkSelectedTeamIds(unique.length ? unique : [ALL_TEAMS_OPTION]);
+  };
+
+  const getBulkTargetTeams = () => {
+    if (isAllBulkTeamsSelected) {
+      return bulkSelectableTeams;
+    }
+
+    const selectedSet = new Set(bulkSelectedTeamIds.map((id) => String(id)));
+    return bulkSelectableTeams.filter((team) => selectedSet.has(String(team?._id || '')));
+  };
+
   const visibleTeams = useMemo(() => {
     const q = String(teamSearchTerm || '').trim().toLowerCase();
 
@@ -1265,6 +1341,40 @@ const ProjectSubmissionsManagement = () => {
             {t('totalSubmissionsWithCount', { count: submissions.length })}
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+            <FormControl size="small" sx={{ minWidth: 300 }}>
+              <InputLabel id="bulk-teams-select-label">اختيار الفرق</InputLabel>
+              <Select
+                labelId="bulk-teams-select-label"
+                multiple
+                value={bulkSelectedTeamIds}
+                onChange={handleBulkTeamsSelectionChange}
+                input={<OutlinedInput label="اختيار الفرق" />}
+                disabled={bulkAIRunning || bulkRetryRunning}
+                renderValue={(selected) => {
+                  if (selected.includes(ALL_TEAMS_OPTION)) return 'كل الفرق';
+                  const selectedSet = new Set(selected.map((id) => String(id)));
+                  const names = bulkSelectableTeams
+                    .filter((team) => selectedSet.has(String(team?._id || '')))
+                    .map((team) => team?.name)
+                    .filter(Boolean);
+                  return names.length ? names.join(' - ') : 'كل الفرق';
+                }}
+              >
+                <MenuItem value={ALL_TEAMS_OPTION}>
+                  <Checkbox checked={isAllBulkTeamsSelected} />
+                  <ListItemText primary="كل الفرق" />
+                </MenuItem>
+                {bulkSelectableTeams.map((team) => {
+                  const teamId = String(team?._id || '');
+                  return (
+                    <MenuItem key={teamId} value={teamId}>
+                      <Checkbox checked={!isAllBulkTeamsSelected && bulkSelectedTeamIds.includes(teamId)} />
+                      <ListItemText primary={team?.name || 'فريق'} />
+                    </MenuItem>
+                  );
+                })}
+              </Select>
+            </FormControl>
             {bulkAIRunning && (
               <Chip
                 color="warning"
@@ -1284,7 +1394,11 @@ const ProjectSubmissionsManagement = () => {
               onClick={runBulkRetryForTeams}
               disabled={bulkRetryRunning || bulkAIRunning}
             >
-              {bulkRetryRunning ? 'جاري فتح إعادة المحاولة...' : 'فتح إعادة المحاولة لكل الطلاب والفرق'}
+              {bulkRetryRunning
+                ? 'جاري فتح إعادة المحاولة...'
+                : (isAllBulkTeamsSelected
+                  ? 'فتح إعادة المحاولة لكل الطلاب والفرق'
+                  : 'فتح إعادة المحاولة للفرق المختارة')}
             </Button>
             <Button
               variant="outlined"
@@ -1293,7 +1407,11 @@ const ProjectSubmissionsManagement = () => {
               onClick={runBulkAIEvaluationForTeams}
               disabled={bulkAIRunning || bulkRetryRunning}
             >
-              {bulkAIRunning ? 'جاري تقييم الطلاب...' : 'تقييم AI لكل الطلاب'}
+              {bulkAIRunning
+                ? 'جاري تقييم الطلاب...'
+                : (isAllBulkTeamsSelected
+                  ? 'تقييم AI لكل الطلاب'
+                  : 'تقييم AI للفرق المختارة')}
             </Button>
             <Button
               variant="outlined"
@@ -1543,9 +1661,7 @@ const ProjectSubmissionsManagement = () => {
                             size="small"
                             variant="contained"
                             startIcon={<OpenInNewIcon />}
-                            href={submissionDetailsDialog.submission.wokwiLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            onClick={() => openSimulatorInNewTab(submissionDetailsDialog.submission.wokwiLink)}
                             sx={{ ml: 1 }}
                           >
                             فتح المحاكي للتقييم
