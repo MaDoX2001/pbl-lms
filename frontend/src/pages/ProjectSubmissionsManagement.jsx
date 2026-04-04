@@ -18,13 +18,9 @@ import {
   TextField,
   Divider,
   IconButton,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
+  Autocomplete,
+  FormControlLabel,
   Checkbox,
-  ListItemText,
-  OutlinedInput,
 } from '@mui/material';
 import {
   Download as DownloadIcon,
@@ -1238,6 +1234,11 @@ const ProjectSubmissionsManagement = () => {
   }, [allProjectTeams, submissionsByTeam]);
 
   const isAllBulkTeamsSelected = bulkSelectedTeamIds.includes(ALL_TEAMS_OPTION);
+  const selectedBulkTeams = useMemo(() => {
+    if (isAllBulkTeamsSelected) return bulkSelectableTeams;
+    const selectedSet = new Set(bulkSelectedTeamIds.map((id) => String(id)));
+    return bulkSelectableTeams.filter((team) => selectedSet.has(String(team?._id || '')));
+  }, [bulkSelectableTeams, bulkSelectedTeamIds, isAllBulkTeamsSelected]);
 
   useEffect(() => {
     const availableIds = new Set(bulkSelectableTeams.map((team) => String(team?._id || '')));
@@ -1252,17 +1253,29 @@ const ProjectSubmissionsManagement = () => {
     });
   }, [bulkSelectableTeams]);
 
-  const handleBulkTeamsSelectionChange = (event) => {
-    const value = event.target.value;
-    const selected = Array.isArray(value) ? value : [value];
-
-    if (selected.includes(ALL_TEAMS_OPTION)) {
+  const handleSelectAllBulkTeams = (checked) => {
+    if (checked) {
       setBulkSelectedTeamIds([ALL_TEAMS_OPTION]);
       return;
     }
 
-    const unique = [...new Set(selected.map((id) => String(id)).filter(Boolean))];
-    setBulkSelectedTeamIds(unique.length ? unique : [ALL_TEAMS_OPTION]);
+    setBulkSelectedTeamIds([]);
+  };
+
+  const handleBulkTeamsSelectionChange = (_event, newValue) => {
+    const ids = [...new Set((newValue || []).map((team) => String(team?._id || '')).filter(Boolean))];
+
+    if (!ids.length) {
+      setBulkSelectedTeamIds([]);
+      return;
+    }
+
+    if (ids.length === bulkSelectableTeams.length) {
+      setBulkSelectedTeamIds([ALL_TEAMS_OPTION]);
+      return;
+    }
+
+    setBulkSelectedTeamIds(ids);
   };
 
   const getBulkTargetTeams = () => {
@@ -1341,40 +1354,46 @@ const ProjectSubmissionsManagement = () => {
             {t('totalSubmissionsWithCount', { count: submissions.length })}
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-            <FormControl size="small" sx={{ minWidth: 300 }}>
-              <InputLabel id="bulk-teams-select-label">اختيار الفرق</InputLabel>
-              <Select
-                labelId="bulk-teams-select-label"
+            <Box sx={{ minWidth: 320, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              <FormControlLabel
+                sx={{ mr: 0 }}
+                control={
+                  <Checkbox
+                    checked={isAllBulkTeamsSelected}
+                    onChange={(e) => handleSelectAllBulkTeams(e.target.checked)}
+                    disabled={bulkAIRunning || bulkRetryRunning}
+                  />
+                }
+                label="اختيار كل الفرق"
+              />
+              <Autocomplete
                 multiple
-                value={bulkSelectedTeamIds}
+                options={bulkSelectableTeams}
+                value={selectedBulkTeams}
                 onChange={handleBulkTeamsSelectionChange}
-                input={<OutlinedInput label="اختيار الفرق" />}
                 disabled={bulkAIRunning || bulkRetryRunning}
-                renderValue={(selected) => {
-                  if (selected.includes(ALL_TEAMS_OPTION)) return 'كل الفرق';
-                  const selectedSet = new Set(selected.map((id) => String(id)));
-                  const names = bulkSelectableTeams
-                    .filter((team) => selectedSet.has(String(team?._id || '')))
-                    .map((team) => team?.name)
-                    .filter(Boolean);
-                  return names.length ? names.join(' - ') : 'كل الفرق';
-                }}
-              >
-                <MenuItem value={ALL_TEAMS_OPTION}>
-                  <Checkbox checked={isAllBulkTeamsSelected} />
-                  <ListItemText primary="كل الفرق" />
-                </MenuItem>
-                {bulkSelectableTeams.map((team) => {
-                  const teamId = String(team?._id || '');
-                  return (
-                    <MenuItem key={teamId} value={teamId}>
-                      <Checkbox checked={!isAllBulkTeamsSelected && bulkSelectedTeamIds.includes(teamId)} />
-                      <ListItemText primary={team?.name || 'فريق'} />
-                    </MenuItem>
-                  );
-                })}
-              </Select>
-            </FormControl>
+                getOptionLabel={(option) => option?.name || 'فريق'}
+                isOptionEqualToValue={(option, value) => String(option?._id || '') === String(value?._id || '')}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    size="small"
+                    label="اختيار الفرق"
+                    placeholder="ابحث عن فريق"
+                  />
+                )}
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => (
+                    <Chip
+                      key={String(option?._id || index)}
+                      label={option?.name || 'فريق'}
+                      size="small"
+                      {...getTagProps({ index })}
+                    />
+                  ))
+                }
+              />
+            </Box>
             {bulkAIRunning && (
               <Chip
                 color="warning"
