@@ -33,6 +33,8 @@ const TwoFactorAuthPage = () => {
   const [verificationCode, setVerificationCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [lockoutUntil, setLockoutUntil] = useState(null);
+  const [lockoutSeconds, setLockoutSeconds] = useState(0);
   
   const userId = location.state?.userId;
   const userName = location.state?.userName;
@@ -44,8 +46,49 @@ const TwoFactorAuthPage = () => {
     }
   }, [userId, navigate, t]);
 
+  useEffect(() => {
+    if (!lockoutUntil) {
+      setLockoutSeconds(0);
+      return undefined;
+    }
+
+    const updateRemaining = () => {
+      const remaining = Math.max(0, Math.ceil((new Date(lockoutUntil).getTime() - Date.now()) / 1000));
+      setLockoutSeconds(remaining);
+
+      if (remaining === 0) {
+        setLockoutUntil(null);
+        setError('');
+      }
+    };
+
+    updateRemaining();
+    const timer = window.setInterval(updateRemaining, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [lockoutUntil]);
+
+  const formatRemainingTime = (totalSeconds) => {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    if (minutes === 0) {
+      return t('lockoutSecondsOnly', { seconds });
+    }
+
+    return t('lockoutMinutesSeconds', {
+      minutes,
+      seconds
+    });
+  };
+
   const handleVerify = async (e) => {
     e.preventDefault();
+
+    if (lockoutSeconds > 0) {
+      setError(t('lockoutHint'));
+      return;
+    }
     
     if (!verificationCode || verificationCode.length !== 6) {
       setError(t('otp6Digits'));
@@ -62,6 +105,9 @@ const TwoFactorAuthPage = () => {
       });
 
       if (response.data.success) {
+        setLockoutUntil(null);
+        setLockoutSeconds(0);
+
         // Store token and user data
         localStorage.setItem('token', response.data.data.token);
         
@@ -75,7 +121,14 @@ const TwoFactorAuthPage = () => {
         navigate('/dashboard');
       }
     } catch (err) {
-      setError(err.response?.data?.message || t('twoFactorWrongCode'));
+      const responseData = err.response?.data;
+      setError(responseData?.message || t('twoFactorWrongCode'));
+
+      if (err.response?.status === 423 && responseData?.lockoutUntil) {
+        setLockoutUntil(responseData.lockoutUntil);
+        setLockoutSeconds(responseData.lockoutSeconds || 0);
+      }
+
       toast.error(err.response?.data?.message || t('twoFactorWrongCode'));
       setVerificationCode('');
     } finally {
@@ -146,12 +199,18 @@ const TwoFactorAuthPage = () => {
                 />
               </Box>
 
+              {lockoutSeconds > 0 && (
+                <Alert severity="warning" sx={{ mb: 3 }}>
+                  {t('lockoutCountdown', { time: formatRemainingTime(lockoutSeconds) })}
+                </Alert>
+              )}
+
               <Button
                 type="submit"
                 fullWidth
                 variant="contained"
                 size="large"
-                disabled={loading || verificationCode.length !== 6}
+                disabled={loading || verificationCode.length !== 6 || lockoutSeconds > 0}
                 sx={{ mb: 2 }}
               >
                 {loading ? <CircularProgress size={24} /> : t('twoFactorVerify')}
@@ -191,7 +250,7 @@ const TwoFactorAuthPage = () => {
                 </Typography>
               </Box>
               <Typography variant="body2" color="text.secondary">
-                {t('otpRotates')}
+                {lockoutSeconds > 0 ? t('lockoutHint') : t('otpRotates')}
               </Typography>
             </Paper>
           </CardContent>

@@ -105,6 +105,16 @@ exports.verifyOTPLogin = catchAsyncErrors(async (req, res, next) => {
     return next(new AppError('المصادقة الثنائية غير مفعلة', 400));
   }
 
+  if (otp.lockoutUntil && new Date() < otp.lockoutUntil) {
+    const lockoutSeconds = Math.max(0, Math.ceil((new Date(otp.lockoutUntil).getTime() - Date.now()) / 1000));
+    return res.status(423).json({
+      success: false,
+      message: 'حسابك مقفول مؤقتاً، حاول لاحقاً',
+      lockoutUntil: otp.lockoutUntil,
+      lockoutSeconds
+    });
+  }
+
   let isValid = false;
 
   if (useBackupCode) {
@@ -116,7 +126,16 @@ exports.verifyOTPLogin = catchAsyncErrors(async (req, res, next) => {
     isValid = otp.validateToken(token);
     if (!isValid) {
       await otp.save();
-      return next(new AppError('رمز OTP غير صحيح', 401));
+      if (otp.lockoutUntil && new Date() < otp.lockoutUntil) {
+        const lockoutSeconds = Math.max(0, Math.ceil((new Date(otp.lockoutUntil).getTime() - Date.now()) / 1000));
+        return res.status(423).json({
+          success: false,
+          message: 'حسابك مقفول مؤقتاً، حاول لاحقاً',
+          lockoutUntil: otp.lockoutUntil,
+          lockoutSeconds
+        });
+      }
+        return next(new AppError('رمز OTP غير صحيح', 401));
     }
   }
 
@@ -194,6 +213,10 @@ exports.getOTPStatus = catchAsyncErrors(async (req, res, next) => {
     isEnabled: otp?.isEnabled || false,
     lastUsedAt: otp?.lastUsedAt || null,
     enabledAt: otp?.enabledAt || null,
+    lockoutUntil: otp?.lockoutUntil || null,
+    lockoutSeconds: otp?.lockoutUntil && new Date() < otp.lockoutUntil
+      ? Math.max(0, Math.ceil((new Date(otp.lockoutUntil).getTime() - Date.now()) / 1000))
+      : 0,
     remainingBackupCodes: otp?.backupCodes?.filter(code => code !== null).length || 0
   });
 });

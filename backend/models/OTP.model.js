@@ -66,7 +66,7 @@ otpSchema.methods.validateToken = function(token) {
   
   // Lock account after 5 failed attempts
   if (this.failedAttempts >= 5) {
-    this.lockoutUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    this.lockoutUntil = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
   }
 
   return false;
