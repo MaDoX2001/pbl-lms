@@ -1,4 +1,5 @@
 const User = require('../models/User.model');
+const OTP = require('../models/OTP.model');
 const speakeasy = require('speakeasy');
 const QRCode = require('qrcode');
 
@@ -327,6 +328,9 @@ exports.adminDisable2FAForUsers = async (req, res) => {
         }
       }
     );
+
+    // Also delete OTP records for these users so they can set up new OTP
+    await OTP.deleteMany({ userId: { $in: ids } });
 
     const updatedUsers = await User.find({ _id: { $in: ids } }).select('_id email twoFactorEnabled twoFactorSetupRequired');
 
