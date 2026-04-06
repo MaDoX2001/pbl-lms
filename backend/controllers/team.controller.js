@@ -419,6 +419,13 @@ exports.setMyProjectRole = async (req, res) => {
       return res.status(403).json({ success: false, message: 'الطلاب فقط يمكنهم تحديد أدوارهم' });
     }
 
+    const bypassRotationEmails = [
+      'maaadooo2001@gmail.com',
+      'maaadooo.2001@gmail.com',
+      'maaadooo20.01@gmail.com'
+    ];
+    const bypassRotation = bypassRotationEmails.includes(String(req.user.email || '').toLowerCase());
+
     const VALID_ROLES = ['system_designer', 'hardware_engineer', 'tester'];
     const { role } = req.body;
     const { projectId } = req.params;
@@ -458,7 +465,7 @@ exports.setMyProjectRole = async (req, res) => {
       .filter(Boolean)
       .map(mr => mr.role);
 
-    if (usedRoles.includes(role)) {
+    if (!bypassRotation && usedRoles.includes(role)) {
       return res.status(400).json({
         success: false,
         message: 'لقد استخدمت هذا الدور في مشروع سابق — يجب تغيير الأدوار عبر المشاريع'

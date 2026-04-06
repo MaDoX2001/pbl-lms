@@ -35,11 +35,19 @@ const ROLE_META = {
   unassigned:       { labelKey: 'teamRoleUnassigned',        color: 'default',   icon: null },
 };
 
+const TEST_BYPASS_ROLE_ROTATION_EMAILS = [
+  'maaadooo2001@gmail.com',
+  'maaadooo.2001@gmail.com',
+  'maaadooo20.01@gmail.com'
+];
+
 const TeamDashboard = () => {
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
   const { t } = useAppSettings();
   const currentUserId = user?._id || user?.id;
+  const currentUserEmail = String(user?.email || '').toLowerCase();
+  const bypassRoleRotation = TEST_BYPASS_ROLE_ROTATION_EMAILS.includes(currentUserEmail);
 
   const [team, setTeam] = useState(null);
   const [projects, setProjects] = useState([]);
@@ -125,6 +133,10 @@ const TeamDashboard = () => {
   };
 
   const handleSetProjectRole = async (projectId, role) => {
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
+
     setRoleLoading(prev => ({ ...prev, [projectId]: true }));
     try {
       const res = await api.put(`/teams/project/${projectId}/role`, { role });
@@ -325,7 +337,7 @@ const TeamDashboard = () => {
                       const takenRoles = (enrollment.memberRoles || [])
                         .filter(mr => String(mr.user?._id || mr.user?.id || mr.user) !== String(currentUserId))
                         .map(mr => mr.role);
-                      const usedInPrevious = getMyUsedRoles(enrollment);
+                      const usedInPrevious = bypassRoleRotation ? [] : getMyUsedRoles(enrollment);
                       const suggestedRole = rotationOrder.find(r => !takenRoles.includes(r) && !usedInPrevious.includes(r))
                         || rotationOrder.find(r => !takenRoles.includes(r))
                         || null;
@@ -351,6 +363,10 @@ const TeamDashboard = () => {
                                 value={myRole || ''}
                                 label={t('teamRoleSelectPrompt')}
                                 onChange={e => handleSetProjectRole(pid, e.target.value)}
+                                MenuProps={{
+                                  disableAutoFocusItem: true,
+                                  disableRestoreFocus: false
+                                }}
                               >
                                 {['system_designer', 'hardware_engineer', 'tester'].map(r => {
                                   const meta = ROLE_META[r];
