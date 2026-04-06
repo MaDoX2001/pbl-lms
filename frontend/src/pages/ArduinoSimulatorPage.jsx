@@ -60,6 +60,12 @@ function ArduinoSimulatorPage() {
   const [attachments, setAttachments] = useState([]);
   const iframeRef = useRef(null);
 
+  const blurActiveElement = () => {
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
+  };
+
   const isValidWokwiProjectLink = (url) => /^https:\/\/wokwi\.com\/projects\/[a-zA-Z0-9_-]+/.test(String(url || ''));
 
   const rememberProjectLink = (url) => {
@@ -297,6 +303,8 @@ function ArduinoSimulatorPage() {
   };
 
   const openSubmitDialog = () => {
+    blurActiveElement();
+
     const autoStage = currentStageKey && allowedStageOptions.some((s) => s.value === currentStageKey)
       ? currentStageKey
       : selectedStage;
@@ -645,7 +653,10 @@ function ArduinoSimulatorPage() {
                 <Button
                   size="small"
                   variant={showQuickLinks ? 'contained' : 'outlined'}
-                  onClick={() => setShowQuickLinks((prev) => !prev)}
+                  onClick={() => {
+                    blurActiveElement();
+                    setShowQuickLinks((prev) => !prev);
+                  }}
                 >
                   {showQuickLinks ? 'إخفاء الاختصارات' : 'إظهار الاختصارات'}
                 </Button>
@@ -668,6 +679,10 @@ function ArduinoSimulatorPage() {
                 value={quickLinkStage}
                 label="مرحلة الاختصارات"
                 onChange={(e) => setQuickLinkStage(e.target.value)}
+                MenuProps={{
+                  disableAutoFocusItem: true,
+                  disableRestoreFocus: false
+                }}
               >
                 {stageOptions.map((stage) => (
                   <MenuItem key={stage.value} value={stage.value}>{stage.label}</MenuItem>
@@ -757,6 +772,10 @@ function ArduinoSimulatorPage() {
               label={t('wokwiSelectProject')}
               onChange={e => setSelectedProject(e.target.value)}
               disabled={submitting}
+              MenuProps={{
+                disableAutoFocusItem: true,
+                disableRestoreFocus: false
+              }}
             >
               {projects.length > 0 ? projects.map(e => (
                 <MenuItem key={getProjectRefId(e)} value={getProjectRefId(e)}>
@@ -776,6 +795,10 @@ function ArduinoSimulatorPage() {
               label="مرحلة التسليم"
               onChange={e => setSelectedStage(e.target.value)}
               disabled={submitting}
+              MenuProps={{
+                disableAutoFocusItem: true,
+                disableRestoreFocus: false
+              }}
             >
               {allowedStageOptions.map(stage => (
                 <MenuItem key={stage.value} value={stage.value}>
