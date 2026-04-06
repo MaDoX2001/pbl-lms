@@ -464,8 +464,9 @@ exports.setMyProjectRole = async (req, res) => {
       .map(tp => tp.memberRoles.find(mr => mr.user.toString() === req.user._id.toString()))
       .filter(Boolean)
       .map(mr => mr.role);
+    const rotationComplete = new Set(usedRoles).size >= 3;
 
-    if (!bypassRotation && usedRoles.includes(role)) {
+    if (!bypassRotation && !rotationComplete && usedRoles.includes(role)) {
       return res.status(400).json({
         success: false,
         message: 'لقد استخدمت هذا الدور في مشروع سابق — يجب تغيير الأدوار عبر المشاريع'

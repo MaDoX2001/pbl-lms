@@ -338,7 +338,9 @@ const TeamDashboard = () => {
                         .filter(mr => String(mr.user?._id || mr.user?.id || mr.user) !== String(currentUserId))
                         .map(mr => mr.role);
                       const usedInPrevious = bypassRoleRotation ? [] : getMyUsedRoles(enrollment);
-                      const suggestedRole = rotationOrder.find(r => !takenRoles.includes(r) && !usedInPrevious.includes(r))
+                      const rotationComplete = bypassRoleRotation || new Set(usedInPrevious).size >= rotationOrder.length;
+                      const blockedByRotation = rotationComplete ? [] : usedInPrevious;
+                      const suggestedRole = rotationOrder.find(r => !takenRoles.includes(r) && !blockedByRotation.includes(r))
                         || rotationOrder.find(r => !takenRoles.includes(r))
                         || null;
                       return (
@@ -371,7 +373,7 @@ const TeamDashboard = () => {
                                 {['system_designer', 'hardware_engineer', 'tester'].map(r => {
                                   const meta = ROLE_META[r];
                                   const taken = takenRoles.includes(r);
-                                  const usedPrev = usedInPrevious.includes(r);
+                                  const usedPrev = !rotationComplete && usedInPrevious.includes(r);
                                   return (
                                     <MenuItem key={r} value={r} disabled={taken || usedPrev}>
                                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
