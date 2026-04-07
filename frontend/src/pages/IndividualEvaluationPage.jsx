@@ -347,6 +347,12 @@ const IndividualEvaluationPage = () => {
         feedbackSummary
       });
 
+      // ✅ استدعاء finalize لإنشاء النتيجة النهائية
+      await api.post('/assessment/finalize', {
+        projectId,
+        studentId
+      });
+
       alert(t('individualEvaluationSavedSuccess'));
       navigate(`/projects/${projectId}/submissions`);
     } catch (err) {
@@ -463,8 +469,14 @@ const IndividualEvaluationPage = () => {
         }
       });
 
+      // ✅ استدعاء finalize لإنشاء النتيجة النهائية
+      await api.post('/assessment/finalize', {
+        projectId,
+        studentId
+      });
+
       if (!silentSuccess) {
-        alert('تم اعتماد تقييم AI تلقائيًا وحفظ بطاقات الملاحظة');
+        alert('تم اعتماد تقييم AI تلقائيًا وحفظ النتيجة النهائية');
       }
       if (closeDialog) {
         setAiDialogOpen(false);
@@ -500,7 +512,13 @@ const IndividualEvaluationPage = () => {
           });
         }
 
-        alert('تم اعتماد فيدباك AI وحفظه للطالب');
+        // ✅ استدعاء finalize لإنشاء النتيجة النهائية
+        await api.post('/assessment/finalize', {
+          projectId,
+          studentId
+        });
+
+        alert('تم اعتماد فيدباك AI وحفظ النتيجة النهائية للطالب');
         setAiDialogOpen(false);
       } catch (err) {
         const msg = err.response?.data?.message || 'فشل اعتماد فيدباك AI';
