@@ -76,6 +76,12 @@ function ArduinoSimulatorPage() {
     setAttachments([]);
   };
 
+  const closeSubmitDialog = () => {
+    if (submitting) return;
+    blurActiveElement();
+    setOpen(false);
+  };
+
   const isValidWokwiProjectLink = (url) => /^https:\/\/wokwi\.com\/projects\/[a-zA-Z0-9_-]+/.test(String(url || ''));
 
   const rememberProjectLink = (url) => {
@@ -762,11 +768,11 @@ function ArduinoSimulatorPage() {
       {/* Submit Dialog */}
       <Dialog 
         open={open} 
-        onClose={() => !submitting && setOpen(false)} 
+        onClose={closeSubmitDialog}
         maxWidth="sm" 
         fullWidth
-        keepMounted
-        onEscapeKeyDown={() => !submitting && setOpen(false)}
+        onEscapeKeyDown={closeSubmitDialog}
+        disableRestoreFocus
         TransitionProps={{
           onExited: resetSubmissionForm
         }}
@@ -1002,7 +1008,7 @@ function ArduinoSimulatorPage() {
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setOpen(false)} disabled={submitting}>{t('cancel')}</Button>
+          <Button onClick={closeSubmitDialog} disabled={submitting}>{t('cancel')}</Button>
           <Button
             variant="contained"
             onClick={handleSubmit}
