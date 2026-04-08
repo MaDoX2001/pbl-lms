@@ -367,7 +367,7 @@ const TeamDashboard = () => {
                                 onChange={e => handleSetProjectRole(pid, e.target.value)}
                                 MenuProps={{
                                   disableAutoFocusItem: true,
-                                  disableRestoreFocus: false
+                                  disableRestoreFocus: true
                                 }}
                               >
                                 {['system_designer', 'hardware_engineer', 'tester'].map(r => {

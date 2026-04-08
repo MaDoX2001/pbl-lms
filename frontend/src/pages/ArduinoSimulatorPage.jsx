@@ -66,6 +66,16 @@ function ArduinoSimulatorPage() {
     }
   };
 
+  const resetSubmissionForm = () => {
+    setWokwiLink('');
+    setNotes('');
+    setDesignNarrative('');
+    setWiringDiagramDetails('');
+    setProgrammingCode('');
+    setTestingReport('');
+    setAttachments([]);
+  };
+
   const isValidWokwiProjectLink = (url) => /^https:\/\/wokwi\.com\/projects\/[a-zA-Z0-9_-]+/.test(String(url || ''));
 
   const rememberProjectLink = (url) => {
@@ -303,10 +313,7 @@ function ArduinoSimulatorPage() {
   };
 
   const openSubmitDialog = () => {
-    // Delay blur to avoid conflicts with Dialog opening
-    setTimeout(() => {
-      blurActiveElement();
-    }, 100);
+    blurActiveElement();
 
     const autoStage = currentStageKey && allowedStageOptions.some((s) => s.value === currentStageKey)
       ? currentStageKey
@@ -565,18 +572,7 @@ function ArduinoSimulatorPage() {
       setSimulatorUrl(submittedLink);
 
       setSnack({ open: true, msg: t('wokwiSubmitSuccess'), severity: 'success' });
-      
-      // Delay cleanup and dialog close to avoid DOM tree issues
-      setTimeout(() => {
-        setOpen(false);
-        setWokwiLink('');
-        setNotes('');
-        setDesignNarrative('');
-        setWiringDiagramDetails('');
-        setProgrammingCode('');
-        setTestingReport('');
-        setAttachments([]);
-      }, 300);
+      setOpen(false);
 
       const [progressRes, historyRes] = await Promise.all([
         api.get(`/team-submissions/progress/${myTeam.data.data._id}/${selectedProject}`),
@@ -689,7 +685,7 @@ function ArduinoSimulatorPage() {
                 onChange={(e) => setQuickLinkStage(e.target.value)}
                 MenuProps={{
                   disableAutoFocusItem: true,
-                  disableRestoreFocus: false
+                  disableRestoreFocus: true
                 }}
               >
                 {stageOptions.map((stage) => (
@@ -769,8 +765,11 @@ function ArduinoSimulatorPage() {
         onClose={() => !submitting && setOpen(false)} 
         maxWidth="sm" 
         fullWidth
-        disableEnforceFocus
+        keepMounted
         onEscapeKeyDown={() => !submitting && setOpen(false)}
+        TransitionProps={{
+          onExited: resetSubmissionForm
+        }}
       >
         <DialogTitle fontWeight={700}>{t('wokwiSubmitTitle')}</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>

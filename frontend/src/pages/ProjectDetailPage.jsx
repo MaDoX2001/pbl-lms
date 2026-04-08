@@ -1577,84 +1577,84 @@ const ProjectDetailPage = () => {
                   {/* Final Evaluation Summary */}
                   {studentEvaluationDone && (
                     <Box sx={{ mt: 2 }}>
-                      <FinalEvaluationSummary 
-
-                                          {/* Peer Feedback Section - View other students' evaluations */}
-                                          {user?.role === 'student' && isEnrolled && !isTeamProject && (
-                                            <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid', borderColor: 'divider' }}>
-                                              <Typography variant="h6" gutterBottom fontWeight={700}>
-                                                📊 فيدباك الطلاب الآخرين في نفس المشروع
-                                              </Typography>
-                                              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                                اطّلع على نتائج وفيدباكات زملائك لتتعلم منهم
-                                              </Typography>
-                                              {loadingProjectSubmissions ? (
-                                                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-                                                  <CircularProgress />
-                                                </Box>
-                                              ) : projectSubmissionsForReview.filter(sub => String(sub.student?._id || sub.studentId || sub.student) !== String(user._id)).length === 0 ? (
-                                                <Alert severity="info">لا توجد فيدباكات من طلاب آخرين بعد.</Alert>
-                                              ) : (
-                                                <Grid container spacing={2}>
-                                                  {projectSubmissionsForReview
-                                                    .filter(sub => String(sub.student?._id || sub.studentId || sub.student) !== String(user._id))
-                                                    .map((sub) => (
-                                                      <Grid item xs={12} sm={6} md={4} key={sub._id}>
-                                                        <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                                                          <CardContent sx={{ flex: 1 }}>
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                                              <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
-                                                                {(sub.student?.name || 'ط')[0]}
-                                                              </Avatar>
-                                                              <Box>
-                                                                <Typography variant="subtitle2" fontWeight={700}>
-                                                                  {sub.student?.name || 'طالب'}
-                                                                </Typography>
-                                                                <Typography variant="caption" color="text.secondary">
-                                                                  {new Date(sub.submittedAt || sub.updatedAt).toLocaleDateString('ar-EG')}
-                                                                </Typography>
-                                                              </Box>
-                                                            </Box>
-                                                            {projectSubmissionScoresForReview[sub._id] !== undefined && (
-                                                              <Box sx={{ my: 1 }}>
-                                                                <Chip
-                                                                  size="small"
-                                                                  icon={<GradeIcon />}
-                                                                  label={`الدرجة: ${projectSubmissionScoresForReview[sub._id]}/100`}
-                                                                  color={projectSubmissionScoresForReview[sub._id] >= 60 ? 'success' : 'error'}
-                                                                />
-                                                              </Box>
-                                                            )}
-                                                            {sub.feedback?.comments && (
-                                                              <Box sx={{ mt: 1 }}>
-                                                                <Typography variant="caption" fontWeight={600} color="text.secondary">
-                                                                  الفيدباك:
-                                                                </Typography>
-                                                                <Typography 
-                                                                  variant="body2" 
-                                                                  sx={{ 
-                                                                    mt: 0.5,
-                                                                    whiteSpace: 'pre-wrap',
-                                                                    wordBreak: 'break-word',
-                                                                    maxHeight: '150px',
-                                                                    overflow: 'hidden'
-                                                                  }}
-                                                                >
-                                                                  {sub.feedback.comments}
-                                                                </Typography>
-                                                              </Box>
-                                                            )}
-                                                          </CardContent>
-                                                        </Card>
-                                                      </Grid>
-                                                    ))}
-                                                </Grid>
-                                              )}
-                                            </Box>
-                                          )}
+                      <FinalEvaluationSummary
                         projectId={id} 
                         studentId={user?._id}
                       />
+                    </Box>
+                  )}
+
+                  {/* Peer Feedback Section - View other students' evaluations */}
+                  {user?.role === 'student' && isEnrolled && !isTeamProject && (
+                    <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid', borderColor: 'divider' }}>
+                      <Typography variant="h6" gutterBottom fontWeight={700}>
+                        📊 فيدباك الطلاب الآخرين في نفس المشروع
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        اطّلع على نتائج وفيدباكات زملائك لتتعلم منهم
+                      </Typography>
+                      {loadingProjectSubmissions ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                          <CircularProgress />
+                        </Box>
+                      ) : projectSubmissionsForReview.filter(sub => String(sub.student?._id || sub.studentId || sub.student) !== String(user._id)).length === 0 ? (
+                        <Alert severity="info">لا توجد فيدباكات من طلاب آخرين بعد.</Alert>
+                      ) : (
+                        <Grid container spacing={2}>
+                          {projectSubmissionsForReview
+                            .filter(sub => String(sub.student?._id || sub.studentId || sub.student) !== String(user._id))
+                            .map((sub) => (
+                              <Grid item xs={12} sm={6} md={4} key={sub._id}>
+                                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                                  <CardContent sx={{ flex: 1 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                      <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
+                                        {(sub.student?.name || 'ط')[0]}
+                                      </Avatar>
+                                      <Box>
+                                        <Typography variant="subtitle2" fontWeight={700}>
+                                          {sub.student?.name || 'طالب'}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                          {new Date(sub.submittedAt || sub.updatedAt).toLocaleDateString('ar-EG')}
+                                        </Typography>
+                                      </Box>
+                                    </Box>
+                                    {projectSubmissionScoresForReview[sub._id] !== undefined && (
+                                      <Box sx={{ my: 1 }}>
+                                        <Chip
+                                          size="small"
+                                          icon={<GradeIcon />}
+                                          label={`الدرجة: ${projectSubmissionScoresForReview[sub._id]}/100`}
+                                          color={projectSubmissionScoresForReview[sub._id] >= 60 ? 'success' : 'error'}
+                                        />
+                                      </Box>
+                                    )}
+                                    {sub.feedback?.comments && (
+                                      <Box sx={{ mt: 1 }}>
+                                        <Typography variant="caption" fontWeight={600} color="text.secondary">
+                                          الفيدباك:
+                                        </Typography>
+                                        <Typography
+                                          variant="body2"
+                                          sx={{
+                                            mt: 0.5,
+                                            whiteSpace: 'pre-wrap',
+                                            wordBreak: 'break-word',
+                                            maxHeight: '150px',
+                                            overflow: 'hidden'
+                                          }}
+                                        >
+                                          {sub.feedback.comments}
+                                        </Typography>
+                                      </Box>
+                                    )}
+                                  </CardContent>
+                                </Card>
+                              </Grid>
+                            ))}
+                        </Grid>
+                      )}
                     </Box>
                   )}
                   {studentProjectSubmission.resubmissionAllowed && (
