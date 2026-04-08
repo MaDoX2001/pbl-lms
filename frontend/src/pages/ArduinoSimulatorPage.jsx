@@ -303,7 +303,10 @@ function ArduinoSimulatorPage() {
   };
 
   const openSubmitDialog = () => {
-    blurActiveElement();
+    // Delay blur to avoid conflicts with Dialog opening
+    setTimeout(() => {
+      blurActiveElement();
+    }, 100);
 
     const autoStage = currentStageKey && allowedStageOptions.some((s) => s.value === currentStageKey)
       ? currentStageKey
@@ -562,14 +565,19 @@ function ArduinoSimulatorPage() {
       setSimulatorUrl(submittedLink);
 
       setSnack({ open: true, msg: t('wokwiSubmitSuccess'), severity: 'success' });
-      setOpen(false);
-      setWokwiLink('');
-      setNotes('');
-      setDesignNarrative('');
-      setWiringDiagramDetails('');
-      setProgrammingCode('');
-      setTestingReport('');
-      setAttachments([]);
+      
+      // Delay cleanup and dialog close to avoid DOM tree issues
+      setTimeout(() => {
+        setOpen(false);
+        setWokwiLink('');
+        setNotes('');
+        setDesignNarrative('');
+        setWiringDiagramDetails('');
+        setProgrammingCode('');
+        setTestingReport('');
+        setAttachments([]);
+      }, 300);
+
       const [progressRes, historyRes] = await Promise.all([
         api.get(`/team-submissions/progress/${myTeam.data.data._id}/${selectedProject}`),
         api.get(`/team-submissions/wokwi/${myTeam.data.data._id}/${selectedProject}`)
@@ -756,25 +764,32 @@ function ArduinoSimulatorPage() {
       </Paper>
 
       {/* Submit Dialog */}
-      <Dialog open={open} onClose={() => !submitting && setOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={open} 
+        onClose={() => !submitting && setOpen(false)} 
+        maxWidth="sm" 
+        fullWidth
+        disableEnforceFocus
+        onEscapeKeyDown={() => !submitting && setOpen(false)}
+      >
         <DialogTitle fontWeight={700}>{t('wokwiSubmitTitle')}</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
           <Alert severity="info" sx={{ mb: 1 }}>
             {t('wokwiSubmitHint')}
           </Alert>
 
-          {/* Project selector */}
           <FormControl fullWidth required>
             <InputLabel id="wokwi-project-label">{t('wokwiSelectProject')}</InputLabel>
             <Select
               labelId="wokwi-project-label"
+              id="wokwi-project-select"
               value={selectedProject}
               label={t('wokwiSelectProject')}
               onChange={e => setSelectedProject(e.target.value)}
               disabled={submitting}
               MenuProps={{
                 disableAutoFocusItem: true,
-                disableRestoreFocus: false
+                disableRestoreFocus: true
               }}
             >
               {projects.length > 0 ? projects.map(e => (
@@ -791,13 +806,14 @@ function ArduinoSimulatorPage() {
             <InputLabel id="wokwi-stage-label">مرحلة التسليم</InputLabel>
             <Select
               labelId="wokwi-stage-label"
+              id="wokwi-stage-select"
               value={selectedStage}
               label="مرحلة التسليم"
               onChange={e => setSelectedStage(e.target.value)}
               disabled={submitting}
               MenuProps={{
                 disableAutoFocusItem: true,
-                disableRestoreFocus: false
+                disableRestoreFocus: true
               }}
             >
               {allowedStageOptions.map(stage => (
