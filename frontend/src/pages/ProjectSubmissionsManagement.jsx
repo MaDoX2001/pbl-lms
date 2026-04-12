@@ -802,7 +802,7 @@ const ProjectSubmissionsManagement = () => {
                 teamId,
                 submissionId: aiData.basedOnGroupSubmissionId || candidate.finalSubmissionId,
                 sectionEvaluations: draftToSectionEvaluations(aiData.groupCard),
-                feedbackSummary: aiData.groupFeedbackSuggestion || aiData.teamFeedbackSuggestion || aiData.feedbackSuggestion || '',
+                feedbackSummary: aiData.teamFeedbackSuggestion || aiData.groupFeedbackSuggestion || 'يا فريق، راجعوا دقة القياس وتماسك الاختبارات والتوثيق قبل الاعتماد النهائي.',
                 evaluationSource: 'ai-batch-individual-only',
                 aiApproval: {
                   confidence: aiData.confidence,
@@ -873,7 +873,7 @@ const ProjectSubmissionsManagement = () => {
                 teamId,
                 submissionId: teamDraft.basedOnGroupSubmissionId || teamCandidates[0]?.finalSubmissionId,
                 sectionEvaluations: draftToSectionEvaluations(teamDraft.groupCard),
-                feedbackSummary: teamDraft.groupFeedbackSuggestion || teamDraft.teamFeedbackSuggestion || '',
+                feedbackSummary: teamDraft.teamFeedbackSuggestion || teamDraft.groupFeedbackSuggestion || 'يا فريق، راجعوا دقة القياس وتماسك الاختبارات والتوثيق قبل الاعتماد النهائي.',
                 evaluationSource: 'ai-batch-individual-only',
                 aiApproval: {
                   confidence: teamDraft.confidence,

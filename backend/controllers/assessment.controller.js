@@ -786,7 +786,41 @@ const containsAnyStudentName = (text, students = []) => {
 const sanitizeTeamLevelFeedback = (text, students = []) => {
   const normalized = normalizeFeedbackText(text);
   if (!normalized) return '';
-  if (containsAnyStudentName(normalized, students)) return '';
+
+  // Team feedback can include concise per-member notes as long as it remains
+  // primarily team-directed and actionable.
+  if (!looksTeamAddressedFeedback(normalized)) {
+    return '';
+  }
+
+  return normalized;
+};
+
+const looksTeamAddressedFeedback = (text) => {
+  const normalized = normalizeFeedbackText(text).toLowerCase();
+  if (!normalized) return false;
+
+  const teamKeywords = [
+    'يا فريق',
+    'الفريق',
+    'كفريق',
+    'جماعي',
+    'جماعى',
+    'كلكم',
+    'جميعكم'
+  ];
+
+  return teamKeywords.some((keyword) => normalized.includes(keyword));
+};
+
+const sanitizeIndividualLevelFeedback = (text, studentName = '') => {
+  const normalized = normalizeFeedbackText(text);
+  if (!normalized) return '';
+  if (looksTeamAddressedFeedback(normalized)) return '';
+
+  const normalizedStudentName = normalizeFeedbackText(studentName);
+  if (!normalizedStudentName) return normalized;
+
   return normalized;
 };
 
@@ -1799,21 +1833,14 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         studentProgrammingSubmission?.stageInputs?.programmingCode || ''
       );
 
-      let wokwiBundle = null;
-      if (individualWokwiLink) {
-        wokwiBundle = await extractWokwiCodeBundle(individualWokwiLink);
-      }
-
-      const extractedWokwiCode = normalizeFeedbackText(wokwiBundle?.codeText || '');
-
-      if (!providedProgrammingCode && !extractedWokwiCode) {
+      if (!providedProgrammingCode) {
         return res.status(422).json({
           success: false,
-          message: 'لم يتمكن النظام من الحصول على كود صالح لهذا الطالب (لا يوجد كود مُدخل ولا كود مستخرج من Wokwi)، لذلك تم إيقاف التقييم.'
+          message: 'لا يمكن تشغيل تقييم AI بدون كود برمجي مُدخل من الطالب في تسليم البرمجة. رابط Wokwi يُستخدم كمرجع فرعي فقط وليس مصدراً أساسياً للتقييم.'
         });
       }
 
-      const effectiveProgrammingCode = providedProgrammingCode || extractedWokwiCode;
+      const effectiveProgrammingCode = providedProgrammingCode;
 
       const contextualStageInputs = {
         designNarrative: normalizeFeedbackText(groupPrimary?.stageInputs?.finalAutoFill?.designNarrative || ''),
@@ -1842,9 +1869,13 @@ exports.generateAIEvaluationDraft = async (req, res) => {
           'Evaluation priority for individual programming must be: 1) programmingCode input, 2) sharedWiringDiagramDetails, 3) notes and attachments metadata, 4) other stageInputs context.',
           'All generated textual fields MUST be in Arabic only (rationale and feedbackSuggestion).',
           'feedbackSuggestion MUST be written in clear Egyptian Arabic (لهجة مصرية بسيطة ومهنية).',
+          'feedbackSuggestion MUST address only the target student (individual feedback) and MUST NOT address the whole team.',
           'feedbackSuggestion MUST mention concrete observations from the provided code evidence and remain personalized.',
           'Keep rationale concise and actionable for teacher review.',
-          'Include feedbackSuggestion for the student in Arabic.'
+          'Include feedbackSuggestion for the student in Arabic.',
+          ...(latestFinalSubmission
+            ? ['Include teamFeedbackSuggestion in Arabic that starts by addressing the whole team, then can include concise per-member notes with mistakes and how to improve.']
+            : [])
         ],
         teacherGoal: 'Draft teacher-like observation-card evaluation to review and approve manually.',
         project: {
@@ -1875,8 +1906,8 @@ exports.generateAIEvaluationDraft = async (req, res) => {
           programmingCodeInput: effectiveProgrammingCode,
           sharedWiringDiagramDetails,
           stageInputsContext: contextualStageInputs,
-          extractedWokwiCode,
-          extractedWokwiFiles: wokwiBundle?.files || []
+          extractedWokwiCode: '',
+          extractedWokwiFiles: []
         },
         plagiarismSignal: {
           similarityPercent: plagiarismSimilarityPercent,
@@ -1903,6 +1934,7 @@ exports.generateAIEvaluationDraft = async (req, res) => {
           ],
           rationale: 'string',
           feedbackSuggestion: 'string',
+          teamFeedbackSuggestion: 'string',
           confidence: 0
         }
       };
@@ -1922,7 +1954,13 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         });
       }
 
-      const normalizedFeedbackSuggestion = normalizeFeedbackText(parsed.feedbackSuggestion || parsed.rationale || '');
+      const normalizedFeedbackSuggestion = sanitizeIndividualLevelFeedback(
+        parsed.feedbackSuggestion || parsed.rationale || '',
+        studentProgrammingSubmission.submittedBy?.name || 'الطالب'
+      ) || `يا ${studentProgrammingSubmission.submittedBy?.name || 'طالب'}، محتاج تراجع تنظيم الكود وتسميات المتغيرات وتوضّح اختبار الحالات الحدّية بشكل أدق.`;
+      const rawTeamFeedbackSuggestion = normalizeFeedbackText(parsed.teamFeedbackSuggestion || parsed.groupFeedbackSuggestion || '');
+      const teamFeedbackSuggestion = sanitizeTeamLevelFeedback(rawTeamFeedbackSuggestion, teamMembers)
+        || 'يا فريق، محتاجين تحسنوا الربط بين الكود وتجارب القياس وتوضحوا في التوثيق ليه اخترتوا العتبة وكيف بتتأكدوا من ثبات التحذير.';
       const aiValidationWarnings = {};
 
       const individualValidation = validateAIRecommendationsAgainstCard({
@@ -2000,6 +2038,8 @@ exports.generateAIEvaluationDraft = async (req, res) => {
           overallScore,
           rationale: parsed.rationale || 'لم يتم توفير مبرر مفصل من AI.',
           feedbackSuggestion: normalizedFeedbackSuggestion,
+          groupFeedbackSuggestion: teamFeedbackSuggestion,
+          teamFeedbackSuggestion,
           aiValidationWarnings,
           confidence: Number(parsed.confidence || 0),
           plagiarism: {
@@ -2558,25 +2598,13 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
       });
     }
 
-    const teamProgrammingEvidenceWithCode = await Promise.all(
-      teamProgrammingArtifacts.map(async (item) => {
-        const inputCode = normalizeFeedbackText(item.evidence?.stageInputs?.programmingCode || '');
-        let extractedCode = '';
-
-        if (!inputCode) {
-          const link = String(item.evidence?.wokwiLink || '').trim();
-          if (link) {
-            const bundle = await extractWokwiCodeBundle(link);
-            extractedCode = normalizeFeedbackText(bundle?.codeText || '');
-          }
-        }
-
-        return {
-          ...item,
-          effectiveProgrammingCode: inputCode || extractedCode
-        };
-      })
-    );
+    const teamProgrammingEvidenceWithCode = teamProgrammingArtifacts.map((item) => {
+      const inputCode = normalizeFeedbackText(item.evidence?.stageInputs?.programmingCode || '');
+      return {
+        ...item,
+        effectiveProgrammingCode: inputCode
+      };
+    });
 
     const missingCodeStudents = teamProgrammingEvidenceWithCode
       .filter((item) => !item.effectiveProgrammingCode)
@@ -2585,7 +2613,7 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
     if (missingCodeStudents.length > 0) {
       return res.status(422).json({
         success: false,
-        message: `تعذر تقييم الفريق نهائياً لأن الكود غير متاح للطلاب: ${missingCodeStudents.join('، ')}`
+        message: `تعذر تقييم الفريق نهائياً لأن الكود البرمجي المُدخل غير متاح للطلاب: ${missingCodeStudents.join('، ')}. رابط Wokwi يُستخدم كمرجع فرعي فقط.`
       });
     }
 
@@ -2654,7 +2682,8 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
         'All generated textual fields MUST be in Arabic only (rationale, teamFeedbackSuggestion, and per-student feedbackSuggestion).',
         'teamFeedbackSuggestion and per-student feedbackSuggestion MUST be written in clear Egyptian Arabic (لهجة مصرية بسيطة ومهنية).',
         'group/team feedback MUST be specific to the team and not generic.',
-        'teamFeedbackSuggestion MUST NOT mention any student by name.',
+        'teamFeedbackSuggestion MUST start with addressing the whole team, then it may include short per-member notes with concrete mistakes and how each member can improve.',
+        'Each student feedbackSuggestion MUST address only that student and MUST NOT address the team as a whole.',
         'Each student feedbackSuggestion MUST be non-empty, specific to that student, and different from other students feedbackSuggestion.',
         'Do NOT repeat the same feedback text for all students.',
         'perStudentRecommendations MUST contain exactly one entry per team member and each entry must map to a valid team member studentId.',
@@ -2875,7 +2904,7 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
 
       const overallScore = Number((((groupDraft.calculatedScore + individualDraft.calculatedScore) / 2)).toFixed(2));
 
-      let feedbackSuggestion = normalizeFeedbackText(hit?.feedbackSuggestion || '');
+      let feedbackSuggestion = sanitizeIndividualLevelFeedback(hit?.feedbackSuggestion || '', item.student.name);
 
       const dedupeKey = feedbackSuggestion.toLowerCase();
       if (feedbackSuggestion && seenFeedback.has(dedupeKey)) {
