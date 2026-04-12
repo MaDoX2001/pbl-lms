@@ -411,6 +411,44 @@ const buildCardPromptShape = (card) => {
   }));
 };
 
+const waitFor = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const withTimeout = async (promise, timeoutMs, timeoutMessage) => {
+  let timeoutId;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+      })
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
+
+const isRetriableAIError = (error) => {
+  const lowered = String(error?.message || '').toLowerCase();
+  return (
+    lowered.includes('429')
+    || lowered.includes('quota')
+    || lowered.includes('rate limit')
+    || lowered.includes('too many requests')
+    || lowered.includes('503')
+    || lowered.includes('502')
+    || lowered.includes('504')
+    || lowered.includes('timeout')
+    || lowered.includes('timed out')
+    || lowered.includes('fetch failed')
+    || lowered.includes('econnreset')
+    || lowered.includes('socket hang up')
+  );
+};
+
+const AI_MODEL_TIMEOUT_MS = Number(process.env.AI_MODEL_TIMEOUT_MS || 45000);
+const AI_MODEL_RETRY_PER_MODEL = Number(process.env.AI_MODEL_RETRY_PER_MODEL || 2);
+const AI_MODEL_RETRY_DELAY_MS = Number(process.env.AI_MODEL_RETRY_DELAY_MS || 1200);
+
 const callGeminiForAssessment = async (prompt) => {
   if (!geminiClient) {
     throw new Error('GEMINI_API_KEY غير مضبوط في إعدادات السيرفر');
@@ -418,14 +456,28 @@ const callGeminiForAssessment = async (prompt) => {
 
   let lastError = null;
   for (const modelName of AI_EVAL_MODELS) {
-    try {
-      const model = geminiClient.getGenerativeModel({ model: modelName });
-      const result = await model.generateContent(prompt);
-      const text = result?.response?.text?.() || '';
-      if (text) return text;
-      lastError = new Error(`No response text from ${modelName}`);
-    } catch (error) {
-      lastError = error;
+    const model = geminiClient.getGenerativeModel({ model: modelName });
+
+    for (let attempt = 1; attempt <= AI_MODEL_RETRY_PER_MODEL; attempt += 1) {
+      try {
+        const result = await withTimeout(
+          model.generateContent(prompt),
+          AI_MODEL_TIMEOUT_MS,
+          `AI model timeout (${modelName}) after ${AI_MODEL_TIMEOUT_MS}ms`
+        );
+
+        const text = result?.response?.text?.() || '';
+        if (text) return text;
+
+        lastError = new Error(`No response text from ${modelName} (attempt ${attempt}/${AI_MODEL_RETRY_PER_MODEL})`);
+      } catch (error) {
+        lastError = error;
+      }
+
+      const shouldRetry = isRetriableAIError(lastError) && attempt < AI_MODEL_RETRY_PER_MODEL;
+      if (!shouldRetry) break;
+
+      await waitFor(AI_MODEL_RETRY_DELAY_MS * attempt);
     }
   }
 
@@ -1940,17 +1992,21 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       };
 
       let parsed = null;
-      try {
-        const rawResponse = await callGeminiForAssessment(JSON.stringify(promptPayload));
-        parsed = safeJsonParse(rawResponse);
-      } catch (_) {
-        parsed = null;
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        try {
+          const rawResponse = await callGeminiForAssessment(JSON.stringify(promptPayload));
+          parsed = safeJsonParse(rawResponse);
+          if (parsed) break;
+        } catch (_) {
+          parsed = null;
+        }
       }
 
       if (!parsed) {
         return res.status(502).json({
           success: false,
-          message: 'تعذر على AI إخراج تقييم صالح بعد تحليل كود Wokwi. لن يتم حفظ تقييم لهذا الطالب.'
+          message: 'تعذر على AI إخراج JSON صالح بعد إعادة المحاولة. لم يتم حفظ تقييم هذا الطالب. للمسؤول: راجع سجل Render لناتج النموذج الخام.',
+          adminHint: 'AI_RESPONSE_INVALID_JSON_AFTER_RETRY'
         });
       }
 
@@ -2369,7 +2425,8 @@ exports.generateAIEvaluationDraft = async (req, res) => {
     if (isModelUnavailable) {
       return res.status(503).json({
         success: false,
-        message: 'نموذج تقييم AI الحالي غير متاح. تم تحديث الإعدادات، حاول مرة أخرى خلال دقائق بعد اكتمال النشر.',
+        message: 'خدمة تقييم AI غير متاحة حالياً بسبب نموذج غير متوفر. للمسؤول: تحقق من AI_MODELS على السيرفر ثم أعد المحاولة.',
+        adminHint: 'AI_MODEL_UNAVAILABLE',
         error: rawMessage
       });
     }
@@ -2384,15 +2441,17 @@ exports.generateAIEvaluationDraft = async (req, res) => {
 
       return res.status(429).json({
         success: false,
-        message: 'خدمة تقييم AI وصلت للحد الأقصى مؤقتاً. حاول مرة أخرى بعد قليل.',
+        message: 'خدمة تقييم AI وصلت للحد الأقصى/Rate Limit مؤقتاً. للمسؤول: انتظر ثم أعد المحاولة أو غيّر النموذج الاحتياطي.',
         retryAfterSeconds,
+        adminHint: 'AI_RATE_LIMITED',
         error: rawMessage
       });
     }
 
-    return res.status(500).json({
+    return res.status(503).json({
       success: false,
-      message: 'حدث خطأ أثناء توليد تقييم AI',
+      message: 'فشل توليد تقييم AI بعد إعادة المحاولة. للمسؤول: راجع Logs على Render للتحقق من timeout أو أخطاء الاتصال بالنموذج.',
+      adminHint: 'AI_EVALUATION_RETRY_EXHAUSTED',
       error: error.message
     });
   }
@@ -2760,19 +2819,22 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
       }
     };
 
-    let rawResponse = null;
-    try {
-      rawResponse = await callGeminiForAssessment(JSON.stringify(promptPayload));
-    } catch (_) {
-      rawResponse = null;
+    let parsed = null;
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        const rawResponse = await callGeminiForAssessment(JSON.stringify(promptPayload));
+        parsed = safeJsonParse(rawResponse);
+        if (parsed) break;
+      } catch (_) {
+        parsed = null;
+      }
     }
-
-    const parsed = rawResponse ? safeJsonParse(rawResponse) : null;
 
     if (!parsed) {
       return res.status(502).json({
         success: false,
-        message: 'تعذر على AI إنتاج تقييم جماعي صالح من المدخلات الحالية، لذلك لن يتم حفظ أي تقييم.'
+        message: 'تعذر على AI إنتاج JSON صالح للتقييم الجماعي بعد إعادة المحاولة. للمسؤول: راجع Render Logs وتأكد من استجابة مزود الذكاء الاصطناعي.',
+        adminHint: 'AI_TEAM_INVALID_JSON_AFTER_RETRY'
       });
     }
 
@@ -3048,7 +3110,8 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
     if (isModelUnavailable) {
       return res.status(503).json({
         success: false,
-        message: 'نموذج تقييم AI الحالي غير متاح. تم تحديث الإعدادات، حاول مرة أخرى خلال دقائق بعد اكتمال النشر.',
+        message: 'خدمة تقييم AI غير متاحة حالياً بسبب نموذج غير متوفر. للمسؤول: تحقق من AI_MODELS على السيرفر.',
+        adminHint: 'AI_MODEL_UNAVAILABLE',
         error: rawMessage
       });
     }
@@ -3063,15 +3126,17 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
 
       return res.status(429).json({
         success: false,
-        message: 'خدمة تقييم AI وصلت للحد الأقصى مؤقتاً. حاول مرة أخرى بعد قليل.',
+        message: 'خدمة تقييم AI وصلت للحد الأقصى/Rate Limit مؤقتاً. للمسؤول: انتظر أو بدّل النموذج الاحتياطي.',
         retryAfterSeconds,
+        adminHint: 'AI_RATE_LIMITED',
         error: rawMessage
       });
     }
 
-    return res.status(500).json({
+    return res.status(503).json({
       success: false,
-      message: 'حدث خطأ أثناء توليد تقييم AI للفريق',
+      message: 'فشل توليد تقييم AI للفريق بعد إعادة المحاولة. للمسؤول: راجع Render Logs (Timeout/Network/Provider).',
+      adminHint: 'AI_TEAM_RETRY_EXHAUSTED',
       error: error.message
     });
   }
