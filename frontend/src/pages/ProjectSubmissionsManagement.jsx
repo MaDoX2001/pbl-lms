@@ -663,6 +663,13 @@ const ProjectSubmissionsManagement = () => {
     return [...items].sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0];
   };
 
+  const compareTeamNames = (aName = '', bName = '') => {
+    return String(aName || '').localeCompare(String(bName || ''), 'ar', {
+      sensitivity: 'base',
+      numeric: true
+    });
+  };
+
   const allProjectTeams = useMemo(() => {
     const seen = new Set();
 
@@ -675,7 +682,7 @@ const ProjectSubmissionsManagement = () => {
         seen.add(teamId);
         return true;
       })
-      .sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || ''), 'ar', { sensitivity: 'base' }));
+      .sort((a, b) => compareTeamNames(a?.name, b?.name));
   }, [projectEnrollments]);
 
   const hasFinalDeliverySubmission = (teamSubmissions = []) => {
@@ -1346,7 +1353,7 @@ const ProjectSubmissionsManagement = () => {
     const sorted = [...Object.values(submissionsByTeam)].sort((a, b) => {
       const aName = a?.team?.name || '';
       const bName = b?.team?.name || '';
-      return String(aName).localeCompare(String(bName), 'ar', { sensitivity: 'base' });
+      return compareTeamNames(aName, bName);
     });
 
     return sorted.filter(({ team, submissions: teamSubmissions }) => {
