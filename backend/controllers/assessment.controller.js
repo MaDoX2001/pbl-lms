@@ -236,27 +236,91 @@ const normalizeSectionsToUnifiedScale = (sections = []) => {
   }));
 };
 
+const normalizeJsonCandidate = (value = '') => {
+  let normalized = String(value || '').trim();
+  if (!normalized) return normalized;
+
+  // Handle common smart quotes and Arabic commas from model text responses.
+  normalized = normalized
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/\u060C/g, ',');
+
+  return normalized;
+};
+
+const extractFirstJsonObject = (text = '') => {
+  const source = String(text || '');
+  let start = -1;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < source.length; i += 1) {
+    const ch = source[i];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === '\\') {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (ch === '{') {
+      if (start === -1) start = i;
+      depth += 1;
+      continue;
+    }
+
+    if (ch === '}') {
+      if (depth > 0) depth -= 1;
+      if (start !== -1 && depth === 0) {
+        return source.slice(start, i + 1);
+      }
+    }
+  }
+
+  return null;
+};
+
 const safeJsonParse = (rawText) => {
   if (!rawText) return null;
-  const text = String(rawText).trim();
+  const text = normalizeJsonCandidate(rawText);
 
-  try {
-    return JSON.parse(text);
-  } catch (_) {}
+  const candidates = [text];
 
   const fenced = text.match(/```json\s*([\s\S]*?)```/i) || text.match(/```\s*([\s\S]*?)```/i);
   if (fenced && fenced[1]) {
-    try {
-      return JSON.parse(fenced[1].trim());
-    } catch (_) {}
+    candidates.push(normalizeJsonCandidate(fenced[1]));
   }
 
   const firstBrace = text.indexOf('{');
   const lastBrace = text.lastIndexOf('}');
   if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    candidates.push(normalizeJsonCandidate(text.slice(firstBrace, lastBrace + 1)));
+  }
+
+  const extracted = extractFirstJsonObject(text);
+  if (extracted) {
+    candidates.push(normalizeJsonCandidate(extracted));
+  }
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
     try {
-      return JSON.parse(text.slice(firstBrace, lastBrace + 1));
-    } catch (_) {}
+      return JSON.parse(candidate);
+    } catch (_) {
+      // Try next parse strategy.
+    }
   }
 
   return null;
@@ -462,7 +526,13 @@ const callGeminiForAssessment = async (prompt) => {
     for (let attempt = 1; attempt <= AI_MODEL_RETRY_PER_MODEL; attempt += 1) {
       try {
         const result = await withTimeout(
-          model.generateContent(prompt),
+          model.generateContent({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.1
+            }
+          }),
           AI_MODEL_TIMEOUT_MS,
           `AI model timeout (${modelName}) after ${AI_MODEL_TIMEOUT_MS}ms`
         );
@@ -1997,6 +2067,9 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         try {
           const rawResponse = await callGeminiForAssessment(JSON.stringify(promptPayload));
           parsed = safeJsonParse(rawResponse);
+          if (!parsed) {
+            console.warn(`[AI JSON Parse] generateAIEvaluationDraft attempt ${attempt} failed. Raw snippet:`, String(rawResponse || '').slice(0, 400));
+          }
           if (parsed) break;
         } catch (_) {
           parsed = null;
@@ -2323,6 +2396,9 @@ exports.generateAIEvaluationDraft = async (req, res) => {
     for (let attempt = 1; attempt <= 2; attempt += 1) {
       const rawResponse = await callGeminiForAssessment(JSON.stringify(promptPayload));
       parsed = safeJsonParse(rawResponse);
+      if (!parsed) {
+        console.warn(`[AI JSON Parse] non-team draft attempt ${attempt} failed. Raw snippet:`, String(rawResponse || '').slice(0, 400));
+      }
       if (parsed) break;
     }
 
@@ -2825,6 +2901,9 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
       try {
         const rawResponse = await callGeminiForAssessment(JSON.stringify(promptPayload));
         parsed = safeJsonParse(rawResponse);
+        if (!parsed) {
+          console.warn(`[AI JSON Parse] team draft attempt ${attempt} failed. Raw snippet:`, String(rawResponse || '').slice(0, 400));
+        }
         if (parsed) break;
       } catch (_) {
         parsed = null;
