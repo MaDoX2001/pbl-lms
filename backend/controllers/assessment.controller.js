@@ -11,6 +11,7 @@ const TeamProject = require('../models/TeamProject.model');
 const TeamSubmission = require('../models/TeamSubmission.model');
 const AssessmentRetryArchive = require('../models/AssessmentRetryArchive.model');
 const Notification = require('../models/Notification.model');
+const User = require('../models/User.model');
 const mongoose = require('mongoose');
 const axios = require('axios');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
@@ -2077,6 +2078,13 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       }
 
       if (!parsed) {
+        await notifyAdminsOnAIDraftResult({
+          projectId,
+          studentId,
+          studentName: studentProgrammingSubmission.submittedBy?.name || 'طالب',
+          status: 'failed',
+          reason: 'تعذر إخراج JSON صالح من نموذج AI بعد إعادة المحاولة'
+        });
         return res.status(502).json({
           success: false,
           message: 'تعذر على AI إخراج JSON صالح بعد إعادة المحاولة. لم يتم حفظ تقييم هذا الطالب. للمسؤول: راجع سجل Render لناتج النموذج الخام.',
@@ -2153,6 +2161,14 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       const overallScore = latestFinalSubmission
         ? Number((((groupDraft.calculatedScore + individualDraft.calculatedScore) / 2)).toFixed(2))
         : Number(individualDraft.calculatedScore.toFixed(2));
+
+      await notifyAdminsOnAIDraftResult({
+        projectId,
+        studentId,
+        studentName: studentProgrammingSubmission.submittedBy?.name || 'طالب',
+        status: 'success',
+        score: overallScore
+      });
 
       return res.json({
         success: true,
@@ -2403,6 +2419,13 @@ exports.generateAIEvaluationDraft = async (req, res) => {
     }
 
     if (!parsed) {
+      await notifyAdminsOnAIDraftResult({
+        projectId,
+        studentId,
+        studentName: submissionView.student?.name || 'طالب',
+        status: 'failed',
+        reason: 'تعذر قراءة مخرجات AI بصيغة JSON صالحة'
+      });
       return res.status(502).json({
         success: false,
         message: 'تعذر قراءة مخرجات AI بصيغة JSON صالحة بعد إعادة المحاولة. حاول مرة أخرى.'
@@ -2464,6 +2487,14 @@ exports.generateAIEvaluationDraft = async (req, res) => {
     });
 
     const overallScore = Number((((groupDraft.calculatedScore + individualDraft.calculatedScore) / 2)).toFixed(2));
+
+    await notifyAdminsOnAIDraftResult({
+      projectId,
+      studentId,
+      studentName: submissionView.student?.name || 'طالب',
+      status: 'success',
+      score: overallScore
+    });
 
     return res.json({
       success: true,
@@ -2911,6 +2942,13 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
     }
 
     if (!parsed) {
+      await notifyAdminsOnAIDraftResult({
+        projectId,
+        teamId,
+        teamName: teamEnrollment.team.name || 'فريق',
+        status: 'failed',
+        reason: 'تعذر إنتاج JSON صالح للتقييم الجماعي بعد إعادة المحاولة'
+      });
       return res.status(502).json({
         success: false,
         message: 'تعذر على AI إنتاج JSON صالح للتقييم الجماعي بعد إعادة المحاولة. للمسؤول: راجع Render Logs وتأكد من استجابة مزود الذكاء الاصطناعي.',
@@ -3139,6 +3177,14 @@ exports.generateAITeamEvaluationDraft = async (req, res) => {
         message: 'تم رفض نتيجة AI لأن التعليقات الفردية غير مميزة لكل طالب. حاول مرة أخرى.'
       });
     }
+
+    await notifyAdminsOnAIDraftResult({
+      projectId,
+      teamId,
+      teamName: teamEnrollment.team.name || 'فريق',
+      status: 'success',
+      score: codeAverageScore
+    });
 
     return res.json({
       success: true,
@@ -3475,6 +3521,63 @@ exports.finalizeEvaluation = async (req, res) => {
 // ============================================================================
 
 /**
+ * Create admin notifications for AI draft evaluation result (success/failure)
+ */
+async function notifyAdminsOnAIDraftResult({
+  projectId,
+  studentId = null,
+  studentName = '',
+  teamId = null,
+  teamName = '',
+  status = 'success',
+  score = null,
+  reason = ''
+}) {
+  try {
+    const [project, student, admins] = await Promise.all([
+      Project.findById(projectId).select('title'),
+      studentId ? User.findById(studentId).select('name') : null,
+      User.find({ role: 'admin' }).select('_id')
+    ]);
+
+    if (!admins.length || !project) return;
+
+    const isTeam = Boolean(teamId);
+    const resolvedStudentName = studentName || student?.name || 'طالب';
+    const resolvedTeamName = teamName || 'فريق';
+    const severity = status === 'success' ? 'low' : 'high';
+
+    const title = isTeam
+      ? `تقييم AI للفريق: ${project.title} - ${resolvedTeamName}`
+      : `تقييم AI للطالب: ${project.title} - ${resolvedStudentName}`;
+
+    const scoreText = Number.isFinite(Number(score)) ? ` (${Number(score).toFixed(2)}%)` : '';
+    const baseMessage = status === 'success'
+      ? (isTeam
+        ? `تم تقييم الفريق بنجاح بواسطة AI${scoreText}.`
+        : `تم تقييم الطالب ${resolvedStudentName} بنجاح بواسطة AI${scoreText}.`)
+      : (isTeam
+        ? `فشل تقييم الفريق بواسطة AI.${reason ? ` السبب: ${reason}` : ''}`
+        : `فشل تقييم الطالب ${resolvedStudentName} بواسطة AI.${reason ? ` السبب: ${reason}` : ''}`);
+
+    await Promise.all(
+      admins.map((admin) => Notification.create({
+        type: 'ai_evaluation',
+        title,
+        message: baseMessage,
+        relatedProject: projectId,
+        relatedStudent: studentId || null,
+        admin: admin._id,
+        actionUrl: `/projects/${projectId}/submissions`,
+        severity
+      }))
+    );
+  } catch (error) {
+    console.error('خطأ في إنشاء إشعار تقييم AI:', error.message);
+  }
+}
+
+/**
  * Create notification for admins about AI evaluation completion
  * 
  * @param {String} projectId - Project ID
@@ -3485,7 +3588,6 @@ exports.finalizeEvaluation = async (req, res) => {
  */
 async function notifyAdminsOfAIEvaluation(projectId, studentId, finalEvalId, finalPercentage, status) {
   try {
-    const User = require('../models/User.model');
     const [project, student, admins] = await Promise.all([
       Project.findById(projectId).select('title'),
       User.findById(studentId).select('name email'),
