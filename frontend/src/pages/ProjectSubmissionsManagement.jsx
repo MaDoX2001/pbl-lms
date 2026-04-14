@@ -106,9 +106,24 @@ const ProjectSubmissionsManagement = () => {
   const [bulkAIProgress, setBulkAIProgress] = useState({ done: 0, total: 0 });
   const [bulkRetryRunning, setBulkRetryRunning] = useState(false);
   const [bulkRetryProgress, setBulkRetryProgress] = useState({ done: 0, total: 0 });
+  const [aiFailureLogs, setAiFailureLogs] = useState([]);
   const [teamSearchTerm, setTeamSearchTerm] = useState('');
   const [finalDeliveryFilter, setFinalDeliveryFilter] = useState('all');
   const [bulkSelectedTeamIds, setBulkSelectedTeamIds] = useState([ALL_TEAMS_OPTION]);
+
+  const pushAIFailureLog = (entry) => {
+    setAiFailureLogs((prev) => {
+      const next = [
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          createdAt: new Date().toISOString(),
+          ...entry
+        },
+        ...prev
+      ];
+      return next.slice(0, 10);
+    });
+  };
 
   const openDialogSafely = (setDialogState) => {
     const activeElement = document.activeElement;
@@ -860,6 +875,17 @@ const ProjectSubmissionsManagement = () => {
           } catch (studentErr) {
             failedCount += 1;
             const studentMessage = formatAIEvaluationError(studentErr, candidate);
+            pushAIFailureLog({
+              scope: 'student',
+              teamName: candidate.teamName || 'فريق',
+              studentName: candidate.studentName || 'طالب',
+              studentId: candidate.studentId,
+              submissionId: candidate.programmingSubmissionId,
+              status: studentErr?.response?.status || null,
+              adminHint: studentErr?.response?.data?.adminHint || null,
+              reason: studentErr?.response?.data?.details?.reason || null,
+              message: studentMessage
+            });
             toast.error(`${candidate.studentName}: ${studentMessage}`);
           } finally {
             const isLastCandidate = candidateIndex === teamCandidates.length - 1;
@@ -916,6 +942,18 @@ const ProjectSubmissionsManagement = () => {
         const message = err?.response?.data?.message || err?.message || '';
         const errorDetails = String(err?.response?.data?.error || '');
         const text = `${message} ${errorDetails}`.toLowerCase();
+
+        pushAIFailureLog({
+          scope: 'team',
+          teamName: team?.name || 'فريق',
+          studentName: '-',
+          studentId: '-',
+          submissionId: '-',
+          status: status || null,
+          adminHint: err?.response?.data?.adminHint || null,
+          reason: err?.response?.data?.details?.reason || null,
+          message: message || 'فشل تقييم AI على مستوى الفريق'
+        });
 
         const isQuotaOrServiceLimit =
           status === 429
@@ -1458,6 +1496,44 @@ const ProjectSubmissionsManagement = () => {
           </Box>
         </Box>
       </Paper>
+
+      {aiFailureLogs.length > 0 && (
+        <Paper elevation={2} sx={{ p: 2, mb: 2, border: '1px solid', borderColor: 'error.light' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'error.main' }}>
+              آخر مشاكل تقييم AI (آخر 10)
+            </Typography>
+            <Button
+              size="small"
+              color="error"
+              variant="outlined"
+              onClick={() => setAiFailureLogs([])}
+            >
+              مسح السجل
+            </Button>
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {aiFailureLogs.map((item) => (
+              <Alert key={item.id} severity="error" sx={{ py: 0.5 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  [{item.scope === 'team' ? 'Team' : 'Student'}] {item.teamName} {item.studentName !== '-' ? `| ${item.studentName}` : ''}
+                </Typography>
+                <Typography variant="caption" sx={{ display: 'block' }}>
+                  {item.message}
+                </Typography>
+                <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                  studentId: {item.studentId} | submissionId: {item.submissionId} | HTTP: {item.status || '-'}
+                  {item.adminHint ? ` | adminHint: ${item.adminHint}` : ''}
+                  {item.reason ? ` | reason: ${item.reason}` : ''}
+                </Typography>
+                <Typography variant="caption" sx={{ display: 'block', color: 'text.disabled' }}>
+                  {new Date(item.createdAt).toLocaleString('ar-EG')}
+                </Typography>
+              </Alert>
+            ))}
+          </Box>
+        </Paper>
+      )}
 
       {/* Compact Team Cards (merged stages + evaluation submissions) */}
       {stageLoading ? (
