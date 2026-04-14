@@ -19,8 +19,6 @@ import {
   Divider,
   IconButton,
   Autocomplete,
-  FormControlLabel,
-  Checkbox,
 } from '@mui/material';
 import {
   Download as DownloadIcon,
@@ -1340,15 +1338,6 @@ const ProjectSubmissionsManagement = () => {
     });
   }, [bulkSelectableTeams]);
 
-  const handleSelectAllBulkTeams = (checked) => {
-    if (checked) {
-      setBulkSelectedTeamIds([ALL_TEAMS_OPTION]);
-      return;
-    }
-
-    setBulkSelectedTeamIds([]);
-  };
-
   const handleOpenBulkTeamSelectionDialog = () => {
     setBulkTeamSelectionDialogOpen(true);
   };
@@ -1359,6 +1348,23 @@ const ProjectSubmissionsManagement = () => {
 
   const handleBulkTeamSelectionFilterChange = (nextFilter) => {
     setBulkTeamSelectionFilter(nextFilter);
+
+    if (nextFilter === 'all') {
+      setBulkSelectedTeamIds([ALL_TEAMS_OPTION]);
+      return;
+    }
+
+    const ids = bulkSelectableTeams
+      .filter((team) => {
+        const teamId = String(team?._id || '');
+        const teamSubmissions = (submissionsByTeam[teamId]?.submissions || []).filter(Boolean);
+        const hasFinal = hasFinalDeliverySubmission(teamSubmissions);
+        return nextFilter === 'submitted' ? hasFinal : !hasFinal;
+      })
+      .map((team) => String(team?._id || ''))
+      .filter(Boolean);
+
+    setBulkSelectedTeamIds(ids);
   };
 
   const handleBulkTeamsSelectionChange = (_event, newValue) => {
@@ -1530,18 +1536,6 @@ const ProjectSubmissionsManagement = () => {
         <DialogTitle>اختيار الفرق للتشغيل الجماعي</DialogTitle>
         <DialogContent dividers>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            <FormControlLabel
-              sx={{ mr: 0 }}
-              control={
-                <Checkbox
-                  checked={isAllBulkTeamsSelected}
-                  onChange={(e) => handleSelectAllBulkTeams(e.target.checked)}
-                  disabled={bulkAIRunning || bulkRetryRunning}
-                />
-              }
-              label="اختيار كل الفرق"
-            />
-
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               <Button
                 size="small"
@@ -1567,6 +1561,10 @@ const ProjectSubmissionsManagement = () => {
                 لم يسلم النهائي
               </Button>
             </Box>
+
+            <Typography variant="caption" color="text.secondary">
+              الفرق المختارة حالياً: {isAllBulkTeamsSelected ? bulkSelectableTeams.length : selectedBulkTeams.length}
+            </Typography>
 
             <Autocomplete
               multiple
