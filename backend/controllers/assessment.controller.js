@@ -1816,6 +1816,7 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         .sort({ submittedAt: -1, createdAt: -1 });
 
       let studentProgrammingSubmission = null;
+      let submissionResolutionWarning = null;
       if (submissionId) {
         studentProgrammingSubmission = await TeamSubmission.findOne({
           _id: submissionId,
@@ -1826,10 +1827,10 @@ exports.generateAIEvaluationDraft = async (req, res) => {
         }).populate('submittedBy', 'name email');
 
         if (!studentProgrammingSubmission) {
-          return res.status(404).json({
-            success: false,
-            message: 'لم يتم العثور على تسليمة البرمجة المحددة لهذا الطالب'
-          });
+          submissionResolutionWarning = {
+            code: 'PROGRAMMING_SUBMISSION_NOT_FOUND_FALLBACK_USED',
+            requestedSubmissionId: String(submissionId)
+          };
         }
       }
 
@@ -1847,8 +1848,17 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       if (!studentProgrammingSubmission) {
         return res.status(404).json({
           success: false,
-          message: 'لا يوجد تسليم برمجة لهذا الطالب داخل الفريق'
+          message: 'لا يوجد تسليم برمجة صالح لهذا الطالب داخل الفريق',
+          details: {
+            studentId: String(studentId),
+            requestedSubmissionId: submissionId ? String(submissionId) : null,
+            reason: 'PROGRAMMING_SUBMISSION_MISSING'
+          }
         });
+      }
+
+      if (submissionResolutionWarning) {
+        submissionResolutionWarning.fallbackSubmissionId = String(studentProgrammingSubmission._id);
       }
 
       const toEvidenceItem = (item) => ({
@@ -2100,6 +2110,9 @@ exports.generateAIEvaluationDraft = async (req, res) => {
       const teamFeedbackSuggestion = sanitizeTeamLevelFeedback(rawTeamFeedbackSuggestion, teamMembers)
         || 'يا فريق، محتاجين تحسنوا الربط بين الكود وتجارب القياس وتوضحوا في التوثيق ليه اخترتوا العتبة وكيف بتتأكدوا من ثبات التحذير.';
       const aiValidationWarnings = {};
+      if (submissionResolutionWarning) {
+        aiValidationWarnings.submissionResolution = submissionResolutionWarning;
+      }
 
       const individualValidation = validateAIRecommendationsAgainstCard({
         card: individualCard,

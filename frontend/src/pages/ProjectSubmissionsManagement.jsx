@@ -724,6 +724,21 @@ const ProjectSubmissionsManagement = () => {
     const RETRY_BACKOFF_BASE_MS = 1200;
     const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+    const formatAIEvaluationError = (err, candidate) => {
+      const status = err?.response?.status;
+      const payload = err?.response?.data || {};
+      const message = payload?.message || err?.message || 'فشل تقييم AI لهذا الطالب';
+      const adminHint = payload?.adminHint ? ` | سبب: ${payload.adminHint}` : '';
+      const reason = payload?.details?.reason ? ` | details: ${payload.details.reason}` : '';
+      const trace = ` [studentId=${candidate.studentId}, submissionId=${candidate.programmingSubmissionId}]`;
+
+      if (!status) {
+        return `${message} | تعذر الوصول للخدمة أو حدث خطأ شبكة/502 من المزود${trace}`;
+      }
+
+      return `${message}${adminHint}${reason} | HTTP ${status}${trace}`;
+    };
+
     const callIndividualAIDraftWithRetry = async (candidate) => {
       let lastErr = null;
 
@@ -844,7 +859,7 @@ const ProjectSubmissionsManagement = () => {
             toast.success(`تم تقييم ${candidate.studentName} بنجاح`);
           } catch (studentErr) {
             failedCount += 1;
-            const studentMessage = studentErr?.response?.data?.message || studentErr?.message || 'فشل تقييم AI لهذا الطالب';
+            const studentMessage = formatAIEvaluationError(studentErr, candidate);
             toast.error(`${candidate.studentName}: ${studentMessage}`);
           } finally {
             const isLastCandidate = candidateIndex === teamCandidates.length - 1;
