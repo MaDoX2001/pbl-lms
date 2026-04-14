@@ -44,6 +44,7 @@ const IndividualEvaluationPage = lazy(() => import('./pages/IndividualEvaluation
 const ResourcesPage = lazy(() => import('./pages/ResourcesPage'));
 const AIChatPage = lazy(() => import('./pages/AIChatPage'));
 const FAQPage = lazy(() => import('./pages/FAQPage'));
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 
 // Import actions
 import { loadUser } from './redux/slices/authSlice';
@@ -258,6 +259,13 @@ function App() {
 
               {/* FAQ / Support */}
               <Route path="/faq" element={<FAQPage />} />
+              
+              {/* Notifications */}
+              <Route path="/dashboard/notifications" element={
+                <PrivateRoute roles={['admin']}>
+                  <NotificationsPage />
+                </PrivateRoute>
+              } />
 
               {/* 404 */}
               <Route path="*" element={<Navigate to="/" />} />

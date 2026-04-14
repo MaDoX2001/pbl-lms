@@ -9,6 +9,7 @@ import TranslateIcon from '@mui/icons-material/Translate';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import { useAppSettings } from '../context/AppSettingsContext';
+import NotificationMenu from './NotificationMenu';
 
 const Navbar = ({ onMenuToggle }) => {
   const navigate = useNavigate();
@@ -96,6 +97,10 @@ const Navbar = ({ onMenuToggle }) => {
           >
             {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
           </IconButton>
+
+          {isAuthenticated && (
+            <NotificationMenu />
+          )}
 
           {isAuthenticated ? (
             <>

@@ -10,6 +10,7 @@ const Team = require('../models/Team.model');
 const TeamProject = require('../models/TeamProject.model');
 const TeamSubmission = require('../models/TeamSubmission.model');
 const AssessmentRetryArchive = require('../models/AssessmentRetryArchive.model');
+const Notification = require('../models/Notification.model');
 const mongoose = require('mongoose');
 const axios = require('axios');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
@@ -3365,7 +3366,12 @@ exports.finalizeEvaluation = async (req, res) => {
     }
 
     // ========================================================================
-    // STEP 8: RETURN SUCCESS RESPONSE
+    // STEP 8: NOTIFY ADMINS
+    // ========================================================================
+    await notifyAdminsOfAIEvaluation(projectId, studentId, finalEvaluation._id, finalPercentage, status);
+
+    // ========================================================================
+    // STEP 9: RETURN SUCCESS RESPONSE
     // ========================================================================
     res.json({
       success: true,
@@ -3388,6 +3394,55 @@ exports.finalizeEvaluation = async (req, res) => {
 // ============================================================================
 // HELPER FUNCTIONS FOR BADGE AWARDING & LEVEL PROGRESSION
 // ============================================================================
+
+/**
+ * Create notification for admins about AI evaluation completion
+ * 
+ * @param {String} projectId - Project ID
+ * @param {String} studentId - Student ID
+ * @param {String} finalEvalId - Final Evaluation ID
+ * @param {Number} finalPercentage - Score percentage
+ * @param {String} status - 'passed' or 'failed'
+ */
+async function notifyAdminsOfAIEvaluation(projectId, studentId, finalEvalId, finalPercentage, status) {
+  try {
+    const User = require('../models/User.model');
+    const [project, student, admins] = await Promise.all([
+      Project.findById(projectId).select('title'),
+      User.findById(studentId).select('name email'),
+      User.find({ role: 'admin' }).select('_id')
+    ]);
+
+    if (!admins.length) {
+      console.log('لا توجد حسابات admin للإخطار');
+      return;
+    }
+
+    const statusText = status === 'passed' ? 'نجح' : 'لم ينجح';
+    const severityLevel = status === 'passed' ? 'medium' : 'high';
+
+    // Create notification for each admin
+    const notificationPromises = admins.map((admin) =>
+      Notification.create({
+        type: 'ai_evaluation',
+        title: `تقييم شامل: ${project.title} - ${student.name}`,
+        message: `تم إكمال التقييم الشامل برمجياً. الطالب: ${student.name} | النتيجة: ${statusText} (${finalPercentage.toFixed(1)}%)`,
+        relatedProject: projectId,
+        relatedStudent: studentId,
+        relatedFinalEvaluation: finalEvalId,
+        admin: admin._id,
+        actionUrl: `/dashboard/assessments/projects/${projectId}/students/${studentId}`,
+        severity: severityLevel
+      })
+    );
+
+    await Promise.all(notificationPromises);
+    console.log(`✓ تم إنشاء إخطارات AI لـ ${admins.length} مسؤول`);
+  } catch (error) {
+    console.error('خطأ في إنشاء إخطار AI:', error.message);
+    // Don't throw - notification failure shouldn't block evaluation finalization
+  }
+}
 
 /**
  * Award project badge to student
