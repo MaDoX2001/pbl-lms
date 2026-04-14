@@ -106,7 +106,14 @@ const ProjectSubmissionsManagement = () => {
   const [bulkAIProgress, setBulkAIProgress] = useState({ done: 0, total: 0 });
   const [bulkRetryRunning, setBulkRetryRunning] = useState(false);
   const [bulkRetryProgress, setBulkRetryProgress] = useState({ done: 0, total: 0 });
-  const [aiFailureLogs, setAiFailureLogs] = useState([]);
+  const [aiFailureLogs, setAiFailureLogs] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem(`project-ai-failure-logs:${projectId}`);
+      return cached ? JSON.parse(cached) : [];
+    } catch (_) {
+      return [];
+    }
+  });
   const [teamSearchTerm, setTeamSearchTerm] = useState('');
   const [finalDeliveryFilter, setFinalDeliveryFilter] = useState('all');
   const [bulkSelectedTeamIds, setBulkSelectedTeamIds] = useState([ALL_TEAMS_OPTION]);
@@ -124,6 +131,12 @@ const ProjectSubmissionsManagement = () => {
       return next.slice(0, 10);
     });
   };
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(`project-ai-failure-logs:${projectId}`, JSON.stringify(aiFailureLogs));
+    } catch (_) {}
+  }, [aiFailureLogs, projectId]);
 
   const openDialogSafely = (setDialogState) => {
     const activeElement = document.activeElement;
@@ -1500,15 +1513,22 @@ const ProjectSubmissionsManagement = () => {
             >
               مسح الفيدباك الحالي
             </Button>
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={() => document.getElementById('ai-failure-logs-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              disabled={false}
+            >
+              عرض سجل مشاكل AI
+            </Button>
           </Box>
         </Box>
       </Paper>
 
-      {aiFailureLogs.length > 0 && (
-        <Paper elevation={2} sx={{ p: 2, mb: 2, border: '1px solid', borderColor: 'error.light' }}>
+      <Paper id="ai-failure-logs-panel" elevation={2} sx={{ p: 2, mb: 2, border: '1px solid', borderColor: aiFailureLogs.length ? 'error.light' : 'divider' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'error.main' }}>
-              آخر مشاكل تقييم AI (آخر 10)
+              سجل مشاكل تقييم AI
             </Typography>
             <Button
               size="small"
@@ -1519,28 +1539,34 @@ const ProjectSubmissionsManagement = () => {
               مسح السجل
             </Button>
           </Box>
+          <Alert severity={aiFailureLogs.length > 0 ? 'error' : 'info'} sx={{ mb: 2 }}>
+            {aiFailureLogs.length > 0
+              ? `يوجد ${aiFailureLogs.length} مشكلة/مشاكل مسجلة هنا. آخر 10 فقط محفوظة.`
+              : 'لا توجد مشاكل AI مسجلة حتى الآن. عند حدوث فشل في التقييم سيظهر هنا مباشرة مع السبب وبيانات الطالب/التسليم.'}
+          </Alert>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {aiFailureLogs.map((item) => (
-              <Alert key={item.id} severity="error" sx={{ py: 0.5 }}>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                  [{item.scope === 'team' ? 'Team' : 'Student'}] {item.teamName} {item.studentName !== '-' ? `| ${item.studentName}` : ''}
-                </Typography>
-                <Typography variant="caption" sx={{ display: 'block' }}>
-                  {item.message}
-                </Typography>
-                <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
-                  studentId: {item.studentId} | submissionId: {item.submissionId} | HTTP: {item.status || '-'}
-                  {item.adminHint ? ` | adminHint: ${item.adminHint}` : ''}
-                  {item.reason ? ` | reason: ${item.reason}` : ''}
-                </Typography>
-                <Typography variant="caption" sx={{ display: 'block', color: 'text.disabled' }}>
-                  {new Date(item.createdAt).toLocaleString('ar-EG')}
-                </Typography>
-              </Alert>
-            ))}
+            {aiFailureLogs.length > 0 ? (
+              aiFailureLogs.map((item) => (
+                <Alert key={item.id} severity="error" sx={{ py: 0.5 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                    [{item.scope === 'team' ? 'Team' : 'Student'}] {item.teamName} {item.studentName !== '-' ? `| ${item.studentName}` : ''}
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: 'block' }}>
+                    {item.message}
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                    studentId: {item.studentId} | submissionId: {item.submissionId} | HTTP: {item.status || '-'}
+                    {item.adminHint ? ` | adminHint: ${item.adminHint}` : ''}
+                    {item.reason ? ` | reason: ${item.reason}` : ''}
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: 'block', color: 'text.disabled' }}>
+                    {new Date(item.createdAt).toLocaleString('ar-EG')}
+                  </Typography>
+                </Alert>
+              ))
+            ) : null}
           </Box>
-        </Paper>
-      )}
+      </Paper>
 
       {/* Compact Team Cards (merged stages + evaluation submissions) */}
       {stageLoading ? (
