@@ -117,6 +117,8 @@ const ProjectSubmissionsManagement = () => {
   const [teamSearchTerm, setTeamSearchTerm] = useState('');
   const [finalDeliveryFilter, setFinalDeliveryFilter] = useState('all');
   const [bulkSelectedTeamIds, setBulkSelectedTeamIds] = useState([ALL_TEAMS_OPTION]);
+  const [bulkTeamSelectionDialogOpen, setBulkTeamSelectionDialogOpen] = useState(false);
+  const [bulkTeamSelectionFilter, setBulkTeamSelectionFilter] = useState('all');
 
   const pushAIFailureLog = (entry) => {
     setAiFailureLogs((prev) => {
@@ -1306,6 +1308,18 @@ const ProjectSubmissionsManagement = () => {
     return Object.values(submissionsByTeam).map(({ team }) => team).filter(Boolean);
   }, [allProjectTeams, submissionsByTeam]);
 
+  const bulkSelectableTeamsVisible = useMemo(() => {
+    return bulkSelectableTeams.filter((team) => {
+      const teamId = String(team?._id || '');
+      const teamSubmissions = (submissionsByTeam[teamId]?.submissions || []).filter(Boolean);
+      const hasFinal = hasFinalDeliverySubmission(teamSubmissions);
+
+      if (bulkTeamSelectionFilter === 'submitted') return hasFinal;
+      if (bulkTeamSelectionFilter === 'not_submitted') return !hasFinal;
+      return true;
+    });
+  }, [bulkSelectableTeams, submissionsByTeam, bulkTeamSelectionFilter]);
+
   const isAllBulkTeamsSelected = bulkSelectedTeamIds.includes(ALL_TEAMS_OPTION);
   const selectedBulkTeams = useMemo(() => {
     if (isAllBulkTeamsSelected) return bulkSelectableTeams;
@@ -1333,6 +1347,18 @@ const ProjectSubmissionsManagement = () => {
     }
 
     setBulkSelectedTeamIds([]);
+  };
+
+  const handleOpenBulkTeamSelectionDialog = () => {
+    setBulkTeamSelectionDialogOpen(true);
+  };
+
+  const handleCloseBulkTeamSelectionDialog = () => {
+    setBulkTeamSelectionDialogOpen(false);
+  };
+
+  const handleBulkTeamSelectionFilterChange = (nextFilter) => {
+    setBulkTeamSelectionFilter(nextFilter);
   };
 
   const handleBulkTeamsSelectionChange = (_event, newValue) => {
@@ -1427,46 +1453,16 @@ const ProjectSubmissionsManagement = () => {
             {t('totalSubmissionsWithCount', { count: submissions.length })}
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-            <Box sx={{ minWidth: 320, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              <FormControlLabel
-                sx={{ mr: 0 }}
-                control={
-                  <Checkbox
-                    checked={isAllBulkTeamsSelected}
-                    onChange={(e) => handleSelectAllBulkTeams(e.target.checked)}
-                    disabled={bulkAIRunning || bulkRetryRunning}
-                  />
-                }
-                label="اختيار كل الفرق"
-              />
-              <Autocomplete
-                multiple
-                options={bulkSelectableTeams}
-                value={selectedBulkTeams}
-                onChange={handleBulkTeamsSelectionChange}
-                disabled={bulkAIRunning || bulkRetryRunning}
-                getOptionLabel={(option) => option?.name || 'فريق'}
-                isOptionEqualToValue={(option, value) => String(option?._id || '') === String(value?._id || '')}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    size="small"
-                    label="اختيار الفرق"
-                    placeholder="ابحث عن فريق"
-                  />
-                )}
-                renderTags={(value, getTagProps) =>
-                  value.map((option, index) => (
-                    <Chip
-                      key={String(option?._id || index)}
-                      label={option?.name || 'فريق'}
-                      size="small"
-                      {...getTagProps({ index })}
-                    />
-                  ))
-                }
-              />
-            </Box>
+            <Button
+              variant="outlined"
+              color="primary"
+              onClick={handleOpenBulkTeamSelectionDialog}
+              disabled={bulkAIRunning || bulkRetryRunning}
+            >
+              {isAllBulkTeamsSelected
+                ? `اختيار الفرق (${bulkSelectableTeams.length})`
+                : `اختيار الفرق (${selectedBulkTeams.length})`}
+            </Button>
             {bulkAIRunning && (
               <Chip
                 color="warning"
@@ -1524,6 +1520,87 @@ const ProjectSubmissionsManagement = () => {
           </Box>
         </Box>
       </Paper>
+
+      <Dialog
+        open={bulkTeamSelectionDialogOpen}
+        onClose={handleCloseBulkTeamSelectionDialog}
+        fullWidth
+        maxWidth="md"
+      >
+        <DialogTitle>اختيار الفرق للتشغيل الجماعي</DialogTitle>
+        <DialogContent dividers>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <FormControlLabel
+              sx={{ mr: 0 }}
+              control={
+                <Checkbox
+                  checked={isAllBulkTeamsSelected}
+                  onChange={(e) => handleSelectAllBulkTeams(e.target.checked)}
+                  disabled={bulkAIRunning || bulkRetryRunning}
+                />
+              }
+              label="اختيار كل الفرق"
+            />
+
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Button
+                size="small"
+                variant={bulkTeamSelectionFilter === 'all' ? 'contained' : 'outlined'}
+                onClick={() => handleBulkTeamSelectionFilterChange('all')}
+              >
+                كل الفرق
+              </Button>
+              <Button
+                size="small"
+                variant={bulkTeamSelectionFilter === 'submitted' ? 'contained' : 'outlined'}
+                color={bulkTeamSelectionFilter === 'submitted' ? 'success' : 'inherit'}
+                onClick={() => handleBulkTeamSelectionFilterChange('submitted')}
+              >
+                سلم النهائي
+              </Button>
+              <Button
+                size="small"
+                variant={bulkTeamSelectionFilter === 'not_submitted' ? 'contained' : 'outlined'}
+                color={bulkTeamSelectionFilter === 'not_submitted' ? 'warning' : 'inherit'}
+                onClick={() => handleBulkTeamSelectionFilterChange('not_submitted')}
+              >
+                لم يسلم النهائي
+              </Button>
+            </Box>
+
+            <Autocomplete
+              multiple
+              options={bulkSelectableTeamsVisible}
+              value={selectedBulkTeams}
+              onChange={handleBulkTeamsSelectionChange}
+              disabled={bulkAIRunning || bulkRetryRunning}
+              getOptionLabel={(option) => option?.name || 'فريق'}
+              isOptionEqualToValue={(option, value) => String(option?._id || '') === String(value?._id || '')}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  size="small"
+                  label="اختيار الفرق"
+                  placeholder="ابحث عن فريق"
+                />
+              )}
+              renderTags={(value, getTagProps) =>
+                value.map((option, index) => (
+                  <Chip
+                    key={String(option?._id || index)}
+                    label={option?.name || 'فريق'}
+                    size="small"
+                    {...getTagProps({ index })}
+                  />
+                ))
+              }
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseBulkTeamSelectionDialog}>إغلاق</Button>
+        </DialogActions>
+      </Dialog>
 
       <Paper id="ai-failure-logs-panel" elevation={2} sx={{ p: 2, mb: 2, border: '1px solid', borderColor: aiFailureLogs.length ? 'error.light' : 'divider' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
