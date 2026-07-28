@@ -83,85 +83,86 @@ const StudentProjectsManagement = () => {
     fetchTeams();
   }, []);
 
+  // Optimized parallel fetcher for a single team's projects and evaluation statuses
+  const fetchSingleTeamData = async (team) => {
+    try {
+      const projectsResponse = await api.get(`/team-projects/team/${team._id}`);
+      const projects = projectsResponse.data.data || [];
+      const statusMapForTeam = {};
+
+      await Promise.all(projects.map(async (enrollment) => {
+        const projectId = enrollment.project?._id;
+        if (!projectId) return;
+
+        try {
+          const phase1Promise = api.get(`/assessment/group-status/${projectId}/${team._id}`).catch(() => ({ data: { data: {} } }));
+          
+          const memberPromises = (team.members || []).map(async (member) => {
+            const memberId = member.user?._id || member._id;
+            const memberName = member.user?.name || member.name || 'Unknown';
+            try {
+              const [phase2Res, finalRes] = await Promise.all([
+                api.get(`/assessment/individual-status/${projectId}/${memberId}`).catch(() => ({ data: { data: {} } })),
+                api.get(`/assessment/final/${projectId}/${memberId}`).catch(() => ({ data: { data: null } }))
+              ]);
+
+              return {
+                studentId: memberId,
+                studentName: memberName,
+                phase2Complete: phase2Res.data.data?.phase2Complete || false,
+                finalEval: finalRes.data.data || null
+              };
+            } catch (err) {
+              return {
+                studentId: memberId,
+                studentName: memberName,
+                phase2Complete: false,
+                finalEval: null
+              };
+            }
+          });
+
+          const [phase1Res, memberStatuses] = await Promise.all([
+            phase1Promise,
+            Promise.all(memberPromises)
+          ]);
+
+          statusMapForTeam[`${team._id}_${projectId}`] = {
+            phase1Complete: phase1Res.data.data?.phase1Complete || false,
+            memberStatuses
+          };
+        } catch (err) {
+          console.error('Error fetching evaluation status:', err);
+        }
+      }));
+
+      return { teamId: team._id, projects, statusMapForTeam };
+    } catch (err) {
+      return { teamId: team._id, projects: [], statusMapForTeam: {} };
+    }
+  };
+
   const fetchTeams = async () => {
     try {
       setLoading(true);
       const response = await api.get('/teams');
       const teamsData = response.data.data || [];
       setTeams(teamsData);
-      
-      // Fetch projects for each team
+      setLoading(false); // Unblock UI loading spinner immediately!
+
+      // Fetch projects and statuses for all teams concurrently using Promise.all
+      const teamResults = await Promise.all(teamsData.map(team => fetchSingleTeamData(team)));
+
       const projectsMap = {};
-      const statusMap = {};
-      
-      for (const team of teamsData) {
-        try {
-          const projectsResponse = await api.get(`/team-projects/team/${team._id}`);
-          const projects = projectsResponse.data.data || [];
-          projectsMap[team._id] = projects;
+      let statusMap = {};
 
-          // Fetch evaluation status for each project
-          for (const enrollment of projects) {
-            const projectId = enrollment.project?._id;
-            if (projectId) {
-              try {
-                // Check Phase 1 status
-                const phase1Res = await api.get(`/assessment/group-status/${projectId}/${team._id}`);
-                const phase1Complete = phase1Res.data.data?.phase1Complete || false;
+      teamResults.forEach(res => {
+        projectsMap[res.teamId] = res.projects;
+        statusMap = { ...statusMap, ...res.statusMapForTeam };
+      });
 
-                // Check Phase 2 status for each member
-                const memberStatuses = [];
-                for (const member of team.members || []) {
-                  try {
-                    const memberId = member.user?._id || member._id;
-                    const memberName = member.user?.name || member.name || 'Unknown';
-                    const phase2Res = await api.get(`/assessment/individual-status/${projectId}/${memberId}`);
-                    const phase2Complete = phase2Res.data.data?.phase2Complete || false;
-                    
-                    // Check final evaluation
-                    let finalEval = null;
-                    try {
-                      const finalRes = await api.get(`/assessment/final/${projectId}/${memberId}`);
-                      finalEval = finalRes.data.data;
-                    } catch (err) {
-                      // Final eval doesn't exist yet
-                    }
-
-                    memberStatuses.push({
-                      studentId: memberId,
-                      studentName: memberName,
-                      phase2Complete,
-                      finalEval
-                    });
-                  } catch (err) {
-                    const memberId = member.user?._id || member._id;
-                    const memberName = member.user?.name || member.name || 'Unknown';
-                    memberStatuses.push({
-                      studentId: memberId,
-                      studentName: memberName,
-                      phase2Complete: false,
-                      finalEval: null
-                    });
-                  }
-                }
-
-                statusMap[`${team._id}_${projectId}`] = {
-                  phase1Complete,
-                  memberStatuses
-                };
-              } catch (err) {
-                console.error('Error fetching evaluation status:', err);
-              }
-            }
-          }
-        } catch (err) {
-          projectsMap[team._id] = [];
-        }
-      }
-      
       setTeamProjects(projectsMap);
       setEvaluationStatus(statusMap);
-      setLoading(false);
     } catch (err) {
       toast.error(t('failedToLoadTeams'));
       setLoading(false);
